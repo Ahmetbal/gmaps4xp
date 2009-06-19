@@ -2537,28 +2537,48 @@ for cursor in ${split_tile[@]} ; do
 				                exit 5
 
 				        fi
+
+
+
 				        vertex="$( echo "${POINTS[@]}"  | tr " " ";" )"
 				        echo -n "$[ $cnt + 1 ] / $tot Create mash "
 					MESH_LEVEL_SUB="$[ $MESH_LEVEL - 2 ]"
 					[ "$( echo "scale = 8; ( $MESH_LEVEL_SUB < 0 )" | bc  )" = "1" ] && MESH_LEVEL_SUB="0"
-					
-					if [ "$MESH_LEVEL_SUB" = "0" ] ; then
-						mesh="${lr_lon},${lr_lat},1.00000000,0.00000000;${ur_lon},${ur_lat},1.00000000,1.00000000;${ul_lon},${ul_lat},0.00000000,1.00000000;${ll_lon},${ll_lat},0.00000000,0.00000000;"
-					else
-					        while [ "$mesh_level" != "$MESH_LEVEL_SUB" ] ; do
-							echo -n "$mesh_level"
-					                for square in $vertex ; do
-				        	                POINTS=( $( echo "$square" | tr ";" " " ) )
-		                			        new_vertex="$new_vertex $( divideSquare ${POINTS[0]} ${POINTS[1]} ${POINTS[2]} ${POINTS[3]} )"
-				                	        echo -n "."
-				                	done
-				                	vertex="$new_vertex"
-							new_vertex=""
-				                	mesh_level="$[ $mesh_level + 1 ]"		
-					        done
 
-					        mesh="$vertex"
+					md5mesh="$( echo "$MESH_LEVEL_SUB ${POINTS[@]}" | md5sum | awk {'print $1'} )"
+					mesh_file="$tiles_dir/$md5mesh.msh"	
+					if [ -f  "$mesh_file" ] ; then
+						mesh_tmp=( $( cat "$mesh_file" ) )
+						if [ "$( echo "scale = 8; ${#mesh_tmp[@]} == (4^$MESH_LEVEL_SUB)" | bc  )" != "1" ] ; then
+							rm -f "$mesh_file"
+						else
+							echo -n "from cache..."
+							mesh="${mesh_tmp[@]}"
+						fi
+									
 					fi
+
+
+					if [ ! -f  "$mesh_file" ] ; then	
+						if [ "$MESH_LEVEL_SUB" = "0" ] ; then
+							mesh="${lr_lon},${lr_lat},1.00000000,0.00000000;${ur_lon},${ur_lat},1.00000000,1.00000000;${ul_lon},${ul_lat},0.00000000,1.00000000;${ll_lon},${ll_lat},0.00000000,0.00000000;"
+						else
+						        while [ "$mesh_level" != "$MESH_LEVEL_SUB" ] ; do
+								echo -n "$mesh_level"
+						                for square in $vertex ; do
+					        	                POINTS=( $( echo "$square" | tr ";" " " ) )
+			                			        new_vertex="$new_vertex $( divideSquare ${POINTS[0]} ${POINTS[1]} ${POINTS[2]} ${POINTS[3]} )"
+					                	        echo -n "."
+					                	done
+					                	vertex="$new_vertex"
+								new_vertex=""
+					                	mesh_level="$[ $mesh_level + 1 ]"		
+						        done
+						        mesh="$vertex"
+							echo -n "$mesh" > "$mesh_file"
+						fi
+					fi
+
 
 					FINAL_TRIANGLES[$index_triangle]="$( echo "$mesh" | tr " " "#" )"
 					dfs_triangle[$dfs_tri_count]="${dfs_triangle[$dfs_tri_count]} $index_triangle"
