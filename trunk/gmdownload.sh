@@ -363,13 +363,16 @@ isNumber(){
 fastAltitude(){
 	lon="$1"
 	lat="$2"
-	who="$[ $RANDOM % 2 ]"
+	who="$[ $RANDOM % 3 ]"
 	if [ "$who" = "0" ] ; then
 		tmp="$( wget --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://www.earthtools.org/height/${lat}/${lon}" )"
 		alt="$( echo "$tmp" | sed -e s/"<meters>"/"%"/g | sed -e s/"<\/meters>"/"%"/g | awk -F% {'print $2'} | tr "[a-z][A-Z]" " " | tr -d "\n " )"
 	fi
 	if [ "$who" = "1" ] ; then
 		alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/srtm3?lat=${lat}&lng=${lon}&style=full" )"
+	fi
+	if [ "$who" = "2" ] ; then
+		alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/gtopo30?lat=${lat}&lng=${lon}"  )"
 	fi
 	sleep 1
 	alt="$( isNumber "$alt" )"		
@@ -437,7 +440,11 @@ checkAltitude(){
 	if [ -z "$new_alt" ] ; then 
 		new_alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/srtm3?lat=${lat}&lng=${lon}&style=full" )"
 		new_alt="$( isNumber "$new_alt" )"		
-		[ "$new_alt" = "-32768" ] 	&& new_alt="-9999"
+		if [ "$new_alt" = "-32768" ] ; then
+			new_alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/gtopo30?lat=${lat}&lng=${lon}"  )"
+			new_alt="$( isNumber "$new_alt" )"
+		fi
+
 		[ -z "$new_alt" ]		&& new_alt="0"
 	fi
 	if [ "$new_alt" = "0" ] ; then
@@ -2541,7 +2548,7 @@ for cursor in ${split_tile[@]} ; do
 
 
 				        vertex="$( echo "${POINTS[@]}"  | tr " " ";" )"
-				        echo -n "$[ $cnt + 1 ] / $tot Create mash "
+				        echo -n "$split_index / $prog / $tot Create mash "
 					MESH_LEVEL_SUB="$[ $MESH_LEVEL - 2 ]"
 					[ "$( echo "scale = 8; ( $MESH_LEVEL_SUB < 0 )" | bc  )" = "1" ] && MESH_LEVEL_SUB="0"
 
@@ -2665,7 +2672,7 @@ for cursor in ${split_tile[@]} ; do
 						[ "$( echo "scale = 8; ( $ul_lat > 0 ) && ( $lr_lat < 0 ) " | bc -l )" != "1" ] 	&& \
 						[ "$( echo "scale = 8; ( $lr_lon > 0 ) && ( $ul_lon < 0 ) " | bc -l )" != "1" ]	 ; then
 
-						echo -n "$[ $cnt + 1 ] / $tot Create mash water..."
+						echo -n "$split_index / $prog / $tot Create mash water..."
 						echo
 
 	
