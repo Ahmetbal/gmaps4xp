@@ -327,9 +327,9 @@ ewget(){
 	fi
 	
 	if [ ! -z "$COOKIES_FILE" ] ; then
-		wget --user-agent=Firefox --load-cookies="$COOKIES_FILE" -O "$out" "$url"
+		wget -q --user-agent=Firefox --load-cookies="$COOKIES_FILE" -O "$out" "$url"
 	else
-		wget --user-agent=Firefox  -O "$out" "$url"
+		wget -q --user-agent=Firefox  -O "$out" "$url"
 	fi
 }
 
@@ -1559,19 +1559,24 @@ for cursor_huge in ${good_tile[@]} ; do
 			if  [ ! -f "$tiles_dir/map-$cursor_huge.png" ] ; then
 				upDateServer
 				ewget "$tiles_dir/tmp.png" "${server[1]}$( qrst2xyz "$cursor_huge" )"
-				echo -n "Tile analyze... "
-				content="$( convert  "$tiles_dir/tmp.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
-				if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
-					echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"	
+				if [ "$( du -s "$tiles_dir/tmp.jpg" | awk {'print $1'} )" = "0" ] ; then
+					echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"
 				else
-					convert  "$tiles_dir/tmp.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
+					echo -n "Tile analyze... "
+					content="$( convert  "$tiles_dir/tmp.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
+					if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
+						echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"	
+					else
+						convert  "$tiles_dir/tmp.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
+					fi
 				fi
 				echo "Done"
 				rm -f "$tiles_dir/tmp.png"
 		                for i in $( seq $SLEEP_TIME ) ; do
 					echo -n "."
 		                        sleep 1
-		                done
+				done
+
 			fi
 		fi
 		cnt="0"
@@ -1599,12 +1604,17 @@ for cursor_huge in ${good_tile[@]} ; do
 				rm -f "$tiles_dir/tile-ww-$cursor_huge.png"
 				convert "$tiles_dir/tmp.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$cursor_huge.png"
 				rm -f "$tiles_dir/tmp.png"
+			else
+				convert  -layers mosaic "$tiles_dir/{$( echo ${texture_tile[@]} | tr " " ",")}"  -format PNG32 -background transparent "$tiles_dir/tile-$cursor_huge.png"
 			fi
 		else
-			convert  -layers mosaic ${texture_tile[@]}  -format PNG32 -background transparent "$tiles_dir/tile-$cursor_huge.png"
+			convert  -layers mosaic "$tiles_dir/{$( echo ${texture_tile[@]} | tr " " ",")}"   -format PNG32 -background transparent "$tiles_dir/tile-$cursor_huge.png"
 		fi
-
-		rm -f ${texture_tile[@]}
+		
+		for r in  ${texture_tile[@]} ; do 
+			rm -f "$tiles_dir/$r"
+		done
+	
 		unset texture_tile
 	fi
 	echo -ne "                                                                                            \r"
