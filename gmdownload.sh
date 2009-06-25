@@ -29,6 +29,7 @@ ZOOM_REFERENCE_LABEL="ZOOM_REFERENCE"
 TER_DIR="terrain" 
 MESH_LEVEL="2"
 output_index="0"
+TMPFILE="tmp$$"
 output=()
 
 
@@ -1052,7 +1053,7 @@ getDSFName(){
 	echo "$lat$lon.dsf"
 }
 upDateServer(){
-	server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=w2.92&" )
+	server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
 
@@ -1428,34 +1429,34 @@ for c2 in ${good_tile[@]} ; do
 	echo  "$cnt / $tot"
 	if [ ! -f "$tiles_dir/tile-$c2.png" ] ; then
 		upDateServer
-		ewget "$tiles_dir/tmp.jpg" "${server[0]}$c2"  &> /dev/null
-		if [ ! -f "$tiles_dir/tmp.jpg" ] ; then
+		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$c2"  &> /dev/null
+		if [ ! -f "$tiles_dir/${TMPFILE}.jpg" ] ; then
 			echo "Elaboration problem!!"
 			exit 6
 		fi
-		if [ "$( du -s "$tiles_dir/tmp.jpg" | awk {'print $1'} )" != "0" ] ; then
-			blank="$( convert  "$tiles_dir/tmp.jpg"  -crop 1x255+0+0 txt:- | grep -v "^#" | grep -i "$SHIT_COLOR"  | wc -l )"
+		if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
+			blank="$( convert  "$tiles_dir/${TMPFILE}.jpg"  -crop 1x255+0+0 txt:- | grep -v "^#" | grep -i "$SHIT_COLOR"  | wc -l )"
 			if [  "$( echo "scale = 8; ( $blank > 10 )" | bc )" = "1" ] ; then
-				echo -n "" > "$tiles_dir/tmp.jpg"
+				echo -n "" > "$tiles_dir/${TMPFILE}.jpg"
 			fi
 		fi
-		if [ "$( du -s "$tiles_dir/tmp.jpg" | awk {'print $1'} )" = "0" ] ; then
+		if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" = "0" ] ; then
 			echo "In this area I didn't find same tile for this zoom..."
-			rm -f "$tiles_dir/tmp.jpg"
+			rm -f "$tiles_dir/${TMPFILE}.jpg"
 			upDateServer
 			subc2="$c2"
 			while [ ! -z "$subc2" ] ; do
 				echo "Try to zoom out one time..."
 				subc2="$( echo "$subc2" | rev | cut -c 2- | rev )"
 
-				ewget  "$tiles_dir/tmp.jpg" "${server[0]}$subc2" &> /dev/null
+				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$subc2" &> /dev/null
 
-				if [ "$( du -s "$tiles_dir/tmp.jpg" | awk {'print $1'} )" != "0" ] ; then
-					blank="$( convert  "$tiles_dir/tmp.jpg"   -crop 1x255+0+0 txt:- | grep -v "^#" | grep -i "$SHIT_COLOR"  | wc -l )"
+				if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
+					blank="$( convert  "$tiles_dir/${TMPFILE}.jpg"   -crop 1x255+0+0 txt:- | grep -v "^#" | grep -i "$SHIT_COLOR"  | wc -l )"
 					if [  "$( echo "scale = 8; ( $blank < 10 )" | bc )" = "1" ] ; then
 						break
 					else
-						rm "$tiles_dir/tmp.jpg"
+						rm "$tiles_dir/${TMPFILE}.jpg"
 					fi
 				fi
 
@@ -1465,12 +1466,12 @@ for c2 in ${good_tile[@]} ; do
 					sleep 1
 				done
 				echo
-				rm -f "$tiles_dir/tmp.jpg"
+				rm -f "$tiles_dir/${TMPFILE}.jpg"
 			done
-			if [ -f "$tiles_dir/tmp.jpg" ] ; then
-				if  [ "$( du -s "$tiles_dir/tmp.jpg" | awk {'print $1'} )" != "0" ] ; then
-					convert "$tiles_dir/tmp.jpg" -format PNG32 "$tiles_dir/tile-$subc2-ori.png"
-					rm -f "$tiles_dir/tmp.jpg"
+			if [ -f "$tiles_dir/${TMPFILE}.jpg" ] ; then
+				if  [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
+					convert "$tiles_dir/${TMPFILE}.jpg" -format PNG32 "$tiles_dir/tile-$subc2-ori.png"
+					rm -f "$tiles_dir/${TMPFILE}.jpg"
 				fi
 			fi
 
@@ -1480,10 +1481,10 @@ for c2 in ${good_tile[@]} ; do
 			else
 				echo "Not found file with same zoom... Hole in scenary!"
 			fi
-			rm -f "$tiles_dir/tmp.jpg"
+			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
-			convert "$tiles_dir/tmp.jpg"  -format PNG32  "$tiles_dir/tile-$c2.png"
-			rm -f "$tiles_dir/tmp.jpg"
+			convert "$tiles_dir/${TMPFILE}.jpg"  -format PNG32  "$tiles_dir/tile-$c2.png"
+			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		fi
 
 		echo -n "Wait: "
@@ -1498,7 +1499,6 @@ done
 
 echo "Screnary creation...."
 [ "$WATER_MASK" = "yes" ] && echo "Water mask Enable...."
-echo "Merging tiles in 2048x2048 texture..."
 good_tile=( $( echo "${good_tile[@]}" | tr " " "\n" | rev | cut -c 4- | rev | sort -u | tr "\n" " " ) )
 
 echo "Remove across images..."
@@ -1546,32 +1546,41 @@ split_tile=( $( echo "${split_tile[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) 
 echo "Removed ${#split_tile[@]} image(s)..."
 
 
+echo "Merging tiles in 2048x2048 texture..."
 tile_seq="$( seq 0 7 )"
 prog="1"
 tot="${#good_tile[@]}"
 for cursor_huge in ${good_tile[@]} ; do
 
 	cursor_tmp=$cursor_huge"qqq"
-	echo -ne "$prog / $tot "
+	echo -n "$prog / $tot "
 	[ "$REMAKE_TILE" = "yes" ] && [ -f "$tiles_dir/tile-$cursor_huge.png" ] && rm -f "$tiles_dir/tile-$cursor_huge.png" 
+
+	# Uncommend if you want force recreation
+	# rm -fr "$tiles_dir/tile-$cursor_huge.png"
+
 	if  [ ! -f "$tiles_dir/tile-$cursor_huge.png" ] ; then
 		if [ "$WATER_MASK" = "yes" ] ; then
+
+			# Uncommend if you want force recreation
+			# rm -f "$tiles_dir/map-$cursor_huge.png"
+
 			if  [ ! -f "$tiles_dir/map-$cursor_huge.png" ] ; then
 				upDateServer
-				ewget "$tiles_dir/tmp.png" "${server[1]}$( qrst2xyz "$cursor_huge" )"
-				if [ "$( du -s "$tiles_dir/tmp.jpg" | awk {'print $1'} )" = "0" ] ; then
+				ewget "$tiles_dir/${TMPFILE}.png" "${server[1]}$( qrst2xyz "$cursor_huge" )"
+				if [ "$( du -s "$tiles_dir/${TMPFILE}.png" | awk {'print $1'} )" = "0" ] ; then
 					echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"
 				else
 					echo -n "Tile analyze... "
-					content="$( convert  "$tiles_dir/tmp.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
+					content="$( convert  "$tiles_dir/${TMPFILE}.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
 					if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 						echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"	
 					else
-						convert  "$tiles_dir/tmp.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
+						convert  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
 					fi
+					echo -n "Done "
 				fi
-				echo "Done"
-				rm -f "$tiles_dir/tmp.png"
+				rm -f "$tiles_dir/${TMPFILE}.png"
 		                for i in $( seq $SLEEP_TIME ) ; do
 					echo -n "."
 		                        sleep 1
@@ -1600,10 +1609,10 @@ for cursor_huge in ${good_tile[@]} ; do
 		if [ "$WATER_MASK" = "yes" ] ;then
 			if [ "$( du -k  "$tiles_dir/map-$cursor_huge.png" | awk {'print $1'} )" != "0" ] ; then
 				convert  -layers mosaic "$tiles_dir/{$( echo ${texture_tile[@]} | tr " " ",")}"  -format PNG32 -background transparent "$tiles_dir/tile-ww-$cursor_huge.png"
-				composite -compose Dst_In "$tiles_dir/map-$cursor_huge.png" "$tiles_dir/tile-ww-$cursor_huge.png" "$tiles_dir/tmp.png"
+				composite -compose Dst_In "$tiles_dir/map-$cursor_huge.png" "$tiles_dir/tile-ww-$cursor_huge.png" "$tiles_dir/${TMPFILE}.png"
 				rm -f "$tiles_dir/tile-ww-$cursor_huge.png"
-				convert "$tiles_dir/tmp.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$cursor_huge.png"
-				rm -f "$tiles_dir/tmp.png"
+				convert "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$cursor_huge.png"
+				rm -f "$tiles_dir/${TMPFILE}.png"
 			else
 				convert  -layers mosaic "$tiles_dir/{$( echo ${texture_tile[@]} | tr " " ",")}"  -format PNG32 -background transparent "$tiles_dir/tile-$cursor_huge.png"
 			fi
@@ -1616,8 +1625,9 @@ for cursor_huge in ${good_tile[@]} ; do
 		done
 	
 		unset texture_tile
+	
 	fi
-	echo -ne "                                                                                            \r"
+	echo
 	prog=$[ $prog + 1 ]
 done
 echo
@@ -1741,12 +1751,13 @@ for x in $( seq 0 $dim_x ) ; do
 		fi
 
 		if [ -f "$tiles_dir/tile-$c2.png" ] && [ ! -z "$( echo "${good_tile[@]}" | tr " " "\n" | grep "$c2" )" ] ; then
-			POL_FILE="$point_lat"_"$point_lon.pol"
-			TEXTURE="$point_lat"_"$point_lon.png"
+			POL_FILE="poly_${point_lat}_${point_lon}.pol"
+			TEXTURE="img_${point_lat}_${point_lon}.png"
+
 
 			[ "$MASH_SCENARY" = "no" ] && cp "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
 			if [ "$MASH_SCENARY" = "yes" ] ; then
-					TER="$point_lat"_"$point_lon.ter"
+					TER="ter_${point_lat}_${point_lon}.ter"
 				        if [ ! -f "$TER_DIR/$TEXTURE" ] ; then
 				                cp "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
 				        fi
@@ -2252,29 +2263,30 @@ for cursor in ${split_tile[@]} ; do
 			fi
 
 			if [ -f "$tiles_dir/tile-$c2.png" ] ; then
-				POL_FILE="$point_lat"_"$point_lon.pol"
-				TEXTURE="$point_lat"_"$point_lon.png"
+				POL_FILE="poly_${point_lat}_${point_lon}.pol"
+				TEXTURE="img_${point_lat}_${point_lon}.png"
+
 
 
 				if [ "$WATER_MASK" = "yes" ] ; then
 					if  [ ! -f "$tiles_dir/map-$c2.png" ] ; then
 						upDateServer
-						ewget "$tiles_dir/tmp.png" "${server[1]}$( qrst2xyz "$c2" )" &> /dev/null
-						if [ "$( du -k  "$tiles_dir/tmp.png" | awk {'print $1'} )" != "0" ] ; then	
+						ewget "$tiles_dir/${TMPFILE}.png" "${server[1]}$( qrst2xyz "$c2" )" &> /dev/null
+						if [ "$( du -k  "$tiles_dir/${TMPFILE}.png" | awk {'print $1'} )" != "0" ] ; then	
 							echo
 							echo -n "Tile analyze... "
-							content="$( convert  "$tiles_dir/tmp.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
+							content="$( convert  "$tiles_dir/${TMPFILE}.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
 							if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 								echo -n ""  >  "$tiles_dir/map-$c2.png"	
 							else
-								convert  "$tiles_dir/tmp.png" -format PNG32 -transparent "#99b3cc" -filter Point  "$tiles_dir/map-$c2.png"
+								convert  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point  "$tiles_dir/map-$c2.png"
 							fi
 							echo "Done"
-							rm -f "$tiles_dir/tmp.png"
+							rm -f "$tiles_dir/${TMPFILE}.png"
 						else
 							echo "Problem with Water Mask! Excessive zoom in or in this zone not exists map..."
 							echo -n ""  >  "$tiles_dir/map-$c2.png"
-							rm -f "$tiles_dir/tmp.png"
+							rm -f "$tiles_dir/${TMPFILE}.png"
 
 						fi
 				               	for i in $( seq $SLEEP_TIME ) ; do
@@ -2285,10 +2297,10 @@ for cursor in ${split_tile[@]} ; do
 					if [ "$WATER_MASK" = "yes" ] ; then
 						if [ "$( du -k  "$tiles_dir/map-$c2.png" | awk {'print $1'} )" != "0" ] ; then
 							convert  -layers mosaic "$tiles_dir/tile-$c2.png"  -format PNG32 -background transparent "$tiles_dir/tile-ww-$c2.png"
-							composite -compose Dst_In "$tiles_dir/map-$c2.png" "$tiles_dir/tile-ww-$c2.png" "$tiles_dir/tmp.png"
+							composite -compose Dst_In "$tiles_dir/map-$c2.png" "$tiles_dir/tile-ww-$c2.png" "$tiles_dir/${TMPFILE}.png"
 							rm -f "$tiles_dir/tile-ww-$c2.png"
-							convert "$tiles_dir/tmp.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$c2.png"
-							rm -f "$tiles_dir/tmp.png"
+							convert "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$c2.png"
+							rm -f "$tiles_dir/${TMPFILE}.png"
 						else
 							cp -f "$( dirname -- "$0" )/ext_app/images/trans.png" "$tiles_dir/tile-$c2.png"
 						fi
@@ -2299,7 +2311,7 @@ for cursor in ${split_tile[@]} ; do
 
 				[ "$MASH_SCENARY" = "no" ] && cp "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
 				if [ "$MASH_SCENARY" = "yes" ] ; then
-						TER="$point_lat"_"$point_lon.ter"
+						TER="ter_${point_lat}_${point_lon}.ter"
 					        if [ ! -f "$TER_DIR/$TEXTURE" ] ; then
 					                cp "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
 					        fi
