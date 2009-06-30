@@ -396,10 +396,14 @@ getAltitude(){
 
         if [ -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
                 out=( $( cat "$tiles_dir/info_${lon}_${lat}.alt" ) )
+		echo "cotent: $out"
                 if [ -z "$out" ] ; then
 			rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
 		else
-			[ "${out[1]}" != "FIX" ] && [ "${out[0]}" = "0" ] && out="$( checkAltitude $lon $lat $out )"
+			[ "${out[1]}" != "FIX" ] 		&& [ "${out[0]}" = "0" ] && out="$( checkAltitude $lon $lat $out )"
+			[ "${out[0]}"  = "FIX" ] 		&& rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
+			[ ${#out[@]} -gt 2 ] 	 		&& rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
+			[ -z  "$( isNumber ${out[0]} )" ] 	&& rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
 		fi
         fi
         if [ ! -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
@@ -465,6 +469,7 @@ checkAltitude(){
         fi
 
 }
+
 
 #
 # This funciont reutun the middle point between two points
@@ -2770,7 +2775,7 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 		
 
 		tot=( ${dfs_triangle[$j]} )
-		tot="${#tot[@]}"
+		tot="$[ ${#tot[@]} + $cnt ]"
 		for trix in ${dfs_triangle[$j]} ; do
 			triangle="${FINAL_TRIANGLES[$trix]}"
 		        addLine "BEGIN_PATCH $[ $cnt + 1 ]   0.0 -1.0     1 7"

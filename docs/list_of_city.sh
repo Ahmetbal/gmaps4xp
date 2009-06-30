@@ -9,7 +9,9 @@ list_city=( $( echo "$list_city" | tr ";" " " ) )
 
 for i in ${list_city[*]} ; do
 	city="$( echo "$i" | sed -e s/"_"/"%20"/g )"
-	echo -n "$city: "
-	wget --timeout=10 --tries=1 --user-agent=Firefox -q -O- --post-data "key=$city" "http://www.postmodern.com/cgi-bin/airports.pl" | grep -i "$city" | grep -vi "<H" 
+	echo -n "$city: " | sed -e s/"%20"/" "/g
+	info="$( wget --timeout=10 --tries=1 --user-agent=Firefox -q -O- --post-data "key=$city" "http://www.postmodern.com/cgi-bin/airports.pl" | grep -i "$city" | grep -vi "<H" )"
+	echo "$info"
+
 	echo
 done
