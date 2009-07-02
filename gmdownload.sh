@@ -396,7 +396,6 @@ getAltitude(){
 
         if [ -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
                 out=( $( cat "$tiles_dir/info_${lon}_${lat}.alt" ) )
-		echo "cotent: $out"
                 if [ -z "$out" ] ; then
 			rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
 		else
