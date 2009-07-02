@@ -356,9 +356,9 @@ addLine(){
 }
 
 isNumber(){
-	number="$( echo "$1" | sed -e s/"^-"/""/g | tr -d "." )"
-	
-	[ ! -z "$( echo "$number" | grep "^[0-9]*$" )" ] && echo -n "$1"
+	number="$1"
+	bctest="$( echo  "$number"  | bc 2> /dev/null )"
+	[ "$bctest" = "$number" ] && echo -n "$number"
 }
 
 fastAltitude(){
