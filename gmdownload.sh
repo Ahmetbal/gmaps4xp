@@ -469,7 +469,6 @@ checkAltitude(){
 
 }
 
-
 #
 # This funciont reutun the middle point between two points
 #
@@ -1479,11 +1478,16 @@ for c2 in ${good_tile[@]} ; do
 				fi
 			fi
 
-			if  [ "$( du -s "$tiles_dir/tile-$subc2-ori.png" | awk {'print $1'} )" != "0" ] ; then
-				echo "Found tile with less zoom..."
-				convert "$tiles_dir/tile-$subc2-ori.png" -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
+			
+			if [ ! -z "$subc2" ] ; then
+				if  [ "$( du -s "$tiles_dir/tile-$subc2-ori.png" | awk {'print $1'} )" != "0" ]	; then
+					echo "Found tile with less zoom..."
+					convert "$tiles_dir/tile-$subc2-ori.png" -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
+				else
+					echo "Not found file with same zoom... Hole in scenary for tile ${server[0]}$c2 !"
+				fi
 			else
-				echo "Not found file with same zoom... Hole in scenary!"
+				echo "Not found file with same zoom... Hole in scenary for tile ${server[0]}$c2 !"
 			fi
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
