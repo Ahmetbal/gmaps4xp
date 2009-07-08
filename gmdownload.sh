@@ -1100,6 +1100,20 @@ abs(){
 	echo "$1"
 }
 
+testImage(){
+	img="$1"
+	[ ! -f "$img" ] && echo -n "bad" && return
+	ext="$(echo "$img" | rev | cut -f -1 -d "." | rev )"
+	img_info="$( convert "$img" info:- 2> /dev//null )"
+	img_info="$( echo "$img_info" | grep -i "$ext" )"
+	if [ -z "$img_info" ] ; then
+		echo -n "bad"
+	else
+		echo -n "good"
+	fi
+}
+
+
 #########################################################################3
 
 if [ -z "$output_dir" ] ; then
@@ -1430,6 +1444,9 @@ SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
 	echo  "$cnt / $tot"
+	if [ -f "$tiles_dir/tile-$c2.png" ] ; then
+		[ "$( testImage "$tiles_dir/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile-$c2.png"
+	fi
 	if [ ! -f "$tiles_dir/tile-$c2.png" ] ; then
 		upDateServer
 		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$c2"  &> /dev/null
@@ -1566,12 +1583,19 @@ for cursor_huge in ${good_tile[@]} ; do
 
 	# Uncommend if you want force recreation
 	# rm -fr "$tiles_dir/tile-$cursor_huge.png"
+	if [ -f "$tiles_dir/tile-$cursor_huge.png" ] ; then
+		[ "$( testImage "$tiles_dir/tile-$cursor_huge.png" )" != "good" ] && rm -f "$tiles_dir/tile-$cursor_huge.png"
+	fi
 
 	if  [ ! -f "$tiles_dir/tile-$cursor_huge.png" ] ; then
 		if [ "$WATER_MASK" = "yes" ] ; then
 
 			# Uncommend if you want force recreation
 			# rm -f "$tiles_dir/map-$cursor_huge.png"
+
+			if [ -f "$tiles_dir/map-$cursor_huge.png" ] ; then
+				[ "$( testImage "$tiles_dir/map-$cursor_huge.png" )" != "good" ] && rm -f "$tiles_dir/map-$cursor_huge.png"
+			fi
 
 			if  [ ! -f "$tiles_dir/map-$cursor_huge.png" ] ; then
 				upDateServer
