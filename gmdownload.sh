@@ -239,9 +239,11 @@ nfo_file="$tiles_dir/tile_"$point_lat"_"$point_lon"_"$lowright_lat"_"$lowright_l
 
 # Compatibilty for macosx
 dsftool=""
+ddstool=""
 if [ "$( uname -s )" = "Darwin" ] ; then
 	# Dsf tool
 	dsftool="$( dirname -- "$0" )/ext_app/xptools_apr08_mac/DSFTool"
+	ddstool="$( dirname -- "$0" )/ext_app/xptools_apr08_mac/DDSTool"
 
 
 	# wget command
@@ -289,6 +291,7 @@ if [ "$( uname -s )" = "Linux" ] ; then
 	export PATH="$WINE/bin:$PATH"
 	export LD_LIBRARY_PATH="$WINE/lib"
 	dsftool="$( dirname -- "$0" )/ext_app/xptools_apr08_win/DSFTool.exe"
+	ddstool="$( dirname -- "$0" )/ext_app/xptools_apr08_win/DDSTool.exe"
 fi	
 
 
@@ -1091,7 +1094,7 @@ tile_resolution(){
   	phi="$( echo "scale = 16;  $radLonA - $radLonB" | bc -l | tr -d "-" )"  
 	P="$( echo "scale = 16; (s($radLatA) * s($radLatB)) +  (c($radLatA) * c($radLatB) * c($phi))" | bc -l )"
 	P2="$( echo "scale = 16; a( ( $P * -1 )/sqrt( ( $P * -1 ) * $P + 1 ) ) + 2 *a(1)" | bc -l )"
-	echo "scale=16; ( $P1 * $RAGGIO_QUADRATICO_MEDIO ) * ( $P2 * $RAGGIO_QUADRATICO_MEDIO ) * 1000000 / (256*256)" | bc -l | rev | cut -c 12- | rev
+	echo "scale=16; ( $P1 * $RAGGIO_QUADRATICO_MEDIO ) * ( $P2 * $RAGGIO_QUADRATICO_MEDIO ) * 100000000 / (256*256)" | bc -l | rev | cut -c 12- | rev
   
 }  
 
@@ -1784,21 +1787,38 @@ for x in $( seq 0 $dim_x ) ; do
 
 		if [ -f "$tiles_dir/tile-$c2.png" ] && [ ! -z "$( echo "${good_tile[@]}" | tr " " "\n" | grep "$c2" )" ] ; then
 			POL_FILE="poly_${point_lat}_${point_lon}.pol"
-			TEXTURE="img_${point_lat}_${point_lon}.png"
+			TEXTURE="img_${point_lat}_${point_lon}.dds"
 
 
-			[ "$MASH_SCENARY" = "no" ] && cp "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+			if [ "$MASH_SCENARY" = "no" ] ; then 
+				if [ "$( uname -s )" = "Linux" ] ; then
+					wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+				else
+					"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+				fi
+			fi
 			if [ "$MASH_SCENARY" = "yes" ] ; then
 					TER="ter_${point_lat}_${point_lon}.ter"
 				        if [ ! -f "$TER_DIR/$TEXTURE" ] ; then
-				                cp "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
+						if [ "$( uname -s )" = "Linux" ] ; then
+							wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
+						else
+							"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
+						fi
+
 				        fi
+					LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
+					LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
+					LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
+					LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
+
 				        if [ ! -f "$TER_DIR/$TER" ] ; then
-				                echo "A"                                 > "$TER_DIR/$TER"
-				                echo "800"                              >> "$TER_DIR/$TER"
-				                echo "TERRAIN"                          >> "$TER_DIR/$TER"
-				                echo                                    >> "$TER_DIR/$TER"
-				                echo "BASE_TEX_NOWRAP $TEXTURE"         >> "$TER_DIR/$TER"
+				                echo "A"                           					> "$TER_DIR/$TER"
+				                echo "800"                              				>> "$TER_DIR/$TER"
+				                echo "TERRAIN"                          				>> "$TER_DIR/$TER"
+				                echo                                    				>> "$TER_DIR/$TER"
+						echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
+				                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
 				       fi
 			fi
 
@@ -2340,12 +2360,22 @@ for cursor in ${split_tile[@]} ; do
 
 				fi
 
+				if [ "$MASH_SCENARY" = "no" ] ; then 
+					if [ "$( uname -s )" = "Linux" ] ; then
+						wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+					else
+						"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+					fi
+				fi
 
-				[ "$MASH_SCENARY" = "no" ] && cp "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
 				if [ "$MASH_SCENARY" = "yes" ] ; then
 						TER="ter_${point_lat}_${point_lon}.ter"
 					        if [ ! -f "$TER_DIR/$TEXTURE" ] ; then
-					                cp "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
+							if [ "$( uname -s )" = "Linux" ] ; then
+								wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
+							else
+								"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
+							fi
 					        fi
 					        if [ ! -f "$TER_DIR/$TER" ] ; then
 					                echo "A"                                 > "$TER_DIR/$TER"
@@ -2891,6 +2921,32 @@ createKMLoutput END  "$KML_FILE"  #&& exit
 
 
 echo
+#		cnt_lat cnt_lon dim_meter pixsize
+# LOAD_CENTER 42.70321 -72.34234 4000 1024
+# ./ext_app/wine/usr/bin/wine  ./ext_app/xptools_apr08_win/DDSTool.exe --png2dxt Entebbe/img_0.01648743_32.43713040.png test.dds
+#if [  ! -z "$ddstool" ] ; then
+#	echo "Conversion from PNG to DDS file..."
+#	MASH_SCENARY="yes"
+#	if [ "$MASH_SCENARY" = "yes" ] ; then
+#		echo "ciao"
+#	else
+#		for png in $output_dir/*.png ; do
+#			echo "$png"
+#			dds="$( echo "$png" | sed -e s/".png"/".dds"/g )"
+#			pol="$( echo "$png" | sed -e s/"img_"/"poly_"/g | sed -e s/".png"/".pol"/g )"
+#			echo "Create DDS file \"$( basename -- $dds )\"..."
+#			if [ "$( uname -s )" = "Linux" ] ; then
+#				wine "$ddstool" --png2dxt "$png" "$dds"
+#			else
+#				"$ddstool" --png2dxt "$png" "$dds"
+#			fi
+#			sed -e s/"$( basename -- "$png" )"/"$( basename -- "$dds" )"/g -i "$pol"
+#		done
+#
+#	fi
+#fi
+#
+
 if [  ! -z "$dsftool" ] ; then
 	dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 	for i in ${dfs_list[@]} ; do
