@@ -1788,38 +1788,42 @@ for x in $( seq 0 $dim_x ) ; do
 		if [ -f "$tiles_dir/tile-$c2.png" ] && [ ! -z "$( echo "${good_tile[@]}" | tr " " "\n" | grep "$c2" )" ] ; then
 			POL_FILE="poly_${point_lat}_${point_lon}.pol"
 			TEXTURE="img_${point_lat}_${point_lon}.dds"
+			TER="ter_${point_lat}_${point_lon}.ter"
 
 
-			if [ "$MASH_SCENARY" = "no" ] ; then 
-				if [ "$( uname -s )" = "Linux" ] ; then
-					wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+			[ "$MASH_SCENARY" = "yes" ] && TARGET_IMG_DIR="$TER_DIR"
+			[ "$MASH_SCENARY" = "no"  ] && TARGET_IMG_DIR="$output_dir"
+
+			[ -f "$TARGET_IMG_DIR/$TEXTURE" ] && [ ! -f "$tiles_dir/tile-$c2.dds" ] && cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
+
+		        if [ ! -f "$TARGET_IMG_DIR/$TEXTURE" ] ; then
+				if [ ! -f "$tiles_dir/tile-$c2.dds" ] ; then
+					if [ "$( uname -s )" = "Linux" ] ; then
+						wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
+					else
+						"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
+					fi
+					cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
 				else
-					"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+					cp -f "$tiles_dir/tile-$c2.dds" "$TARGET_IMG_DIR/$TEXTURE"
 				fi
-			fi
-			if [ "$MASH_SCENARY" = "yes" ] ; then
-					TER="ter_${point_lat}_${point_lon}.ter"
-				        if [ ! -f "$TER_DIR/$TEXTURE" ] ; then
-						if [ "$( uname -s )" = "Linux" ] ; then
-							wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
-						else
-							"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
-						fi
+		        fi
 
-				        fi
+
+			if [ "$MASH_SCENARY" = "yes" ] ; then
+			        if [ ! -f "$TER_DIR/$TER" ] ; then
 					LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
 					LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
 					LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
 					LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
 
-				        if [ ! -f "$TER_DIR/$TER" ] ; then
-				                echo "A"                           					> "$TER_DIR/$TER"
-				                echo "800"                              				>> "$TER_DIR/$TER"
-				                echo "TERRAIN"                          				>> "$TER_DIR/$TER"
-				                echo                                    				>> "$TER_DIR/$TER"
-						echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
-				                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
-				       fi
+			                echo "A"                           					>  "$TER_DIR/$TER"
+			                echo "800"                              				>> "$TER_DIR/$TER"
+			                echo "TERRAIN"                          				>> "$TER_DIR/$TER"
+			                echo                                    				>> "$TER_DIR/$TER"
+					echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
+			                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
+			       fi
 			fi
 
 			[ "$MASH_SCENARY" = "no" ] && createKMLoutput ADD  "$KML_FILE" "$TEXTURE" $ori_ul_lat $ori_lr_lat $ori_lr_lon $ori_ul_lon $rot_fix
@@ -2316,8 +2320,8 @@ for cursor in ${split_tile[@]} ; do
 
 			if [ -f "$tiles_dir/tile-$c2.png" ] ; then
 				POL_FILE="poly_${point_lat}_${point_lon}.pol"
-				TEXTURE="img_${point_lat}_${point_lon}.png"
-
+				TEXTURE="img_${point_lat}_${point_lon}.dds"
+				TER="ter_${point_lat}_${point_lon}.ter"
 
 
 				if [ "$WATER_MASK" = "yes" ] ; then
@@ -2360,30 +2364,42 @@ for cursor in ${split_tile[@]} ; do
 
 				fi
 
-				if [ "$MASH_SCENARY" = "no" ] ; then 
-					if [ "$( uname -s )" = "Linux" ] ; then
-						wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+
+				[ "$MASH_SCENARY" = "yes" ] && TARGET_IMG_DIR="$TER_DIR"
+				[ "$MASH_SCENARY" = "no"  ] && TARGET_IMG_DIR="$output_dir"
+
+				[ -f "$TARGET_IMG_DIR/$TEXTURE" ] && [ ! -f "$tiles_dir/tile-$c2.dds" ] && cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
+
+			        if [ ! -f "$TARGET_IMG_DIR/$TEXTURE" ] ; then
+					if [ ! -f "$tiles_dir/tile-$c2.dds" ] ; then
+						if [ "$( uname -s )" = "Linux" ] ; then
+							wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
+						else
+							"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
+						fi
+						cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
 					else
-						"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$output_dir/$TEXTURE"
+						cp -f "$tiles_dir/tile-$c2.dds" "$TARGET_IMG_DIR/$TEXTURE"
 					fi
-				fi
+			        fi
+
 
 				if [ "$MASH_SCENARY" = "yes" ] ; then
-						TER="ter_${point_lat}_${point_lon}.ter"
-					        if [ ! -f "$TER_DIR/$TEXTURE" ] ; then
-							if [ "$( uname -s )" = "Linux" ] ; then
-								wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
-							else
-								"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TER_DIR/$TEXTURE"
-							fi
-					        fi
-					        if [ ! -f "$TER_DIR/$TER" ] ; then
-					                echo "A"                                 > "$TER_DIR/$TER"
-					                echo "800"                              >> "$TER_DIR/$TER"
-					                echo "TERRAIN"                          >> "$TER_DIR/$TER"
-					                echo                                    >> "$TER_DIR/$TER"
-					                echo "BASE_TEX_NOWRAP $TEXTURE"         >> "$TER_DIR/$TER"
-					       fi
+					if [ ! -f "$TER_DIR/$TER" ] ; then
+						LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
+						LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
+						LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
+						LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
+
+					        echo "A"                           					>  "$TER_DIR/$TER"
+				                echo "800"                              				>> "$TER_DIR/$TER"
+				                echo "TERRAIN"                          				>> "$TER_DIR/$TER"
+				                echo                                    				>> "$TER_DIR/$TER"
+						echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
+				                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
+				       fi
+
+
 				fi
 
 
