@@ -25,7 +25,7 @@ PLANE_LABEL_ROT="PLANE_ROT"
 AIRPORT_LABEL_ROT="AIRPORT_ROT"
 ZOOM_REFERENCE_LABEL="ZOOM_REFERENCE"
 
-
+XPLANE_CMD_VERSION="920"
 TER_DIR="terrain" 
 MESH_LEVEL="2"
 output_index="0"
@@ -1789,6 +1789,11 @@ for x in $( seq 0 $dim_x ) ; do
 			POL_FILE="poly_${point_lat}_${point_lon}.pol"
 			TEXTURE="img_${point_lat}_${point_lon}.dds"
 			TER="ter_${point_lat}_${point_lon}.ter"
+			LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
+			LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
+			LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
+			LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
+
 
 
 			[ "$MASH_SCENARY" = "yes" ] && TARGET_IMG_DIR="$TER_DIR"
@@ -1812,17 +1817,12 @@ for x in $( seq 0 $dim_x ) ; do
 
 			if [ "$MASH_SCENARY" = "yes" ] ; then
 			        if [ ! -f "$TER_DIR/$TER" ] ; then
-					LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
-					LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
-					LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
-					LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
-
 			                echo "A"                           					>  "$TER_DIR/$TER"
 			                echo "800"                              				>> "$TER_DIR/$TER"
 			                echo "TERRAIN"                          				>> "$TER_DIR/$TER"
 			                echo                                    				>> "$TER_DIR/$TER"
-					echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
 			                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
+					echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
 			       fi
 			fi
 
@@ -1892,7 +1892,8 @@ for x in $( seq 0 $dim_x ) ; do
 					echo "Create file $dfs_file....                                                    "
 
 					echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-					echo "800" 							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
+					#echo "800" 							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
+					echo "$XPLANE_CMD_VERSION" 					>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
 					echo "DSF2TEXT" 						>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
 
 					echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
@@ -1998,13 +1999,14 @@ for x in $( seq 0 $dim_x ) ; do
 					echo "Error! Polygon file already exist!"
 					exit 3
 				fi
-				echo "A"			>  "$output_dir/$POL_FILE"
-				echo "850"			>> "$output_dir/$POL_FILE"
-				echo "DRAPED_POLYGON"		>> "$output_dir/$POL_FILE"
-				echo "LAYER_GROUP terrain 0"	>> "$output_dir/$POL_FILE"
-				echo "TEXTURE_NOWRAP $TEXTURE"	>> "$output_dir/$POL_FILE"
-				echo "SCALE 25 25"		>> "$output_dir/$POL_FILE"
-				echo "SURFACE concrete"		>> "$output_dir/$POL_FILE"
+				echo "A"								>  "$output_dir/$POL_FILE"
+				echo "850"								>> "$output_dir/$POL_FILE"
+				echo "DRAPED_POLYGON"							>> "$output_dir/$POL_FILE"
+				echo 									>> "$output_dir/$POL_FILE"
+				echo "LAYER_GROUP airports -1"						>> "$output_dir/$POL_FILE"
+				echo "TEXTURE_NOWRAP $TEXTURE"						>> "$output_dir/$POL_FILE"
+				echo "SCALE 25 25"							>> "$output_dir/$POL_FILE"
+				echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$output_dir/$POL_FILE"	
 
 				################################
 
@@ -2323,6 +2325,11 @@ for cursor in ${split_tile[@]} ; do
 				TEXTURE="img_${point_lat}_${point_lon}.dds"
 				TER="ter_${point_lat}_${point_lon}.ter"
 
+				LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
+				LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
+				LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
+				LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
+
 
 				if [ "$WATER_MASK" = "yes" ] ; then
 					if  [ ! -f "$tiles_dir/map-$c2.png" ] ; then
@@ -2386,17 +2393,12 @@ for cursor in ${split_tile[@]} ; do
 
 				if [ "$MASH_SCENARY" = "yes" ] ; then
 					if [ ! -f "$TER_DIR/$TER" ] ; then
-						LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
-						LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
-						LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
-						LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
-
 					        echo "A"                           					>  "$TER_DIR/$TER"
 				                echo "800"                              				>> "$TER_DIR/$TER"
 				                echo "TERRAIN"                          				>> "$TER_DIR/$TER"
 				                echo                                    				>> "$TER_DIR/$TER"
-						echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
 				                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
+						echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
 				       fi
 
 
@@ -2470,7 +2472,8 @@ for cursor in ${split_tile[@]} ; do
 
 
 						echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-						echo "800" 							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
+						#echo "800" 							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
+						echo "$XPLANE_CMD_VERSION" 					>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
 						echo "DSF2TEXT" 						>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
 
 						echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
@@ -2601,19 +2604,22 @@ for cursor in ${split_tile[@]} ; do
 
 
 				if [ "$MASH_SCENARY" = "no" ] ; then
-					echo -ne "$prog / $tot: Create polygon (.pol) file \"$POL_FILE\"...                          \r"
+					echo -ne "$prog / $split_index / $tot: Create polygon (.pol) file \"$POL_FILE\"...                          \r"
 		
 					if [ -f "$output_dir/$POL_FILE" ] ; then
 						echo "Error! Polygon file already exist!"
 						exit 3
 					fi
-					echo "A"			>  "$output_dir/$POL_FILE"
-					echo "850"			>> "$output_dir/$POL_FILE"
-					echo "DRAPED_POLYGON"		>> "$output_dir/$POL_FILE"
-					echo "LAYER_GROUP terrain 0"	>> "$output_dir/$POL_FILE"
-					echo "TEXTURE_NOWRAP $TEXTURE"	>> "$output_dir/$POL_FILE"
-					echo "SCALE 25 25"		>> "$output_dir/$POL_FILE"
-					echo "SURFACE concrete"		>> "$output_dir/$POL_FILE"
+
+					echo "A"								>  "$output_dir/$POL_FILE"
+					echo "850"								>> "$output_dir/$POL_FILE"
+					echo "DRAPED_POLYGON"							>> "$output_dir/$POL_FILE"
+					echo 									>> "$output_dir/$POL_FILE"
+					echo "LAYER_GROUP airports -1"						>> "$output_dir/$POL_FILE"
+					echo "TEXTURE_NOWRAP $TEXTURE"						>> "$output_dir/$POL_FILE"
+					echo "SCALE 25 25"							>> "$output_dir/$POL_FILE"
+					echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$output_dir/$POL_FILE"	
+
 
 					################################
 
@@ -2648,7 +2654,7 @@ for cursor in ${split_tile[@]} ; do
 
 
 				        vertex="$( echo "${POINTS[@]}"  | tr " " ";" )"
-				        echo -n "$split_index / $prog / $tot Create mash "
+				        echo -n "$prog / $split_index / $tot Create mash "
 					MESH_LEVEL_SUB="$[ $MESH_LEVEL - 2 ]"
 					[ "$( echo "scale = 8; ( $MESH_LEVEL_SUB < 0 )" | bc  )" = "1" ] && MESH_LEVEL_SUB="0"
 
@@ -2760,7 +2766,7 @@ for cursor in ${split_tile[@]} ; do
 				cnt=$[ $cnt + 1 ]
 				prog=$[ $prog + 1 ]
 			else
-				[ "$MASH_SCENARY" = "no" ] && echo -ne "$split_index / $prog / $tot ...                                                              \r"
+				[ "$MASH_SCENARY" = "no" ] && echo -ne "$prog / $split_index / $tot ...                                                              \r"
 
 				if [ "$MASH_SCENARY" = "yes" ] ; then	
 					if 	[ "$[ ${lr_lat%.*} + 1  ]" != "${ul_lat%.*}" ] 						&& \
@@ -2772,7 +2778,7 @@ for cursor in ${split_tile[@]} ; do
 						[ "$( echo "scale = 8; ( $ul_lat > 0 ) && ( $lr_lat < 0 ) " | bc -l )" != "1" ] 	&& \
 						[ "$( echo "scale = 8; ( $lr_lon > 0 ) && ( $ul_lon < 0 ) " | bc -l )" != "1" ]	 ; then
 
-						echo -n "$split_index / $prog / $tot Create mash water..."
+						echo -n "$prog / $split_index / $tot Create mash water..."
 						echo
 
 	
