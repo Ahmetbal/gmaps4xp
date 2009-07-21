@@ -43,6 +43,8 @@ lowright_lon="$4"
 output_dir="$5"
 
 
+
+
 file="$1"
 
 
@@ -232,6 +234,13 @@ echo "  - Coord plane :  Lat $lat_plane / Lon $lon_plane | Lat $lat_plane_rot / 
 echo "  - Coord runway:  Lat $lat_runwa / Lon $lon_runwa | Lat $lat_runwa_rot / Lon $lon_runwa_rot"
 echo "  - Coord correc:  Lat $lat_fix / Lon $lon_fix"
 echo "  - Rotation    :  $rot_fix"
+
+
+osm_left="$(   	echo "$point_lon" 	| awk '{ printf "%.3f\n", $1 }' )"
+osm_bottom="$( 	echo "$lowright_lat"	| awk '{ printf "%.3f\n", $1 }' )"
+osm_right="$(	echo "$lowright_lon" 	| awk '{ printf "%.6f\n", $1 }' )"
+osm_top="$( 	echo "$point_lat"	| awk '{ printf "%.6f\n", $1 }' )"
+
 
 
 nfo_file="$tiles_dir/tile_"$point_lat"_"$point_lon"_"$lowright_lat"_"$lowright_lon".nfo"
@@ -1149,9 +1158,8 @@ else
 fi
 
 
+
 #########################################################################3
-
-
 
 echo "Create path to coordinates..."
 
@@ -2941,8 +2949,148 @@ fi
 
 createKMLoutput END  "$KML_FILE"  #&& exit
 
+# Sorting DSF file and remove the duplicate
+dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
+
+#########################################################################3
 
 echo
+echo "Adding road from OpenStreetMap..."
+echo "Download roads information..."
+
+#BASE_URL="http://xapi.openstreetmap.org/api/0.5"
+#BASE_URL="http://www.informationfreeway.org/api/0.6"
+BASE_URL="http://api.openstreetmap.org/api/0.6" # /map?bbox=11.54,48.14,11.543,48.145"
+
+# ROAD DEFINITION
+
+ROAD_TYPE="
+railway-rail            56
+highway-residential     13
+highway-secondary       44
+highway-tertiary        47
+highway-trunk		13
+highway-unclassified    51
+"
+
+
+
+QUERY_URL="${BASE_URL}/map?bbox=$osm_left,$osm_bottom,$osm_right,$osm_top"
+md5road="$( echo "$osm_left,$osm_bottom,$osm_right,$osm_top" | md5sum | awk {'print $1'} )"
+road_file="$tiles_dir/$md5road.osm"	
+
+if [ ! -f "$road_file" ] ; then
+	echo "Store road in file $road_file ..."
+	wget -q --user-agent=Firefox -O "$road_file" "$QUERY_URL"
+fi
+
+
+echo "Load road file $road_file ..."
+XML_OUTPUT="$( cat "$road_file" | tr "\"" "\'"  )"
+
+echo "Get ways list..." 
+WAYS_START=( $( echo "$XML_OUTPUT" | grep -n "<way id=" | awk -F:  {'print $1'} | tr "\n" " " ) )
+WAYS_END=(   $( echo "$XML_OUTPUT" | grep -n "</way>"   | awk -F:  {'print $1'} | tr "\n" " " ) )
+
+echo "Get nodes list..."
+NODES="$(       echo "$XML_OUTPUT" | grep "node id="    | awk -F\' {'print $2" "$4" "$6'} )"
+
+for f in ${dfs_list[@]} ; do
+	[ "$MASH_SCENARY" = "no"  ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "BEGIN_POLYGON" | tail -n 1 | awk {'print $2'} )"
+        [ "$MASH_SCENARY" = "yes" ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "TERRAIN_DEF"   | grep -v "terrain_Water" | wc -l | awk {'print $1'} )"
+
+	begin="$[ $begin + 1 ]"
+
+	dsf_cont="$( cat "$output_dir/$output_sub_dir/${f}.txt" | sed -e s/"\/"/":"/g )"
+
+	# PROPERTY sim/exclude_net 13.000/40.000/14.000/41.000
+	for coord in west south east north ; do
+		val="$( echo "$dsf_cont" | grep "PROPERTY sim:$coord"  | awk {'print $3'})"
+		echo "$val.000"
+	done
+	# NETWORK_DEF lib/g8/roads.net
+	if [ "$MASH_SCENARY" = "yes" ] ; then
+		last_ter="$( echo "$dsf_cont" | grep "TERRAIN_DEF" | tail -n 1 | sed -e s/"\/"/":"/g )"
+	[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter\nNETWORK_DEF lib/g8/roads.net\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
+	[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter;NETWORK_DEF lib/g8/roads.net;"/g 		| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
+	fi
+	if [ "$MASH_SCENARY" = "no" ] ; then
+		echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g
+		first_pol="$( echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g )"
+		[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib/g8/roads.net\n$first_pol\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
+		[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib/g8/roads.net;$first_pol;"/g 	| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
+	
+
+	fi
+	unset dsf_cont
+
+
+	i="0"
+	while [ ! -z "${WAYS_START[$i]}" ]  ; do
+
+		CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
+
+
+		TAG_KEY=( $(    echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $2'} | tr "\n" " " ) )
+		TAG_VALUE=( $(  echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $4'} | tr "\n" " " ) )
+	
+		s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "highway" | awk -F: {'print $1'} )" 
+		[ -z "$s" ] && s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "railway" | awk -F: {'print $1'} )" 
+
+
+		if [ -z "$s" ] ; then
+		        echo "Not highway or railway, skip..."
+		        i="$[ $i + 1 ]"
+		        continue
+		fi
+
+		s="$[ $s  - 1 ]" 
+		rtype="$( echo "$ROAD_TYPE" | grep "^${TAG_KEY[$s]}-${TAG_VALUE[$s]}" | awk {'print $2'} )"
+
+
+		if [ -z "$rtype" ] ; then
+		        echo "Road ${TAG_KEY[$s]}-${TAG_VALUE[$s]} unknown"
+		        exit
+		fi
+
+		REF="$(     echo "$CONTENT"     | grep "<nd ref=" | awk -F\' {'print $2'} | tr "\n" " " )"
+
+		cnt="0"
+		WAY=()
+		ALT=()
+		for r in $REF ; do
+		        echo -n "." 
+		        WAY[$cnt]="$( echo "$NODES" | grep "^$r" | awk {'print $3" "$2'} )"
+			ALT[$cnt]="$( getAltitude ${WAY[$cnt]} )"
+		        cnt=$[ $cnt + 1 ]
+		done
+
+		cnt="1"
+		echo
+		echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[$cnt]}"
+		while [ "$cnt" -lt $[ ${#WAY[@]} - 1 ] ] ; do           
+		        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"
+		        cnt=$[ $cnt + 1 ]
+		done
+		begin=$[ $begin + 1 ]
+		echo "END_SEGMENT $begin ${WAY[$cnt]} ${ALT[$cnt]}"
+		begin=$[ $begin + 1 ]
+	
+
+		i="$[ $i + 1 ]"
+		echo 
+		echo "--------" 
+	done
+done
+
+
+exit
+
+
+#########################################################################3
+
+
+
 #		cnt_lat cnt_lon dim_meter pixsize
 # LOAD_CENTER 42.70321 -72.34234 4000 1024
 # ./ext_app/wine/usr/bin/wine  ./ext_app/xptools_apr08_win/DDSTool.exe --png2dxt Entebbe/img_0.01648743_32.43713040.png test.dds
@@ -2970,13 +3118,12 @@ echo
 #
 
 if [  ! -z "$dsftool" ] ; then
-	dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 	for i in ${dfs_list[@]} ; do
 		echo "Create DSF file \"$i\"..."
 		if [ "$( uname -s )" = "Linux" ] ; then
-			wine "$dsftool" --text2dsf "$output_dir/$output_sub_dir/$i".txt "$output_dir/$output_sub_dir/$i" 
+			wine "$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i" 
 		else
-			"$dsftool" --text2dsf "$output_dir/$output_sub_dir/$i".txt "$output_dir/$output_sub_dir/$i"
+			"$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i"
 		fi
 		echo "-------------------------------------------------------"
 	done
