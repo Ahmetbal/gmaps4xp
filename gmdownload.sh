@@ -635,10 +635,10 @@ createKMLoutput(){
 
 		echo -ne "\t<GroundOverlay>\n" >> "$file"
 		echo -ne "\t\t<name>$name</name>\n" >> "$file"
-		echo -ne "\t\t<Icon>\n"  >> "$file"
-		echo -ne "\t\t\t<href>$image</href>\n"  >> "$file"
+		#echo -ne "\t\t<Icon>\n"  >> "$file"
+		#echo -ne "\t\t\t<href>$image</href>\n"  >> "$file"
 				#<viewBoundScale>0.75</viewBoundScale>
-		echo -ne "\t\t</Icon>\n"  >> "$file"
+		#echo -ne "\t\t</Icon>\n"  >> "$file"
 
 		echo -ne "\t\t<LatLonBox>\n"  >> "$file"
 
@@ -1381,6 +1381,8 @@ if [ "$RESTORE" = "no" ] ; then
 			echo -ne "Step 3: $cnt / $tot...\r"
 			if [ ! -z "${poly[*]}" ] ; then	
 				info=( $( GetCoordinatesFromAddress $c2 ) )
+				# $lon $lat $lon_min $lat_min $lon_max $lat_max
+
 				for j in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'} | tr "\n" " " ) ; do
 					tmp_poly="$( echo ${poly[*]} | tr " " "\n" | grep "^${j}," | awk -F, {'print $2","$3'} | tr "\n" " " )"
 					inout="$( pointInPolygon "${info[2]}" "${info[3]}" "$tmp_poly" )"
@@ -3004,23 +3006,27 @@ for f in ${dfs_list[@]} ; do
 	dsf_cont="$( cat "$output_dir/$output_sub_dir/${f}.txt" | sed -e s/"\/"/":"/g )"
 
 	# PROPERTY sim/exclude_net 13.000/40.000/14.000/41.000
+	k="0"
 	for coord in west south east north ; do
-		val="$( echo "$dsf_cont" | grep "PROPERTY sim:$coord"  | awk {'print $3'})"
-		echo "$val.000"
+		val[$k]="$( echo "$dsf_cont" | grep "PROPERTY sim:$coord"  | awk {'print $3'}).000"
+		k=$[ $k + 1 ]
 	done
+	exclude_string="PROPERTY sim:exclude_net $( echo "${val[@]}" | tr " " ":" )"
+
+	[ "$( uname -s )" = "Linux" ]   && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent\n$exclude_string\n"/g )"
+	[ "$( uname -s )" = "Darwin" ]  && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent;$exclude_string;"/g )"
+
+
 	# NETWORK_DEF lib/g8/roads.net
 	if [ "$MASH_SCENARY" = "yes" ] ; then
 		last_ter="$( echo "$dsf_cont" | grep "TERRAIN_DEF" | tail -n 1 | sed -e s/"\/"/":"/g )"
-	[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter\nNETWORK_DEF lib/g8/roads.net\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
-	[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter;NETWORK_DEF lib/g8/roads.net;"/g 		| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
+		[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter\nNETWORK_DEF lib:g8:roads.net\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
+		[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter;NETWORK_DEF lib:g8:roads.net;"/g 		| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
 	fi
 	if [ "$MASH_SCENARY" = "no" ] ; then
-		echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g
 		first_pol="$( echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g )"
-		[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib/g8/roads.net\n$first_pol\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
-		[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib/g8/roads.net;$first_pol;"/g 	| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
-	
-
+		[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net\n$first_pol\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
+		[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net;$first_pol;"/g 	| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
 	fi
 	unset dsf_cont
 
@@ -3029,7 +3035,6 @@ for f in ${dfs_list[@]} ; do
 	while [ ! -z "${WAYS_START[$i]}" ]  ; do
 
 		CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
-
 
 		TAG_KEY=( $(    echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $2'} | tr "\n" " " ) )
 		TAG_VALUE=( $(  echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $4'} | tr "\n" " " ) )
@@ -3052,6 +3057,7 @@ for f in ${dfs_list[@]} ; do
 		        echo "Road ${TAG_KEY[$s]}-${TAG_VALUE[$s]} unknown"
 		        exit
 		fi
+		echo -n "Add ${TAG_KEY[$s]}-${TAG_VALUE[$s]} "
 
 		REF="$(     echo "$CONTENT"     | grep "<nd ref=" | awk -F\' {'print $2'} | tr "\n" " " )"
 
@@ -3060,31 +3066,53 @@ for f in ${dfs_list[@]} ; do
 		ALT=()
 		for r in $REF ; do
 		        echo -n "." 
-		        WAY[$cnt]="$( echo "$NODES" | grep "^$r" | awk {'print $3" "$2'} )"
+		        WAY[$cnt]="$( echo "$NODES" | grep "^$r" | awk '{ printf "%.7f %.7f", $3, $2 }')"
+			ori_lat="$( echo "${WAY[$cnt]}" | awk {'print $2'} )"
+			ori_lon="$( echo "${WAY[$cnt]}" | awk {'print $1'} )"
+
+			ori_lat="$( echo "scale = 8; $ori_lat + $lat_fix" | bc -l )"	
+			ori_lon="$( echo "scale = 8; $ori_lon + $lon_fix" | bc -l )"
+
+
+			if [ "$rot_fix" = "0" ] ; then
+				lat="$ori_lat"
+				lon="$ori_lon"
+			else
+				# With rotation...
+				lat="$( echo "scale = 8; $ori_lat - $lat_plane" | bc -l )"
+				lon="$( echo "scale = 8; $ori_lon - $lon_plane" | bc -l )"
+				lon="$( echo "scale = 8; $lon * c( ($pi/180) * $rot_fix ) - $lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+				lat="$( echo "scale = 8; $lon * s( ($pi/180) * $rot_fix ) + $lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+				lat="$( echo "scale = 8; $lat + $lat_plane" | bc -l )"
+				lon="$( echo "scale = 8; $lon + $lon_plane" | bc -l )"
+
+			fi
+				
+			[ "$( echo "scale = 6; ( ( $lon < ${val[0]} ) || ( $lon > ${val[2]} ) )" | bc )" = "1" ] && continue
+			[ "$( echo "scale = 6; ( ( $lat < ${val[1]} ) || ( $lat > ${val[3]} ) )" | bc )" = "1" ] && continue
+
+			WAY[$cnt]="$lon $lat"	
 			ALT[$cnt]="$( getAltitude ${WAY[$cnt]} )"
 		        cnt=$[ $cnt + 1 ]
 		done
+		echo
 
 		cnt="1"
-		echo
-		echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[$cnt]}"
+		echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[$cnt]}"	>> "$output_dir/$output_sub_dir/${f}.txt"
 		while [ "$cnt" -lt $[ ${#WAY[@]} - 1 ] ] ; do           
-		        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"
+		        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
 		        cnt=$[ $cnt + 1 ]
 		done
 		begin=$[ $begin + 1 ]
-		echo "END_SEGMENT $begin ${WAY[$cnt]} ${ALT[$cnt]}"
+		echo "END_SEGMENT $begin ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
 		begin=$[ $begin + 1 ]
 	
 
 		i="$[ $i + 1 ]"
-		echo 
-		echo "--------" 
 	done
 done
 
 
-exit
 
 
 #########################################################################3
