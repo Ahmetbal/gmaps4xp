@@ -398,13 +398,17 @@ fastAltitude(){
 #
 
 getAltitude(){
-        lon="$1"
-        lat="$2"
+        ori_lon="$1"
+       	ori_lat="$2"
+	lon="$( echo "$1" | awk '{ printf "%.4f", $1 }')"
+	lat="$( echo "$2" | awk '{ printf "%.4f", $1 }')"
+
 	#echo -n "0.00000000"
 	#return
-	#DEBUG="off"	
+	DEBUG="off"	
 
-	DEBUG="on"	
+	#DEBUG="on"	
+	#[ -f "$tiles_dir/info_${ori_lon}_${ori_lat}.alt" ] && mv -f "$tiles_dir/info_${ori_lon}_${ori_lat}.alt"  "$tiles_dir/info_${lon}_${lat}.alt"
 
         if [ -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
                 out=( $( cat "$tiles_dir/info_${lon}_${lat}.alt" ) )
@@ -1217,7 +1221,7 @@ if [ "$RESTORE" = "no" ] ; then
 	
 	while : ; do
 		echo "-----------------------------------------------------------"
-		echo "Pixel resolution: $( tile_resolution $cursor_reference ) meters..."
+		echo "Pixel resolution: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
 		echo "Use this URL to view an example: ${server}${cursor_reference}"
 		echo
 		while : ; do
@@ -1285,7 +1289,7 @@ if [ "$RESTORE" = "no" ] ; then
 		 [ "$( uname -s )" = "Darwin" ] && end_date="$( date -v+$[ $dim_x * $dim_y * $SLEEP_TIME ]S )"
 		
 		echo "Estimated end date for download tiles: $end_date..."
-		echo "Pixel resolution: $( tile_resolution $cursor_reference ) meters..."
+		echo "Pixel resolution: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
 		echo "Use this URL to view an example: $server$cursor_reference"
 		echo
 	
@@ -2175,24 +2179,28 @@ for x in $( seq 0 $dim_x ) ; do
 			                COORD[2]="${ul_lon} ${ul_lat}"
 			                COORD[3]="${ll_lon} ${ll_lat}"     
 
+			                mid_lon="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
+			                mid_lat="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
+					ALT="$( getAltitude $mid_lon $mid_lat )"
+
 			                # Search altitude
-			                ALT[0]="$( getAltitude ${COORD[0]} )"
-			                ALT[1]="$( getAltitude ${COORD[1]} )"
-			                ALT[2]="$( getAltitude ${COORD[2]} )"
-			                ALT[3]="$( getAltitude ${COORD[3]} )"
+			                # ALT[0]="$( getAltitude ${COORD[0]} )"
+			                # ALT[1]="$( getAltitude ${COORD[1]} )"
+			                # ALT[2]="$( getAltitude ${COORD[2]} )"
+			                # ALT[3]="$( getAltitude ${COORD[3]} )"
 
 
 					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]}
 
-			                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
-			               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
-			                addLine "PATCH_VERTEX ${COORD[0]} ${ALT[0]} 0 0"
+			                addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
+			               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
+			                addLine "PATCH_VERTEX ${COORD[0]} $ALT 0 0"
 
 					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 
-			    		addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
-			              	addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
-			               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
+			    		addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
+			              	addLine "PATCH_VERTEX ${COORD[2]} $ALT 0 0"
+			               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
 
 				       	addLine "END_PRIMITIVE"
 				       	addLine "END_PATCH"
@@ -2803,24 +2811,29 @@ for cursor in ${split_tile[@]} ; do
 				                COORD[2]="${ul_lon} ${ul_lat}"
 				                COORD[3]="${ll_lon} ${ll_lat}"     
 
+
+				                mid_lon="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
+				                mid_lat="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
+						ALT="$( getAltitude $mid_lon $mid_lat )"
+
 				                # Search altitude
-				                ALT[0]="$( getAltitude ${COORD[0]} )"
-				                ALT[1]="$( getAltitude ${COORD[1]} )"
-				                ALT[2]="$( getAltitude ${COORD[2]} )"
-				                ALT[3]="$( getAltitude ${COORD[3]} )"
+				                # ALT[0]="$( getAltitude ${COORD[0]} )"
+				                # ALT[1]="$( getAltitude ${COORD[1]} )"
+				                # ALT[2]="$( getAltitude ${COORD[2]} )"
+				                # ALT[3]="$( getAltitude ${COORD[3]} )"
 
 
 						createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]}
 
-				                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
-				               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
-				                addLine "PATCH_VERTEX ${COORD[0]} ${ALT[0]} 0 0"
+				                addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
+				               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
+				                addLine "PATCH_VERTEX ${COORD[0]} $ALT 0 0"
 	
 						createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 	
-				    		addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
-				              	addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
-				               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
+				    		addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
+				              	addLine "PATCH_VERTEX ${COORD[2]} $ALT 0 0"
+				               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
 
 					       	addLine "END_PRIMITIVE"
 					       	addLine "END_PATCH"
@@ -2957,8 +2970,7 @@ dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 #########################################################################3
 
 echo
-echo "Adding road from OpenStreetMap..."
-echo "Download roads information..."
+echo "Adding roads from OpenStreetMap..."
 
 #BASE_URL="http://xapi.openstreetmap.org/api/0.5"
 #BASE_URL="http://www.informationfreeway.org/api/0.6"
@@ -2973,17 +2985,22 @@ highway-secondary       44
 highway-tertiary        47
 highway-trunk		13
 highway-unclassified    51
+highway-trunk_link	50
+highway-motorway_link	50
+highway-service		47
+highway-motorway	1
 "
-
-
+# To define:
+# highway-primary
 
 QUERY_URL="${BASE_URL}/map?bbox=$osm_left,$osm_bottom,$osm_right,$osm_top"
 md5road="$( echo "$osm_left,$osm_bottom,$osm_right,$osm_top" | md5sum | awk {'print $1'} )"
 road_file="$tiles_dir/$md5road.osm"	
 
 if [ ! -f "$road_file" ] ; then
-	echo "Store road in file $road_file ..."
+	echo "Download roads information..."
 	wget -q --user-agent=Firefox -O "$road_file" "$QUERY_URL"
+	echo "Store road in file $road_file ..."
 fi
 
 
@@ -2993,6 +3010,7 @@ XML_OUTPUT="$( cat "$road_file" | tr "\"" "\'"  )"
 echo "Get ways list..." 
 WAYS_START=( $( echo "$XML_OUTPUT" | grep -n "<way id=" | awk -F:  {'print $1'} | tr "\n" " " ) )
 WAYS_END=(   $( echo "$XML_OUTPUT" | grep -n "</way>"   | awk -F:  {'print $1'} | tr "\n" " " ) )
+echo "Found ${#WAYS_START[@]} ways ..."
 
 echo "Get nodes list..."
 NODES="$(       echo "$XML_OUTPUT" | grep "node id="    | awk -F\' {'print $2" "$4" "$6'} )"
@@ -3034,7 +3052,13 @@ for f in ${dfs_list[@]} ; do
 	i="0"
 	while [ ! -z "${WAYS_START[$i]}" ]  ; do
 
-		CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
+		way_file="$tiles_dir/$md5road-${WAYS_START[$i]}-${WAYS_END[$i]}.osm"     
+		if [ ! -f "$way_file" ] ; then
+			CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
+			echo "$CONTENT" > "$way_file"
+		else
+			CONTENT="$( cat "$way_file" )"
+		fi
 
 		TAG_KEY=( $(    echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $2'} | tr "\n" " " ) )
 		TAG_VALUE=( $(  echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $4'} | tr "\n" " " ) )
@@ -3048,16 +3072,22 @@ for f in ${dfs_list[@]} ; do
 		        i="$[ $i + 1 ]"
 		        continue
 		fi
-
 		s="$[ $s  - 1 ]" 
-		rtype="$( echo "$ROAD_TYPE" | grep "^${TAG_KEY[$s]}-${TAG_VALUE[$s]}" | awk {'print $2'} )"
 
+
+		[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-footway" ] 	&& echo "$i - highway-footway skip..." && i="$[ $i + 1 ]" 	&& continue
+		[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-pedestrian" ] 	&& echo "$i - highway-pedestrian skip..." && i="$[ $i + 1 ]" 	&& continue
+
+
+		rtype="$( echo "$ROAD_TYPE" | awk {'print $1"- "$2'} | grep "^${TAG_KEY[$s]}-${TAG_VALUE[$s]}-" | awk {'print $2'} )"
 
 		if [ -z "$rtype" ] ; then
 		        echo "Road ${TAG_KEY[$s]}-${TAG_VALUE[$s]} unknown"
-		        exit
+			i="$[ $i + 1 ]"
+			continue
+		        #exit
 		fi
-		echo -n "Add ${TAG_KEY[$s]}-${TAG_VALUE[$s]} "
+		echo -n "$i - Add ${TAG_KEY[$s]}-${TAG_VALUE[$s]} "
 
 		REF="$(     echo "$CONTENT"     | grep "<nd ref=" | awk -F\' {'print $2'} | tr "\n" " " )"
 
@@ -3098,7 +3128,7 @@ for f in ${dfs_list[@]} ; do
 		echo
 
 		cnt="1"
-		echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[$cnt]}"	>> "$output_dir/$output_sub_dir/${f}.txt"
+		echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[0]}"	>> "$output_dir/$output_sub_dir/${f}.txt"
 		while [ "$cnt" -lt $[ ${#WAY[@]} - 1 ] ] ; do           
 		        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
 		        cnt=$[ $cnt + 1 ]
@@ -3118,32 +3148,6 @@ done
 #########################################################################3
 
 
-
-#		cnt_lat cnt_lon dim_meter pixsize
-# LOAD_CENTER 42.70321 -72.34234 4000 1024
-# ./ext_app/wine/usr/bin/wine  ./ext_app/xptools_apr08_win/DDSTool.exe --png2dxt Entebbe/img_0.01648743_32.43713040.png test.dds
-#if [  ! -z "$ddstool" ] ; then
-#	echo "Conversion from PNG to DDS file..."
-#	MASH_SCENARY="yes"
-#	if [ "$MASH_SCENARY" = "yes" ] ; then
-#		echo "ciao"
-#	else
-#		for png in $output_dir/*.png ; do
-#			echo "$png"
-#			dds="$( echo "$png" | sed -e s/".png"/".dds"/g )"
-#			pol="$( echo "$png" | sed -e s/"img_"/"poly_"/g | sed -e s/".png"/".pol"/g )"
-#			echo "Create DDS file \"$( basename -- $dds )\"..."
-#			if [ "$( uname -s )" = "Linux" ] ; then
-#				wine "$ddstool" --png2dxt "$png" "$dds"
-#			else
-#				"$ddstool" --png2dxt "$png" "$dds"
-#			fi
-#			sed -e s/"$( basename -- "$png" )"/"$( basename -- "$dds" )"/g -i "$pol"
-#		done
-#
-#	fi
-#fi
-#
 
 if [  ! -z "$dsftool" ] ; then
 	for i in ${dfs_list[@]} ; do
