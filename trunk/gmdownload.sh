@@ -9,7 +9,6 @@ url="http://khm.google.com/kh?v=3&t="
 servers_tile=( khm0.google.com khm1.google.com khm2.google.com khm3.google.com )
 servers_maps=( mt0.google.com  mt1.google.com  mt2.google.com  mt3.google.com  )
 
-
 server_index="0"
 SLEEP_TIME="20"
 MAX_PERC_COVER="1"
@@ -437,7 +436,9 @@ getAltitude(){
 		fi
         fi
         if [ "$out" != "${out#*.}" ] ; then
-                out="${out%.*}.$( echo "${out#*.}" | cut -c -8 )"
+                # out="${out%.*}.$( echo "${out#*.}" | cut -c -8 )"
+                # out="$( echo "$out" | awk '{ printf "%.8f", $1 }')"
+		out="${out%.*}.00000000"
         else
                 out="$out.00000000" 
         fi
@@ -1072,7 +1073,11 @@ getDSFName(){
 	echo "$lat$lon.dsf"
 }
 upDateServer(){
+	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
+	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
+
 	server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
 
@@ -1600,6 +1605,7 @@ for cursor_huge in ${good_tile[@]} ; do
 
 	# Uncommend if you want force recreation
 	# rm -fr "$tiles_dir/tile-$cursor_huge.png"
+
 	if [ -f "$tiles_dir/tile-$cursor_huge.png" ] ; then
 		[ "$( testImage "$tiles_dir/tile-$cursor_huge.png" )" != "good" ] && rm -f "$tiles_dir/tile-$cursor_huge.png"
 	fi
@@ -1625,7 +1631,7 @@ for cursor_huge in ${good_tile[@]} ; do
 					if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 						echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"	
 					else
-						convert  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
+						convert  -fuzz 8%  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
 					fi
 					echo -n "Done "
 				fi
@@ -2112,7 +2118,7 @@ for x in $( seq 0 $dim_x ) ; do
 			                ALT[3]="$( getAltitude ${COORD[3]} )"
 
 					
-					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
+					# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
 
  			                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
 			               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
@@ -2125,7 +2131,7 @@ for x in $( seq 0 $dim_x ) ; do
 					fi
 					ptri="$[ $ptri + 1 ]"
 
-					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
+					# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 
 			                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
 			                addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
@@ -2164,48 +2170,109 @@ for x in $( seq 0 $dim_x ) ; do
 					[ "$( echo "scale = 8; ( $ul_lat > 0 ) && ( $lr_lat < 0 ) " | bc -l )" != "1" ] 	&& \
 					[ "$( echo "scale = 8; ( $lr_lon > 0 ) && ( $ul_lon < 0 ) " | bc -l )" != "1" ]	 ; then
 
-					echo -n "$[ $cnt + 1 ] / $tot Create mash water..."
-					echo
+					echo -n "$[ ${#FINAL_TRIANGLES[@]} + 1 ] / $tot Create mash water "
+
+
+					mesh_level="0"
+				        mesh=""
+				        new_vertex=""
+					POINTS=( "${lr_lon},${lr_lat}_1.00000000,0.00000000" "${ur_lon},${ur_lat}_1.00000000,1.00000000" "${ul_lon},${ul_lat}_0.00000000,1.00000000" "${ll_lon},${ll_lat}_0.00000000,0.00000000" )
+				       	if [ "${#POINTS[@]}" != "4" ] ; then
+	                			echo "ERROR: POINTS corrupted..."
+				                exit 5
+	
+				        fi
+				        vertex="$( echo "${POINTS[@]}"  | tr " " ";" )"
+					md5mesh="$( echo "$MESH_LEVEL ${POINTS[@]}" | md5sum | awk {'print $1'} )"
+					mesh_file="$tiles_dir/$md5mesh.msh"	
+					if [ -f  "$mesh_file" ] ; then
+						mesh_tmp=( $( cat "$mesh_file" ) )
+						if [ "$( echo "scale = 8; ${#mesh_tmp[@]} == (4^$MESH_LEVEL)" | bc  )" != "1" ] ; then
+							rm -f "$mesh_file"
+						else
+							echo -n "from cache..."
+							mesh="${mesh_tmp[@]}"
+						fi
+								
+					fi
+					if [ ! -f  "$mesh_file" ] ; then
+					        while [ "$mesh_level" != "$MESH_LEVEL" ] ; do
+							echo -n "$mesh_level"
+					                for square in $vertex ; do
+				        	                POINTS=( $( echo "$square" | tr ";" " " ) )
+		                			        new_vertex="$new_vertex $( divideSquare ${POINTS[0]} ${POINTS[1]} ${POINTS[2]} ${POINTS[3]} )"
+				                	        echo -n "."
+				                	done
+				                	vertex="$new_vertex"
+							new_vertex=""
+				                	mesh_level="$[ $mesh_level + 1 ]"		
+					        done
+					        mesh="$vertex"
+					        echo -n "$mesh" > "$mesh_file"
+					fi
 
 	
+					echo -n " Create triangles "
 
 					addLine
 				        addLine "BEGIN_PATCH 0   0.0 -1.0    1   5"
 				        addLine "BEGIN_PRIMITIVE 0"
+					pcount="1"
+					ptri="0"
+				        for square in $mesh ; do
+				                vertex=( $( echo "$square" | tr ";" " " ) )
 
-			                # fetch coordinates
-			                COORD[0]="${lr_lon} ${lr_lat}"
-			                COORD[1]="${ur_lon} ${ur_lat}"
-			                COORD[2]="${ul_lon} ${ul_lat}"
-			                COORD[3]="${ll_lon} ${ll_lat}"     
+				                vertex[0]="$( echo "${vertex[0]}" | tr "_" " " | tr "," "\t" )"
+				                vertex[1]="$( echo "${vertex[1]}" | tr "_" " " | tr "," "\t" )"
+				                vertex[2]="$( echo "${vertex[2]}" | tr "_" " " | tr "," "\t" )"
+				                vertex[3]="$( echo "${vertex[3]}" | tr "_" " " | tr "," "\t" )"
 
-			                mid_lon="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
-			                mid_lat="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
-					ALT="$( getAltitude $mid_lon $mid_lat )"
+				                # fetch coordinates
+				                COORD[0]="$( echo "${vertex[0]}" | awk {'print $1" "$2'} )"
+				                COORD[1]="$( echo "${vertex[1]}" | awk {'print $1" "$2'} )"
+				                COORD[2]="$( echo "${vertex[2]}" | awk {'print $1" "$2'} )"
+				                COORD[3]="$( echo "${vertex[3]}" | awk {'print $1" "$2'} )"     
 
-			                # Search altitude
-			                # ALT[0]="$( getAltitude ${COORD[0]} )"
-			                # ALT[1]="$( getAltitude ${COORD[1]} )"
-			                # ALT[2]="$( getAltitude ${COORD[2]} )"
-			                # ALT[3]="$( getAltitude ${COORD[3]} )"
+				                # Search altitude
+				                ALT[0]="$( getAltitude ${COORD[0]} )"
+				                ALT[1]="$( getAltitude ${COORD[1]} )"
+				                ALT[2]="$( getAltitude ${COORD[2]} )"
+				                ALT[3]="$( getAltitude ${COORD[3]} )"
 
+					
+						# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
 
-					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]}
+ 				                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
+				               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
+				                addLine "PATCH_VERTEX ${COORD[0]} ${ALT[0]} 0 0"
+						if [ "$ptri" = "84" ] ; then
+							addLine "END_PRIMITIVE"
+						        addLine "BEGIN_PRIMITIVE $pcount"
+							pcount="$[ $pcount + 1 ]"
+							ptri="0"
+						fi
+						ptri="$[ $ptri + 1 ]"
 
-			                addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
-			               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
-			                addLine "PATCH_VERTEX ${COORD[0]} $ALT 0 0"
+						# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 
-					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
+				                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
+				                addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
+				                addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
+						if [ "$ptri" = "84" ] ; then
+							addLine "END_PRIMITIVE"
+						        addLine "BEGIN_PRIMITIVE $pcount"
+							pcount="$[ $pcount + 1 ]"
+							ptri="0"
+						fi
+						ptri="$[ $ptri + 1 ]"
 
-			    		addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
-			              	addLine "PATCH_VERTEX ${COORD[2]} $ALT 0 0"
-			               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
-
+ 
+				               echo -n "."
+				        done
+					echo
 				       	addLine "END_PRIMITIVE"
 				       	addLine "END_PATCH"
 				       	addLine
-
 
 				fi
 			fi
@@ -2235,6 +2302,9 @@ if [ ! -z "${split_tile[0]}" ] ; then
 	echo "Inserting removed images..."
 
 fi
+# Decomend to avoid insert image
+# split_tile=()
+
 for cursor in ${split_tile[@]} ; do
 	cnt="0"
 	prog="0"
@@ -2360,7 +2430,7 @@ for cursor in ${split_tile[@]} ; do
 							if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 								echo -n ""  >  "$tiles_dir/map-$c2.png"	
 							else
-								convert  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point  "$tiles_dir/map-$c2.png"
+								convert -fuzz 8% "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point  "$tiles_dir/map-$c2.png"
 							fi
 							echo "Done"
 							rm -f "$tiles_dir/${TMPFILE}.png"
@@ -2375,18 +2445,16 @@ for cursor in ${split_tile[@]} ; do
 				               	        sleep 1
 				               	done
 					fi
-					if [ "$WATER_MASK" = "yes" ] ; then
-						if [ "$( du -k  "$tiles_dir/map-$c2.png" | awk {'print $1'} )" != "0" ] ; then
-							convert  -layers mosaic "$tiles_dir/tile-$c2.png"  -format PNG32 -background transparent "$tiles_dir/tile-ww-$c2.png"
-							composite -compose Dst_In "$tiles_dir/map-$c2.png" "$tiles_dir/tile-ww-$c2.png" "$tiles_dir/${TMPFILE}.png"
-							rm -f "$tiles_dir/tile-ww-$c2.png"
-							convert "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$c2.png"
-							rm -f "$tiles_dir/${TMPFILE}.png"
-						else
-							cp -f "$( dirname -- "$0" )/ext_app/images/trans.png" "$tiles_dir/tile-$c2.png"
-						fi
+					if [ "$( du -k  "$tiles_dir/map-$c2.png" | awk {'print $1'} )" != "0" ] ; then
+						convert  -layers mosaic "$tiles_dir/tile-$c2.png"  -format PNG32 -background transparent "$tiles_dir/tile-ww-$c2.png"
+						composite -compose Dst_In "$tiles_dir/map-$c2.png" "$tiles_dir/tile-ww-$c2.png" "$tiles_dir/${TMPFILE}.png"
+						rm -f "$tiles_dir/tile-ww-$c2.png"
+						convert "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$c2.png"
+						rm -f "$tiles_dir/${TMPFILE}.jpg"
+						
+					else
+						cp -f "$( dirname -- "$0" )/ext_app/images/trans.png" "$tiles_dir/tile-$c2.png"
 					fi
-
 				fi
 
 
@@ -2418,8 +2486,6 @@ for cursor in ${split_tile[@]} ; do
 				                echo "BASE_TEX_NOWRAP $TEXTURE"         				>> "$TER_DIR/$TER"
 						echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"	>> "$TER_DIR/$TER"
 				       fi
-
-
 				fi
 
 
@@ -2797,47 +2863,118 @@ for cursor in ${split_tile[@]} ; do
 						[ "$( echo "scale = 8; ( $lr_lon > 0 ) && ( $ul_lon < 0 ) " | bc -l )" != "1" ]	 ; then
 
 						echo -n "$prog / $split_index / $tot Create mash water..."
-						echo
 
-	
+						mesh_level="0"
+					        mesh=""
+					        new_vertex=""
+						POINTS=( "${lr_lon},${lr_lat}_1.00000000,0.00000000" "${ur_lon},${ur_lat}_1.00000000,1.00000000" "${ul_lon},${ul_lat}_0.00000000,1.00000000" "${ll_lon},${ll_lat}_0.00000000,0.00000000" )
+					       	if [ "${#POINTS[@]}" != "4" ] ; then
+		                			echo "ERROR: POINTS corrupted..."
+					                exit 5
+
+					        fi
+
+					        vertex="$( echo "${POINTS[@]}"  | tr " " ";" )"
+						MESH_LEVEL_SUB="$[ $MESH_LEVEL - 2 ]"
+						[ "$( echo "scale = 8; ( $MESH_LEVEL_SUB < 0 )" | bc  )" = "1" ] && MESH_LEVEL_SUB="0"
+
+						md5mesh="$( echo "$MESH_LEVEL_SUB ${POINTS[@]}" | md5sum | awk {'print $1'} )"
+						mesh_file="$tiles_dir/$md5mesh.msh"	
+						if [ -f  "$mesh_file" ] ; then
+							mesh_tmp=( $( cat "$mesh_file" ) )
+							if [ "$( echo "scale = 8; ${#mesh_tmp[@]} == (4^$MESH_LEVEL_SUB)" | bc  )" != "1" ] ; then
+								rm -f "$mesh_file"
+							else
+								echo -n "from cache..."
+								mesh="${mesh_tmp[@]}"
+							fi
+									
+						fi
+
+						if [ ! -f  "$mesh_file" ] ; then	
+							if [ "$MESH_LEVEL_SUB" = "0" ] ; then
+								mesh="${lr_lon},${lr_lat},1.00000000,0.00000000;${ur_lon},${ur_lat},1.00000000,1.00000000;${ul_lon},${ul_lat},0.00000000,1.00000000;${ll_lon},${ll_lat},0.00000000,0.00000000;"
+							else
+							        while [ "$mesh_level" != "$MESH_LEVEL_SUB" ] ; do
+									echo -n "$mesh_level"
+							                for square in $vertex ; do
+						        	                POINTS=( $( echo "$square" | tr ";" " " ) )
+				                			        new_vertex="$new_vertex $( divideSquare ${POINTS[0]} ${POINTS[1]} ${POINTS[2]} ${POINTS[3]} )"
+						                	        echo -n "."
+						                	done
+						                	vertex="$new_vertex"
+									new_vertex=""
+						                	mesh_level="$[ $mesh_level + 1 ]"		
+							        done
+							        mesh="$vertex"
+								echo -n "$mesh" > "$mesh_file"
+							fi
+						fi
+
+
+						echo -n " Create triangles "
 
 						addLine
 					        addLine "BEGIN_PATCH 0   0.0 -1.0    1   5"
 					        addLine "BEGIN_PRIMITIVE 0"
+						pcount="1"
+						ptri="0"
+					        for square in $mesh ; do
+					                vertex=( $( echo "$square" | tr ";" " " ) )
 
-				                # fetch coordinates
-				                COORD[0]="${lr_lon} ${lr_lat}"
-				                COORD[1]="${ur_lon} ${ur_lat}"
-				                COORD[2]="${ul_lon} ${ul_lat}"
-				                COORD[3]="${ll_lon} ${ll_lat}"     
+					                vertex[0]="$( echo "${vertex[0]}" | tr "_" " " | tr "," "\t" )"
+					                vertex[1]="$( echo "${vertex[1]}" | tr "_" " " | tr "," "\t" )"
+					                vertex[2]="$( echo "${vertex[2]}" | tr "_" " " | tr "," "\t" )"
+					                vertex[3]="$( echo "${vertex[3]}" | tr "_" " " | tr "," "\t" )"
 
+					                # fetch coordinates
+					                COORD[0]="$( echo "${vertex[0]}" | awk {'print $1" "$2'} )"
+					                COORD[1]="$( echo "${vertex[1]}" | awk {'print $1" "$2'} )"
+					                COORD[2]="$( echo "${vertex[2]}" | awk {'print $1" "$2'} )"
+					                COORD[3]="$( echo "${vertex[3]}" | awk {'print $1" "$2'} )"     
 
-				                mid_lon="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
-				                mid_lat="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
-						ALT="$( getAltitude $mid_lon $mid_lat )"
+					                # Search altitude
+					                ALT[0]="$( getAltitude ${COORD[0]} )"
+					                ALT[1]="$( getAltitude ${COORD[1]} )"
+					                ALT[2]="$( getAltitude ${COORD[2]} )"
+					                ALT[3]="$( getAltitude ${COORD[3]} )"
 
-				                # Search altitude
-				                # ALT[0]="$( getAltitude ${COORD[0]} )"
-				                # ALT[1]="$( getAltitude ${COORD[1]} )"
-				                # ALT[2]="$( getAltitude ${COORD[2]} )"
-				                # ALT[3]="$( getAltitude ${COORD[3]} )"
+					
+							createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
 
+		 			                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
+					               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
+					                addLine "PATCH_VERTEX ${COORD[0]} ${ALT[0]} 0 0"
+							if [ "$ptri" = "84" ] ; then
+								addLine "END_PRIMITIVE"
+							        addLine "BEGIN_PRIMITIVE $pcount"
+								pcount="$[ $pcount + 1 ]"
+								ptri="0"
+							fi
+							ptri="$[ $ptri + 1 ]"
 
-						createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]}
+							createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 
-				                addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
-				               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
-				                addLine "PATCH_VERTEX ${COORD[0]} $ALT 0 0"
-	
-						createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
-	
-				    		addLine "PATCH_VERTEX ${COORD[3]} $ALT 0 0"
-				              	addLine "PATCH_VERTEX ${COORD[2]} $ALT 0 0"
-				               	addLine "PATCH_VERTEX ${COORD[1]} $ALT 0 0"
+					                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
+					                addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
+					                addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
+							if [ "$ptri" = "84" ] ; then
+								addLine "END_PRIMITIVE"
+							        addLine "BEGIN_PRIMITIVE $pcount"
+								pcount="$[ $pcount + 1 ]"
+								ptri="0"
+							fi
+							ptri="$[ $ptri + 1 ]"
 
-					       	addLine "END_PRIMITIVE"
-					       	addLine "END_PATCH"
-					       	addLine
+ 
+					               echo -n "."
+					        done
+
+					        addLine "END_PRIMITIVE"
+					        addLine "END_PATCH"
+					        addLine
+						echo
+
 
 					fi
 				fi
@@ -2874,13 +3011,14 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 		echo "Filling mash triangle for file ${dfs_list[$j]} ..."
 		cnt="$( cat "$output_dir/$output_sub_dir/${dfs_list[$j]}.txt" | grep "BEGIN_PATCH" | tail -n 1 | awk {'print $2'} )"
 		[ -z "$cnt" ] && cnt="0"
-		
+	
 
 		tot=( ${dfs_triangle[$j]} )
 		tot="$[ ${#tot[@]} + $cnt ]"
 		for trix in ${dfs_triangle[$j]} ; do
 			triangle="${FINAL_TRIANGLES[$trix]}"
 		        addLine "BEGIN_PATCH $[ $cnt + 1 ]   0.0 -1.0     1 7"
+
 		        addLine "BEGIN_PRIMITIVE 0"
 		        mesh="$( echo "$triangle" | tr "#" " " )"
 		        echo -n "$[ $cnt + 1 ] / $tot Create triangles "
@@ -2917,6 +3055,8 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 	                	addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0 ${POS[3]}"
 	                	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0 ${POS[1]}"
 	                	addLine "PATCH_VERTEX ${COORD[0]} ${ALT[0]} 0 0 ${POS[0]}"
+
+
 				if [ "$ptri" = "84" ] ; then
 					addLine "END_PRIMITIVE"
 				        addLine "BEGIN_PRIMITIVE $pcount"
