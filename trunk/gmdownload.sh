@@ -1805,6 +1805,9 @@ for x in $( seq 0 $dim_x ) ; do
 
 		fi
 
+		CROSSED_TILE_UL=( ${CROSSED_TILE_UL[@]} ${c2}_${ul_lon},${ul_lat} )
+
+
 		if [ -f "$tiles_dir/tile-$c2.png" ] && [ ! -z "$( echo "${good_tile[@]}" | tr " " "\n" | grep "$c2" )" ] ; then
 			POL_FILE="poly_${point_lat}_${point_lon}.pol"
 			TEXTURE="img_${point_lat}_${point_lon}.dds"
@@ -1971,46 +1974,6 @@ for x in $( seq 0 $dim_x ) ; do
 			[ -z "$( echo "${ll_lon%.*}" | tr -d "-" )" ] && ll_lon="$( echo "$ll_lon" | sed -e s/"\."/"0\."/g )" 
 
 
-			sf_ul_lat="$ul_lat"
-			sf_ul_lon="$ul_lon"
-                                         
-			sf_ur_lat="$ur_lat"
-			sf_ur_lon="$ur_lon"
-                                         
-			sf_lr_lat="$lr_lat"
-			sf_lr_lon="$lr_lon"			
-                                         
-			sf_ll_lat="$ll_lat"
-			sf_ll_lon="$ll_lon"
-
-
-			[ "$( echo "${sf_ul_lat%.*}" | tr -d "-" )" = "0" ] && sf_ul_lat="$( echo "scale = 8; $( abs $sf_ul_lat ) + 1" | bc  )"
-		        [ "$( echo "${sf_ul_lon%.*}" | tr -d "-" )" = "0" ] && sf_ul_lon="$( echo "scale = 8; $( abs $sf_ul_lon ) + 1" | bc  )"
-                                                                                                                              
-       			[ "$( echo "${sf_ur_lat%.*}" | tr -d "-" )" = "0" ] && sf_ur_lat="$( echo "scale = 8; $( abs $sf_ur_lat ) + 1" | bc  )"
-		        [ "$( echo "${sf_ur_lon%.*}" | tr -d "-" )" = "0" ] && sf_ur_lon="$( echo "scale = 8; $( abs $sf_ur_lon ) + 1" | bc  )"
-                                                                                                                              
-		        [ "$( echo "${sf_lr_lat%.*}" | tr -d "-" )" = "0" ] && sf_lr_lat="$( echo "scale = 8; $( abs $sf_lr_lat ) + 1" | bc  )"
-		        [ "$( echo "${sf_lr_lon%.*}" | tr -d "-" )" = "0" ] && sf_lr_lon="$( echo "scale = 8; $( abs $sf_lr_lon ) + 1" | bc  )"
-	                                                                                                                      
-		        [ "$( echo "${sf_ll_lat%.*}" | tr -d "-" )" = "0" ] && sf_ll_lat="$( echo "scale = 8; $( abs $sf_ll_lat ) + 1" | bc  )"
-		        [ "$( echo "${sf_ll_lon%.*}" | tr -d "-" )" = "0" ] && sf_ll_lon="$( echo "scale = 8; $( abs $sf_ll_lon ) + 1" | bc  )"
-
-
-
-
-			[ "$( echo "scale = 8; ( ${sf_ul_lat%.*} /  $sf_ul_lat ) > 0.9999" | bc  )" = "1" ] && ul_lat="${ul_lat%.*}.00000000" 
-			[ "$( echo "scale = 8; ( ${sf_ul_lon%.*} /  $sf_ul_lon ) > 0.9999" | bc  )" = "1" ] && ul_lon="${ul_lon%.*}.00000000" 
-
-			[ "$( echo "scale = 8; ( ${sf_ur_lat%.*} /  $sf_ur_lat ) > 0.9999" | bc  )" = "1" ] && ur_lat="${ur_lat%.*}.00000000" 
-			[ "$( echo "scale = 8; ( ${sf_ur_lon%.*} /  $sf_ur_lon ) > 0.9999" | bc  )" = "1" ] && ur_lon="${ur_lon%.*}.00000000" 
-
-			[ "$( echo "scale = 8; ( ${sf_lr_lat%.*} /  $sf_lr_lat ) > 0.9999" | bc  )" = "1" ] && lr_lat="${lr_lat%.*}.00000000" 
-			[ "$( echo "scale = 8; ( ${sf_lr_lon%.*} /  $sf_lr_lon ) > 0.9999" | bc  )" = "1" ] && lr_lon="${lr_lon%.*}.00000000" 
-
-			[ "$( echo "scale = 8; ( ${sf_ll_lat%.*} /  $sf_ll_lat ) > 0.9999" | bc  )" = "1" ] && ll_lat="${ll_lat%.*}.00000000" 
-			[ "$( echo "scale = 8; ( ${sf_ll_lon%.*} /  $sf_ll_lon ) > 0.9999" | bc  )" = "1" ] && ll_lon="${ll_lon%.*}.00000000" 
-
 
 			if [ "$MASH_SCENARY" = "no" ] ; then
 				echo -ne "$prog / $tot: Create polygon (.pol) file \"$POL_FILE\"...                          \r"
@@ -2118,7 +2081,7 @@ for x in $( seq 0 $dim_x ) ; do
 			                ALT[3]="$( getAltitude ${COORD[3]} )"
 
 					
-					# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
+					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
 
  			                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
 			               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
@@ -2131,7 +2094,7 @@ for x in $( seq 0 $dim_x ) ; do
 					fi
 					ptri="$[ $ptri + 1 ]"
 
-					# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
+					createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 
 			                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
 			                addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
@@ -2240,7 +2203,7 @@ for x in $( seq 0 $dim_x ) ; do
 				                ALT[3]="$( getAltitude ${COORD[3]} )"
 
 					
-						# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
+						createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[1]} ${COORD[0]} 
 
  				                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
 				               	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0"
@@ -2253,7 +2216,7 @@ for x in $( seq 0 $dim_x ) ; do
 						fi
 						ptri="$[ $ptri + 1 ]"
 
-						# createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
+						createKMLoutput TRI "$KML_FILE" ${COORD[3]} ${COORD[2]} ${COORD[1]}
 
 				                addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0"
 				                addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0"
@@ -2305,6 +2268,7 @@ fi
 # Decomend to avoid insert image
 # split_tile=()
 
+
 for cursor in ${split_tile[@]} ; do
 	cnt="0"
 	prog="0"
@@ -2314,6 +2278,10 @@ for cursor in ${split_tile[@]} ; do
         point_lat="${info[3]}"
 	dfs_file="mariocavicchi"
 	dfs_dir="$( getDirName "$point_lat" "$point_lon" )"
+	UL_big="$( echo "${CROSSED_TILE_UL[@]}" | tr  " " "\n" | grep "^$cursor" | awk -F_ {'print $2'} )"
+	UL_lon_big="${UL_big%,*}"
+	UL_lat_big="${UL_big#*,}" 
+
 	x_after=""
 	y_after=""
 	output_index="0"
@@ -2335,9 +2303,15 @@ for cursor in ${split_tile[@]} ; do
 			[ -z "$( echo "${point_lat%.*}" | tr -d "-" )" ] && point_lat="$( echo "$point_lat" | sed -e s/"\."/"0\."/g )" 
 
 			if [ "$x" = "0" ] ; then
+
 				if [ "$y" = "0" ] ; then
-					ori_ul_lon="$( echo "scale = 8; ${info[2]} + $lon_fix" | bc -l )"
-					ori_ul_lat="$( echo "scale = 8; ${info[3]} + $lat_fix" | bc -l )"
+					if [ ! -z "$UL_lon_big" ] && [ ! -z "$UL_lat_big" ] ; then
+						ori_ul_lon="$UL_lon_big"
+						ori_ul_lat="$UL_lat_big"
+					else
+						ori_ul_lon="$( echo "scale = 8; ${info[2]} + $lon_fix" | bc -l )"
+						ori_ul_lat="$( echo "scale = 8; ${info[3]} + $lat_fix" | bc -l )"
+					fi
 				else
 					ori_ul_lon="$ori_ul_lon"
 					ori_ul_lat="$ori_lr_lat"
@@ -2345,7 +2319,6 @@ for cursor in ${split_tile[@]} ; do
 			else
 				if [ "$y" = "0" ] ; then
 					ori_ul_lon="$ori_lr_lon"
-					#ori_ul_lat="$ori_ul_lat"
 					ori_ul_lat="$zero_line_lat"
 	
 				else
@@ -2356,10 +2329,12 @@ for cursor in ${split_tile[@]} ; do
 			[ "$y" = "0" ] && zero_line_lat="$ori_ul_lat"
 
 
+
+
 			ori_lr_lon="$( echo "scale = 8; ${info[4]} + $lon_fix" | bc -l )"
 			ori_lr_lat="$( echo "scale = 8; ${info[5]} + $lat_fix" | bc -l )"
 		
-
+			
 	
 
 			if [ "$rot_fix" = "0" ] ; then
@@ -2616,7 +2591,6 @@ for cursor in ${split_tile[@]} ; do
 
 				[ -z "$( echo "${ll_lat%.*}" | tr -d "-" )" ] && ll_lat="$( echo "$ll_lat" | sed -e s/"\."/"0\."/g )" 
 				[ -z "$( echo "${ll_lon%.*}" | tr -d "-" )" ] && ll_lon="$( echo "$ll_lon" | sed -e s/"\."/"0\."/g )" 
-
 
 
 
