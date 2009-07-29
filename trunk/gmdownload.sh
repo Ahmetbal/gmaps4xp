@@ -978,6 +978,8 @@ GetCoordinatesFromAddress(){
 
 	str="$1"
 	ori_str="tile-$str.crd" 
+
+	rm -f "$tiles_dir/$ori_str"
 	if [ -f "$tiles_dir/$ori_str" ] ; then
 		crd=( $( cat  "$tiles_dir/$ori_str" ) )
 
@@ -1006,17 +1008,18 @@ GetCoordinatesFromAddress(){
 		str="${str:1}" 
 	done
 	
-	lon_min="$( echo "scale = $prec ; ($x - 0.5) * 360"  | bc -l )"
-	lat_min="$( NormalToMercator $y )"
-	lon_max="$( echo "scale = $prec ; ( $x + $scale - 0.5 ) * 360"  | bc -l )"
-	lat_max="$( NormalToMercator $(  echo "scale = $prec ; $y + $scale" | bc -l ) )"
-	lon="$( echo "scale = $prec ;  ($x + $scale * 0.5 - 0.5) * 360"  | bc -l )"
-	lat="$( NormalToMercator $( echo "scale = $prec ;  $y + $scale * 0.5" | bc -l ) )"
+	lon_min="$( echo "scale = $prec ; ($x - 0.5) * 360"  | bc -l 			| awk '{ printf "%.8f", $1 }' )"
+	lat_min="$( NormalToMercator $y 						| awk '{ printf "%.8f", $1 }' )"
+	lon_max="$( echo "scale = $prec ; ( $x + $scale - 0.5 ) * 360"  | bc -l 	| awk '{ printf "%.8f", $1 }' )"
+	lat_max="$( NormalToMercator $(  echo "scale = $prec ; $y + $scale" | bc -l ) 	| awk '{ printf "%.8f", $1 }' )"
+	lon="$( echo "scale = $prec ;  ($x + $scale * 0.5 - 0.5) * 360"  | bc -l 	| awk '{ printf "%.8f", $1 }' )"
+	lat="$( NormalToMercator $( echo "scale = $prec ;  $y + $scale * 0.5" | bc -l ) | awk '{ printf "%.8f", $1 }' )"
 
 	#	0   1    2       3         4        5
 	echo "$lon $lat $lon_min $lat_min $lon_max $lat_max" > "$tiles_dir/$ori_str"
 	echo "$lon $lat $lon_min $lat_min $lon_max $lat_max"
 }
+
 
 getDirName(){
 	lat="$1"
@@ -1072,6 +1075,7 @@ getDSFName(){
 
 	echo "$lat$lon.dsf"
 }
+
 upDateServer(){
 	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
@@ -1081,40 +1085,39 @@ upDateServer(){
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
 
-
-tile_resolution(){  
+tile_size(){  
 	RAGGIO_QUADRATICO_MEDIO="6372.795477598"
 	info=( $( GetCoordinatesFromAddress $1 ) )
 
+	# $lon $lat $lon_min $lat_min $lon_max $lat_max
 
 	decLonA="${info[2]}"
 	decLatA="${info[3]}"
 
-	decLonB="${info[4]}"
-	decLatB="${info[3]}"
-
-	radLatA="$( echo "scale = 16; $pi * $decLatA / 180" | bc -l )"  
-	radLonA="$( echo "scale = 16; $pi * $decLonA / 180" | bc -l )"
-	radLatB="$( echo "scale = 16; $pi * $decLatB / 180" | bc -l )"
-	radLonB="$( echo "scale = 16; $pi * $decLonB / 180" | bc -l )"
-  	phi="$( echo "scale = 16;  $radLonA - $radLonB" | bc -l | tr -d "-" )"  
-	P="$( echo "scale = 16; (s($radLatA) * s($radLatB)) +  (c($radLatA) * c($radLatB) * c($phi))" | bc -l )"
-	P1="$( echo "scale = 16; a( ( $P * -1 )/sqrt( ( $P * -1 ) * $P + 1 ) ) + 2 *a(1)" | bc -l )"
-	
-	decLonA="${info[2]}"
-	decLatA="${info[3]}"
 	decLonB="${info[2]}"
+
 	decLatB="${info[5]}"
-	radLatA="$( echo "scale = 16; $pi * $decLatA / 180" | bc -l )"  
-	radLonA="$( echo "scale = 16; $pi * $decLonA / 180" | bc -l )"
-	radLatB="$( echo "scale = 16; $pi * $decLatB / 180" | bc -l )"
-	radLonB="$( echo "scale = 16; $pi * $decLonB / 180" | bc -l )"
-  	phi="$( echo "scale = 16;  $radLonA - $radLonB" | bc -l | tr -d "-" )"  
-	P="$( echo "scale = 16; (s($radLatA) * s($radLatB)) +  (c($radLatA) * c($radLatB) * c($phi))" | bc -l )"
-	P2="$( echo "scale = 16; a( ( $P * -1 )/sqrt( ( $P * -1 ) * $P + 1 ) ) + 2 *a(1)" | bc -l )"
-	echo "scale=16; ( $P1 * $RAGGIO_QUADRATICO_MEDIO ) * ( $P2 * $RAGGIO_QUADRATICO_MEDIO ) * 100000000 / (256*256)" | bc -l | rev | cut -c 12- | rev
+
+	
+   
+	radLatA="$( 	echo "scale = 16; $pi * $decLatA / 180" | bc -l )"  
+	radLonA="$( 	echo "scale = 16; $pi * $decLonA / 180" | bc -l )"
+	radLatB="$( 	echo "scale = 16; $pi * $decLatB / 180" | bc -l )"
+	radLonB="$( 	echo "scale = 16; $pi * $decLonB / 180" | bc -l )"
+
+  	phi="$( 	echo "scale = 16;  $radLonA - $radLonB" 						| bc -l | tr -d "-" )"  
+	P="$( 		echo "scale = 16; (s($radLatA) * s($radLatB)) +  (c($radLatA) * c($radLatB) * c($phi))" | bc -l )"
+	P="$( 		echo "scale = 16; a(-1 * $P / sqrt(-1 * $P * $P + 1)) + 2 * a(1)" 			| bc -l )"
+
+
+	echo "scale=16; $P * $RAGGIO_QUADRATICO_MEDIO * 1000" | bc -l | awk '{ printf "%.4f", $1 }'
   
 }  
+
+tile_resolution(){
+	echo "scale=16; $( tile_size $1 ) / 256" | bc | awk '{ printf "%.4f", $1 }'
+}
+
 
 abs(){
 	[ "$( echo "scale = 8; $1 < 0.0" | bc  )" = "1" ] && echo $1 | tr -d "-" && return		
@@ -1226,7 +1229,7 @@ if [ "$RESTORE" = "no" ] ; then
 	
 	while : ; do
 		echo "-----------------------------------------------------------"
-		echo "Pixel resolution: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
+		echo "Tile size: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
 		echo "Use this URL to view an example: ${server}${cursor_reference}"
 		echo
 		while : ; do
@@ -1294,7 +1297,7 @@ if [ "$RESTORE" = "no" ] ; then
 		 [ "$( uname -s )" = "Darwin" ] && end_date="$( date -v+$[ $dim_x * $dim_y * $SLEEP_TIME ]S )"
 		
 		echo "Estimated end date for download tiles: $end_date..."
-		echo "Pixel resolution: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
+		echo "Tile site: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
 		echo "Use this URL to view an example: $server$cursor_reference"
 		echo
 	
@@ -1553,10 +1556,11 @@ cnt=0
 i=0
 while [ ! -z "${good_tile[$cnt]}" ] ; do
 	info=( $( GetCoordinatesFromAddress ${good_tile[$cnt]} ) )
-	ul_lat="${info[3]}"
-	ul_lon="${info[4]}"
-	lr_lat="${info[5]}"
-	lr_lon="${info[2]}"
+
+	ul_lon="${info[2]}"
+	ul_lat="${info[5]}"
+	lr_lon="${info[4]}"
+	lr_lat="${info[3]}"
 	
 	if [ "$[ ${lr_lat%.*} + 1  ]" = "${ul_lat%.*}" ] ; then
 		split_tile[$i]="${good_tile[$cnt]}"
@@ -1591,7 +1595,6 @@ while [ ! -z "${good_tile[$cnt]}" ] ; do
 done
 split_tile=( $( echo "${split_tile[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 echo "Removed ${#split_tile[@]} image(s)..."
-
 
 echo "Merging tiles in 2048x2048 texture..."
 tile_seq="$( seq 0 7 )"
@@ -1805,16 +1808,33 @@ for x in $( seq 0 $dim_x ) ; do
 
 		fi
 
-		CROSSED_TILE_UL=( ${CROSSED_TILE_UL[@]} ${c2}_${ul_lon},${ul_lat} )
+		ul_lat="$( echo "$ul_lat" | awk '{ printf "%.8f", $1 }')"
+		ul_lon="$( echo "$ul_lon" | awk '{ printf "%.8f", $1 }')"
+
+		ur_lat="$( echo "$ur_lat" | awk '{ printf "%.8f", $1 }')"
+		ur_lon="$( echo "$ur_lon" | awk '{ printf "%.8f", $1 }')"
+
+		lr_lat="$( echo "$lr_lat" | awk '{ printf "%.8f", $1 }')"
+		lr_lon="$( echo "$lr_lon" | awk '{ printf "%.8f", $1 }')"
+
+		ll_lat="$( echo "$ll_lat" | awk '{ printf "%.8f", $1 }')"
+		ll_lon="$( echo "$ll_lon" | awk '{ printf "%.8f", $1 }')"
 
 
+
+
+		CROSSED_TILE=( ${CROSSED_TILE[@]} ${c2}_${ul_lon},${ul_lat}_${lr_lon},${lr_lat} )
+
+
+		
 		if [ -f "$tiles_dir/tile-$c2.png" ] && [ ! -z "$( echo "${good_tile[@]}" | tr " " "\n" | grep "$c2" )" ] ; then
 			POL_FILE="poly_${point_lat}_${point_lon}.pol"
 			TEXTURE="img_${point_lat}_${point_lon}.dds"
 			TER="ter_${point_lat}_${point_lon}.ter"
-			LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
-			LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
-			LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
+
+			LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc | awk '{ printf "%.8f", $1 }' )"
+			LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc | awk '{ printf "%.8f", $1 }' )"
+			LC_dim="$( tile_size $c2 | awk -F. {'print $1'} )"
 			LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
 
 
@@ -1867,6 +1887,7 @@ for x in $( seq 0 $dim_x ) ; do
 						output=()
 					fi
 				fi
+
 				dfs_dir="$( getDirName "$point_lat" "$point_lon" )"
 
 				if [ ! -d "$output_dir/$output_sub_dir/$dfs_dir" ] ; then
@@ -1961,17 +1982,18 @@ for x in $( seq 0 $dim_x ) ; do
 				fi
 			fi
 
-			[ -z "$( echo "${ul_lat%.*}" | tr -d "-" )" ] && ul_lat="$( echo "$ul_lat" | sed -e s/"\."/"0\."/g )" 
-			[ -z "$( echo "${ul_lon%.*}" | tr -d "-" )" ] && ul_lon="$( echo "$ul_lon" | sed -e s/"\."/"0\."/g )" 
-
-			[ -z "$( echo "${ur_lat%.*}" | tr -d "-" )" ] && ur_lat="$( echo "$ur_lat" | sed -e s/"\."/"0\."/g )" 
-			[ -z "$( echo "${ur_lon%.*}" | tr -d "-" )" ] && ur_lon="$( echo "$ur_lon" | sed -e s/"\."/"0\."/g )" 
-
-			[ -z "$( echo "${lr_lat%.*}" | tr -d "-" )" ] && lr_lat="$( echo "$lr_lat" | sed -e s/"\."/"0\."/g )" 
-			[ -z "$( echo "${lr_lon%.*}" | tr -d "-" )" ] && lr_lon="$( echo "$lr_lon" | sed -e s/"\."/"0\."/g )" 
-
-			[ -z "$( echo "${ll_lat%.*}" | tr -d "-" )" ] && ll_lat="$( echo "$ll_lat" | sed -e s/"\."/"0\."/g )" 
-			[ -z "$( echo "${ll_lon%.*}" | tr -d "-" )" ] && ll_lon="$( echo "$ll_lon" | sed -e s/"\."/"0\."/g )" 
+#			[ -z "$( echo "${ul_lat%.*}" | tr -d "-" )" ] && ul_lat="$( echo "$ul_lat" | sed -e s/"\."/"0\."/g )" 
+#			[ -z "$( echo "${ul_lon%.*}" | tr -d "-" )" ] && ul_lon="$( echo "$ul_lon" | sed -e s/"\."/"0\."/g )" 
+#
+#			[ -z "$( echo "${ur_lat%.*}" | tr -d "-" )" ] && ur_lat="$( echo "$ur_lat" | sed -e s/"\."/"0\."/g )" 
+#			[ -z "$( echo "${ur_lon%.*}" | tr -d "-" )" ] && ur_lon="$( echo "$ur_lon" | sed -e s/"\."/"0\."/g )" 
+#
+#			[ -z "$( echo "${lr_lat%.*}" | tr -d "-" )" ] && lr_lat="$( echo "$lr_lat" | sed -e s/"\."/"0\."/g )" 
+#			[ -z "$( echo "${lr_lon%.*}" | tr -d "-" )" ] && lr_lon="$( echo "$lr_lon" | sed -e s/"\."/"0\."/g )" 
+#
+#			[ -z "$( echo "${ll_lat%.*}" | tr -d "-" )" ] && ll_lat="$( echo "$ll_lat" | sed -e s/"\."/"0\."/g )" 
+#			[ -z "$( echo "${ll_lon%.*}" | tr -d "-" )" ] && ll_lon="$( echo "$ll_lon" | sed -e s/"\."/"0\."/g )" 
+#
 
 
 
@@ -2278,9 +2300,17 @@ for cursor in ${split_tile[@]} ; do
         point_lat="${info[3]}"
 	dfs_file="mariocavicchi"
 	dfs_dir="$( getDirName "$point_lat" "$point_lon" )"
-	UL_big="$( echo "${CROSSED_TILE_UL[@]}" | tr  " " "\n" | grep "^$cursor" | awk -F_ {'print $2'} )"
-	UL_lon_big="${UL_big%,*}"
-	UL_lat_big="${UL_big#*,}" 
+
+
+	info_big=( $( echo "${CROSSED_TILE[@]}" | tr  " " "\n" | grep "^$cursor" | awk -F_ {'print $2" "$3'} ) )
+	info_big_UL="${info_big[0]}"
+	info_big_UL_lon="${info_big_UL%,*}"
+	info_big_UL_lat="${info_big_UL#*,}" 
+
+	info_big_LR="${info_big[1]}"
+	info_big_LR_lon="${info_big_LR%,*}"
+	info_big_LR_lat="${info_big_LR#*,}" 
+
 
 	x_after=""
 	y_after=""
@@ -2305,9 +2335,9 @@ for cursor in ${split_tile[@]} ; do
 			if [ "$x" = "0" ] ; then
 
 				if [ "$y" = "0" ] ; then
-					if [ ! -z "$UL_lon_big" ] && [ ! -z "$UL_lat_big" ] ; then
-						ori_ul_lon="$UL_lon_big"
-						ori_ul_lat="$UL_lat_big"
+					if [ ! -z "$info_big_UL_lon" ] && [ ! -z "$info_big_UL_lat" ] ; then
+						ori_ul_lon="$info_big_UL_lon"
+						ori_ul_lat="$info_big_UL_lat"
 					else
 						ori_ul_lon="$( echo "scale = 8; ${info[2]} + $lon_fix" | bc -l )"
 						ori_ul_lat="$( echo "scale = 8; ${info[3]} + $lat_fix" | bc -l )"
@@ -2331,11 +2361,26 @@ for cursor in ${split_tile[@]} ; do
 
 
 
-			ori_lr_lon="$( echo "scale = 8; ${info[4]} + $lon_fix" | bc -l )"
-			ori_lr_lat="$( echo "scale = 8; ${info[5]} + $lat_fix" | bc -l )"
-		
-			
-	
+			if [ "$x" != "$dim_x" ]	; then
+				ori_lr_lon="$( echo "scale = 8; ${info[4]} + $lon_fix" | bc -l )"
+			else
+				if [ ! -z "$info_big_LR_lon" ] ; then
+					ori_lr_lon="$info_big_LR_lon"
+				else
+					ori_lr_lon="$( echo "scale = 8; ${info[4]} + $lon_fix" | bc -l )"
+				fi
+			fi
+
+
+			if [ "$y" != "$dim_y" ]	; then
+				ori_lr_lat="$( echo "scale = 8; ${info[5]} + $lat_fix" | bc -l )"
+			else
+				if [ ! -z "$info_big_LR_lat" ] ; then
+					ori_lr_lat="$info_big_LR_lat"
+				else
+					ori_lr_lat="$( echo "scale = 8; ${info[5]} + $lat_fix" | bc -l )"
+				fi
+			fi
 
 			if [ "$rot_fix" = "0" ] ; then
 				# Without rotation 
@@ -2390,7 +2435,7 @@ for cursor in ${split_tile[@]} ; do
 
 				LC_lat_center="$( echo "scale = 8; ( $ul_lat + $lr_lat ) / 2" | bc )"
 				LC_lon_center="$( echo "scale = 8; ( $ul_lon + $lr_lon ) / 2" | bc )"
-				LC_dim="$( tile_resolution $c2 | awk -F. {'print $1'} )"
+				LC_dim="$( tile_size $c2 | awk -F. {'print $1'} )"
 				LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
 
 
@@ -3236,7 +3281,7 @@ for f in ${dfs_list[@]} ; do
 			[ "$( echo "scale = 6; ( ( $lat < ${val[1]} ) || ( $lat > ${val[3]} ) )" | bc )" = "1" ] && continue
 
 			WAY[$cnt]="$lon $lat"	
-			ALT[$cnt]="$( getAltitude ${WAY[$cnt]} )"
+			ALT[$cnt]="$( echo "scale = 8; $( getAltitude ${WAY[$cnt]} ) + 1" | bc -l )"
 		        cnt=$[ $cnt + 1 ]
 		done
 		echo
