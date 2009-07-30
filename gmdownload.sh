@@ -89,14 +89,14 @@ if [ -f "$file" ] ; then
 	zoom_reference_lon="$( echo "${coord[6]}" | awk {'print $2'} )"
 
 	if [ -z "$point_lat" ] || [ -z "$point_lon" ] || [ -z "$lowright_lat" ] || [ -z "$lowright_lon" ] ; then
-		echo "Not found Upper left and Lower right corners..."
+		echo "Unable to find Upper left and Lower right corners..."
 		if [ "$ext" = "kmz" ] ; then
 			kml=( $( unzip -p "$file" | tr "\n" " " ) )
 		else
 			kml=( $( cat "$file" | tr "\n" " " ) )
 		fi
 
-		echo -n "Search polygon definitions: "
+		echo -n "Searching polygon definitions: "
 		cnt="0"
 		num="0"
 		i="0"
@@ -219,7 +219,7 @@ fi
 
 
 if [ -z "$point_lat" ] || [ -z "$point_lon" ] || [ -z "$lowright_lat" ] || [ -z "$lowright_lon" ] ; then
-	echo "Insufficent input paramters..."
+	echo "Insufficient input paramters..."
 	exit 2
 fi
 echo "Input:"
@@ -235,10 +235,8 @@ echo "  - Coord correc:  Lat $lat_fix / Lon $lon_fix"
 echo "  - Rotation    :  $rot_fix"
 
 
-osm_left="$(   	echo "$point_lon" 	| awk '{ printf "%.3f\n", $1 }' )"
-osm_bottom="$( 	echo "$lowright_lat"	| awk '{ printf "%.3f\n", $1 }' )"
-osm_right="$(	echo "$lowright_lon" 	| awk '{ printf "%.6f\n", $1 }' )"
-osm_top="$( 	echo "$point_lat"	| awk '{ printf "%.6f\n", $1 }' )"
+osm_center_lat="$( echo "scale = 8; ( $point_lat + $lowright_lat ) / 2 " | bc )"
+osm_center_lon="$( echo "scale = 8; ( $point_lon + $lowright_lon ) / 2 " | bc )"
 
 
 
@@ -286,11 +284,11 @@ fi
 if [ "$( uname -s )" = "Linux" ] ; then
 	# Dsf tool
 	if [ -z "$( which convert 2> /dev/null )" ] ; then
-		echo "ERROR: Utility missing, you must install package ImageMagick"
+		echo "ERROR: Utility missing, you must install the ImageMagick package"
 		exit 3
 	fi
 	if [ -z "$( which wget 2> /dev/null )" ] ; then
-		echo "ERROR: Utility missing, you must install package Wget"
+		echo "ERROR: Utility missing, you must install the Wget package"
 		exit 3
 	fi
 
@@ -979,7 +977,6 @@ GetCoordinatesFromAddress(){
 	str="$1"
 	ori_str="tile-$str.crd" 
 
-	rm -f "$tiles_dir/$ori_str"
 	if [ -f "$tiles_dir/$ori_str" ] ; then
 		crd=( $( cat  "$tiles_dir/$ori_str" ) )
 
@@ -1047,7 +1044,8 @@ getDirName(){
 	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "1" ] && lon="$( echo "$lon" | sed -e s/"+"/"+00"/g |  sed -e s/"-"/"-00"/g )"
 	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "2" ] && lon="$( echo "$lon" | sed -e s/"+"/"+0"/g |  sed -e s/"-"/"-0"/g )"
 
-	[ -z "$lon" ] && lon="+000"
+	[ "$lat" = "0" ] 	&& lat="+00"
+	[ -z "$lon" ] 		&& lon="+000"
 	echo "$lat$lon"
 }
 
@@ -1071,10 +1069,15 @@ getDSFName(){
 	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "1" ] && lon="$( echo "$lon" | sed -e s/"+"/"+00"/g |  sed -e s/"-"/"-00"/g )"
 	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "2" ] && lon="$( echo "$lon" | sed -e s/"+"/"+0"/g  |  sed -e s/"-"/"-0"/g  )"
 
-	[ "$lon" = "-000" ] && lon="-001"
+
+	[ "$lat" = "0" ] 	&& lat="+00"
+	[ "$lon" = "0" ] 	&& lon="+000"
+	[ "$lon" = "-000" ] 	&& lon="-001"
 
 	echo "$lat$lon.dsf"
 }
+
+
 
 upDateServer(){
 	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
@@ -1146,13 +1149,13 @@ if [ -z "$output_dir" ] ; then
 fi	
 
 if [ -d "$output_dir" ] ; then
-	echo "Directory \"$output_dir\" already exits..."
+	echo "Directory \"$output_dir\" already exists..."
 else
 	echo "Create directory \"$output_dir\"..."
 	mkdir "$output_dir"
 fi
 if [ -d "$tiles_dir" ] ; then
-	echo "Directory \"$tiles_dir\" already exits..."
+	echo "Directory \"$tiles_dir\" already exists..."
 else
 	echo "Create directory \"$tiles_dir\"..."
 	mkdir "$tiles_dir"
@@ -1163,7 +1166,7 @@ fi
 
 output_sub_dir="Earth nav data"
 if [ -d "$output_dir/$output_sub_dir" ] ; then
-	echo "Sub directory \"$output_sub_dir\" already exits..."
+	echo "Sub directory \"$output_sub_dir\" already exists..."
 else
 	echo "Create sub directory \"$output_sub_dir\"..."
 	mkdir "$output_dir/$output_sub_dir"
@@ -1173,7 +1176,7 @@ fi
 
 #########################################################################3
 
-echo "Create path to coordinates..."
+echo "Creating path to coordinates..."
 
 
 cursor="$( GetQuadtreeAddress $point_lon $point_lat )"
@@ -1181,7 +1184,7 @@ cursor="$( GetQuadtreeAddress $point_lon $point_lat )"
 RESTORE="no" 
 if [ -f "$nfo_file" ] ; then
 	while : ; do
-		echo -n "Found input parameters for this scenary, restore this section? (y/n) [CTRL+C to abort]: "
+		echo -n "Found input parameters for this scenery, do you want to restore this section? (y/n) [CTRL+C to abort]: "
 		read -n 1 x
                 echo
                 [ "$x" = "n" ] && RESTORE="no" && break
@@ -1217,12 +1220,12 @@ if [ "$RESTORE" = "no" ] ; then
 		upDateServer
 		remote="$( swget "${server[0]}${cursor_reference}" 2>&1 )"
 		if [ ! -z "$( echo "$remote" | grep "403 Forbidden" )" ] || [ ! -z "$( echo "$remote" | grep "503 Service Unavailable" )" ]  ; then
-			echo "ERROR from Google Maps: Forbidden! You must to wait one day!"
+			echo "ERROR from Google Maps: Forbidden! You must wait one day!"
 			exit 4
 	
 		fi
 		[ -z "$( echo "$remote" | grep "404 Not Found" )" ] && break
-		echo "Layer not exists, dezoom one step..."
+		echo "Layer does not exist, dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 
 	done
@@ -1241,12 +1244,12 @@ if [ "$RESTORE" = "no" ] ; then
 				
 		done
 		[ -z "$x" ] && break	
-		echo "Dezoom one step..."
+		echo "Dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 	done
 	echo "Searching ROI size and calculating elaboration time..."
 	while : ; do
-		echo "Get upper left coordinates..."
+		echo "Getting upper left coordinates..."
 		cursor="$( echo $cursor | cut -c -$( echo -n "$cursor_reference" | wc -c | awk {'print $1'} ) )"
 
 		info=( $( GetCoordinatesFromAddress $cursor ) )
@@ -1254,7 +1257,7 @@ if [ "$RESTORE" = "no" ] ; then
 		UL_lat=${info[3]}
 
 
-		echo -n "Search X size"
+		echo -n "Searching X size..."
 	
 		dim_x="0"
 
@@ -1272,7 +1275,7 @@ if [ "$RESTORE" = "no" ] ; then
 		done
 		
 		echo
-		echo -n "Search Y size..."
+		echo -n "Searching Y size..."
 	
 
 		dim_y="0"
@@ -1311,7 +1314,7 @@ if [ "$RESTORE" = "no" ] ; then
 			
 		done
 		[ -z "$x" ] && break	
-		echo "Dezoom one step..."
+		echo "Dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 	done
 	echo "dim_x=$dim_x" 	>  "$nfo_file"
@@ -1320,7 +1323,7 @@ if [ "$RESTORE" = "no" ] ; then
 
 
 	while : ; do
-		echo -n "Do you want create a simple \"o\"verlay or complete scenary \"m\"esh (o/m)? [CTRL+C to abort]: "
+		echo -n "Do you want create a simple \"o\"verlay or complete a scenery \"m\"esh (o/m)? [CTRL+C to abort]: "
 		read -n 1 x
                 echo
                 [ "$x" = "m" ] && MASH_SCENARY="yes" && break
@@ -1357,7 +1360,7 @@ if [ "$RESTORE" = "no" ] ; then
 
 	echo "MESH_LEVEL=$MESH_LEVEL" >> "$nfo_file"
 	echo "WATER_MASK=$WATER_MASK" >> "$nfo_file"
-	echo "Creation tiles list..."
+	echo "Creating tiles list..."
 
 	tot=$[ $dim_x * $dim_y ]
 
@@ -1365,7 +1368,7 @@ if [ "$RESTORE" = "no" ] ; then
 	dim_y=$[ $dim_y - 1 ]
 
 
-	echo "Randomize tile list..."
+	echo "Randomizing tile list..."
 	echo "Step 1..."
 	in_order=( $( seq 0 $[ $tot - 1 ] | tr "\n" " " ) )
 	i="0"
@@ -1491,7 +1494,7 @@ for c2 in ${good_tile[@]} ; do
 			upDateServer
 			subc2="$c2"
 			while [ ! -z "$subc2" ] ; do
-				echo "Try to zoom out one time..."
+				echo "Try to zoom out one step..."
 				subc2="$( echo "$subc2" | rev | cut -c 2- | rev )"
 
 				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$subc2" &> /dev/null
@@ -1526,10 +1529,10 @@ for c2 in ${good_tile[@]} ; do
 					echo "Found tile with less zoom..."
 					convert "$tiles_dir/tile-$subc2-ori.png" -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
 				else
-					echo "Not found file with same zoom... Hole in scenary for tile ${server[0]}$c2 !"
+					echo "Not found file with same zoom... Hole in scenery for tile ${server[0]}$c2 !"
 				fi
 			else
-				echo "Not found file with same zoom... Hole in scenary for tile ${server[0]}$c2 !"
+				echo "Could dot find file with the same zoom... Hole in scenery for tile ${server[0]}$c2 !"
 			fi
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
@@ -1548,7 +1551,7 @@ for c2 in ${good_tile[@]} ; do
 done
 
 echo "Screnary creation...."
-[ "$WATER_MASK" = "yes" ] && echo "Water mask Enable...."
+[ "$WATER_MASK" = "yes" ] && echo "Water mask Enabled..."
 good_tile=( $( echo "${good_tile[@]}" | tr " " "\n" | rev | cut -c 4- | rev | sort -u | tr "\n" " " ) )
 
 echo "Remove across images..."
@@ -1557,11 +1560,11 @@ i=0
 while [ ! -z "${good_tile[$cnt]}" ] ; do
 	info=( $( GetCoordinatesFromAddress ${good_tile[$cnt]} ) )
 
-	ul_lon="${info[2]}"
-	ul_lat="${info[5]}"
-	lr_lon="${info[4]}"
-	lr_lat="${info[3]}"
-	
+        ul_lat="${info[3]}"
+        ul_lon="${info[4]}"
+        lr_lat="${info[5]}"
+        lr_lon="${info[2]}"
+
 	if [ "$[ ${lr_lat%.*} + 1  ]" = "${ul_lat%.*}" ] ; then
 		split_tile[$i]="${good_tile[$cnt]}"
 		i=$[ $i + 1 ]
@@ -1596,7 +1599,7 @@ done
 split_tile=( $( echo "${split_tile[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 echo "Removed ${#split_tile[@]} image(s)..."
 
-echo "Merging tiles in 2048x2048 texture..."
+echo "Merging tiles into 2048x2048 texture..."
 tile_seq="$( seq 0 7 )"
 prog="1"
 tot="${#good_tile[@]}"
@@ -1629,7 +1632,7 @@ for cursor_huge in ${good_tile[@]} ; do
 				if [ "$( du -s "$tiles_dir/${TMPFILE}.png" | awk {'print $1'} )" = "0" ] ; then
 					echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"
 				else
-					echo -n "Tile analyze... "
+					echo -n "Analizing tiles... "
 					content="$( convert  "$tiles_dir/${TMPFILE}.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
 					if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 						echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"	
@@ -1709,7 +1712,7 @@ TER_DIR="$output_dir/$TER_DIR"
 if [ "$MASH_SCENARY" = "yes" ] ; then
 	echo "Mesh level $MESH_LEVEL..."
 	if [ ! -d  "$TER_DIR" ] ; then
-	        echo "Create directory $TER_DIR..."
+	        echo "Creating directory $TER_DIR..."
 	        mkdir -p -- "$TER_DIR"
 	else
 	        echo "Directory $TER_DIR already exists..."
@@ -1820,9 +1823,20 @@ for x in $( seq 0 $dim_x ) ; do
 		ll_lat="$( echo "$ll_lat" | awk '{ printf "%.8f", $1 }')"
 		ll_lon="$( echo "$ll_lon" | awk '{ printf "%.8f", $1 }')"
 
+		if [ "${#split_tile[@]}"  = "0" ] ; then
+			[ "$( echo "$ul_lat" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && ul_lat="0.00000000"
+			[ "$( echo "$ul_lon" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && ul_lon="0.00000000"
 
+			[ "$( echo "$ur_lat" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && ur_lat="0.00000000"
+			[ "$( echo "$ur_lon" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && ur_lon="0.00000000"
 
+			[ "$( echo "$lr_lat" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && lr_lat="0.00000000"
+			[ "$( echo "$lr_lon" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && lr_lon="0.00000000"
 
+			[ "$( echo "$ll_lat" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && ll_lat="0.00000000"
+			[ "$( echo "$ll_lon" | awk '{ printf "%0.5f\n", $1 }' | tr -d "-" )" = "0.00001" ] && ll_lon="0.00000000"
+
+		fi
 		CROSSED_TILE=( ${CROSSED_TILE[@]} ${c2}_${ul_lon},${ul_lat}_${lr_lon},${lr_lat} )
 
 
@@ -1933,7 +1947,7 @@ for x in $( seq 0 $dim_x ) ; do
 
 				if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
 					cnt="0"
-					echo "Create file $dfs_file....                                                    "
+					echo "Creating file $dfs_file....                                                    "
 
 					echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
 					#echo "800" 							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
@@ -1998,10 +2012,10 @@ for x in $( seq 0 $dim_x ) ; do
 
 
 			if [ "$MASH_SCENARY" = "no" ] ; then
-				echo -ne "$prog / $tot: Create polygon (.pol) file \"$POL_FILE\"...                          \r"
+				echo -ne "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"...                          \r"
 		
 				if [ -f "$output_dir/$POL_FILE" ] ; then
-					echo "Error! Polygon file already exist!"
+					echo "Error! Polygon file already exists!"
 					exit 3
 				fi
 				echo "A"								>  "$output_dir/$POL_FILE"
@@ -2075,7 +2089,7 @@ for x in $( seq 0 $dim_x ) ; do
 				dfs_triangle[$dfs_tri_count]="${dfs_triangle[$dfs_tri_count]} $index_triangle"
 				index_triangle="$[ $index_triangle + 1 ]"
 
-				echo -n " Create triangles "
+				echo -n " Creating triangles "
 
 				addLine
 			        addLine "BEGIN_PATCH 0   0.0 -1.0    1   5"
@@ -2155,7 +2169,7 @@ for x in $( seq 0 $dim_x ) ; do
 					[ "$( echo "scale = 8; ( $ul_lat > 0 ) && ( $lr_lat < 0 ) " | bc -l )" != "1" ] 	&& \
 					[ "$( echo "scale = 8; ( $lr_lon > 0 ) && ( $ul_lon < 0 ) " | bc -l )" != "1" ]	 ; then
 
-					echo -n "$[ ${#FINAL_TRIANGLES[@]} + 1 ] / $tot Create mash water "
+					echo -n "$[ ${#FINAL_TRIANGLES[@]} + 1 ] / $tot Creating water mesh "
 
 
 					mesh_level="0"
@@ -2452,10 +2466,10 @@ for cursor in ${split_tile[@]} ; do
 							else
 								convert -fuzz 8% "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point  "$tiles_dir/map-$c2.png"
 							fi
-							echo "Done"
+							echo -n "Done"
 							rm -f "$tiles_dir/${TMPFILE}.png"
 						else
-							echo "Problem with Water Mask! Excessive zoom in or in this zone not exists map..."
+							echo "Problem with Water Mask! Excessive zoom or unexisting map for this zone..."
 							echo -n ""  >  "$tiles_dir/map-$c2.png"
 							rm -f "$tiles_dir/${TMPFILE}.png"
 
@@ -2531,7 +2545,7 @@ for cursor in ${split_tile[@]} ; do
 					dfs_dir="$( getDirName "$ori_ul_lat" "$ori_ul_lon" )"
 
 					if [ ! -d "$output_dir/$output_sub_dir/$dfs_dir" ] ; then
-						echo "Create DSF directory \"$dfs_dir\"...                                             "
+						echo "Creating DSF directory \"$dfs_dir\"...                                             "
 						mkdir "$output_dir/$output_sub_dir/$dfs_dir"
 					fi
 	
@@ -2571,7 +2585,7 @@ for cursor in ${split_tile[@]} ; do
 	
 					if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
 						cnt="0"
-						echo "Create file $dfs_file....                                                    "
+						echo "Creating file $dfs_file....                                                    "
 				
 
 
@@ -2710,7 +2724,7 @@ for cursor in ${split_tile[@]} ; do
 					echo -ne "$prog / $split_index / $tot: Create polygon (.pol) file \"$POL_FILE\"...                          \r"
 		
 					if [ -f "$output_dir/$POL_FILE" ] ; then
-						echo "Error! Polygon file already exist!"
+						echo "Error! Polygon file already exists!"
 						exit 3
 					fi
 
@@ -2800,7 +2814,7 @@ for cursor in ${split_tile[@]} ; do
 					dfs_triangle[$dfs_tri_count]="${dfs_triangle[$dfs_tri_count]} $index_triangle"
 					index_triangle="$[ $index_triangle + 1 ]"
 
-					echo -n " Create triangles "
+					echo -n " Creating triangles "
 
 					addLine
 				        addLine "BEGIN_PATCH 0   0.0 -1.0    1   5"
@@ -2881,7 +2895,7 @@ for cursor in ${split_tile[@]} ; do
 						[ "$( echo "scale = 8; ( $ul_lat > 0 ) && ( $lr_lat < 0 ) " | bc -l )" != "1" ] 	&& \
 						[ "$( echo "scale = 8; ( $lr_lon > 0 ) && ( $ul_lon < 0 ) " | bc -l )" != "1" ]	 ; then
 
-						echo -n "$prog / $split_index / $tot Create mash water..."
+						echo -n "$prog / $split_index / $tot Creating water mesCreating water meshh..."
 
 						mesh_level="0"
 					        mesh=""
@@ -3027,7 +3041,7 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 		output_index="0"
 		output=()
 
-		echo "Filling mash triangle for file ${dfs_list[$j]} ..."
+		echo "Filling mesh triangle for file ${dfs_list[$j]} ..."
 		cnt="$( cat "$output_dir/$output_sub_dir/${dfs_list[$j]}.txt" | grep "BEGIN_PATCH" | tail -n 1 | awk {'print $2'} )"
 		[ -z "$cnt" ] && cnt="0"
 	
@@ -3128,12 +3142,13 @@ dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 
 #########################################################################3
 
-echo
-echo "Adding roads from OpenStreetMap..."
+if [ "$OSM" = "yes" ] ; then
+	echo
+	echo "Adding roads from OpenStreetMap..."
 
-#BASE_URL="http://xapi.openstreetmap.org/api/0.5"
-#BASE_URL="http://www.informationfreeway.org/api/0.6"
-BASE_URL="http://api.openstreetmap.org/api/0.6" # /map?bbox=11.54,48.14,11.543,48.145"
+	#BASE_URL="http://xapi.openstreetmap.org/api/0.5"
+	#BASE_URL="http://www.informationfreeway.org/api/0.6"
+	BASE_URL="http://api.openstreetmap.org/api/0.6" # /map?bbox=11.54,48.14,11.543,48.145"
 
 # ROAD DEFINITION
 
@@ -3152,154 +3167,166 @@ highway-motorway	1
 # To define:
 # highway-primary
 
-QUERY_URL="${BASE_URL}/map?bbox=$osm_left,$osm_bottom,$osm_right,$osm_top"
-md5road="$( echo "$osm_left,$osm_bottom,$osm_right,$osm_top" | md5sum | awk {'print $1'} )"
-road_file="$tiles_dir/$md5road.osm"	
+	osm_left="$( 	echo "scale = 8; $osm_center_lon 	- 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
+	osm_right="$(	echo "scale = 8; $osm_center_lon 	+ 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
 
-if [ ! -f "$road_file" ] ; then
-	echo "Download roads information..."
-	wget -q --user-agent=Firefox -O "$road_file" "$QUERY_URL"
-	echo "Store road in file $road_file ..."
-fi
+	osm_bottom="$(	echo "scale = 8; $osm_center_lat        - 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
+	osm_top="$( 	echo "scale = 8; $osm_center_lat        + 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
 
+	QUERY_URL="${BASE_URL}/map?bbox=$osm_left,$osm_bottom,$osm_right,$osm_top"
+	md5road="$( echo "$osm_left,$osm_bottom,$osm_right,$osm_top" | md5sum | awk {'print $1'} )"
+	road_file="$tiles_dir/$md5road.osm"	
 
-echo "Load road file $road_file ..."
-XML_OUTPUT="$( cat "$road_file" | tr "\"" "\'"  )"
+	[ -f "$road_file" ] && [ "$( du -k  "$road_file" | awk {'print $1'} )" = "0" ] && rm -f "$road_file"
 
-echo "Get ways list..." 
-WAYS_START=( $( echo "$XML_OUTPUT" | grep -n "<way id=" | awk -F:  {'print $1'} | tr "\n" " " ) )
-WAYS_END=(   $( echo "$XML_OUTPUT" | grep -n "</way>"   | awk -F:  {'print $1'} | tr "\n" " " ) )
-echo "Found ${#WAYS_START[@]} ways ..."
-
-echo "Get nodes list..."
-NODES="$(       echo "$XML_OUTPUT" | grep "node id="    | awk -F\' {'print $2" "$4" "$6'} )"
-
-for f in ${dfs_list[@]} ; do
-	[ "$MASH_SCENARY" = "no"  ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "BEGIN_POLYGON" | tail -n 1 | awk {'print $2'} )"
-        [ "$MASH_SCENARY" = "yes" ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "TERRAIN_DEF"   | grep -v "terrain_Water" | wc -l | awk {'print $1'} )"
-
-	begin="$[ $begin + 1 ]"
-
-	dsf_cont="$( cat "$output_dir/$output_sub_dir/${f}.txt" | sed -e s/"\/"/":"/g )"
-
-	# PROPERTY sim/exclude_net 13.000/40.000/14.000/41.000
-	k="0"
-	for coord in west south east north ; do
-		val[$k]="$( echo "$dsf_cont" | grep "PROPERTY sim:$coord"  | awk {'print $3'}).000"
-		k=$[ $k + 1 ]
-	done
-	exclude_string="PROPERTY sim:exclude_net $( echo "${val[@]}" | tr " " ":" )"
-
-	[ "$( uname -s )" = "Linux" ]   && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent\n$exclude_string\n"/g )"
-	[ "$( uname -s )" = "Darwin" ]  && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent;$exclude_string;"/g )"
-
-
-	# NETWORK_DEF lib/g8/roads.net
-	if [ "$MASH_SCENARY" = "yes" ] ; then
-		last_ter="$( echo "$dsf_cont" | grep "TERRAIN_DEF" | tail -n 1 | sed -e s/"\/"/":"/g )"
-		[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter\nNETWORK_DEF lib:g8:roads.net\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
-		[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter;NETWORK_DEF lib:g8:roads.net;"/g 		| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
+	if [ ! -f "$road_file" ] ; then
+		echo "Download roads information..."
+		echo "$QUERY_URL"
+		wget --user-agent=Firefox -O "$road_file" "$QUERY_URL"
+		echo "Store road in file $road_file ..."
 	fi
-	if [ "$MASH_SCENARY" = "no" ] ; then
-		first_pol="$( echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g )"
-		[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net\n$first_pol\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
-		[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net;$first_pol;"/g 	| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
-	fi
-	unset dsf_cont
 
 
-	i="0"
-	while [ ! -z "${WAYS_START[$i]}" ]  ; do
+	echo "Load road file $road_file ..."
+	XML_OUTPUT="$( cat "$road_file" | tr "\"" "\'"  )"
 
-		way_file="$tiles_dir/$md5road-${WAYS_START[$i]}-${WAYS_END[$i]}.osm"     
-		if [ ! -f "$way_file" ] ; then
-			CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
-			echo "$CONTENT" > "$way_file"
-		else
-			CONTENT="$( cat "$way_file" )"
+	echo "Get ways list..." 
+	WAYS_START=( $( echo "$XML_OUTPUT" | grep -n "<way id=" | awk -F:  {'print $1'} | tr "\n" " " ) )
+	WAYS_END=(   $( echo "$XML_OUTPUT" | grep -n "</way>"   | awk -F:  {'print $1'} | tr "\n" " " ) )
+	echo "Found ${#WAYS_START[@]} ways ..."
+
+	echo "Get nodes list..."
+	NODES="$(       echo "$XML_OUTPUT" | grep "node id="    | awk -F\' '{ printf "%020d %f %f\n", $2, $4, $6 }' )"
+
+	for f in ${dfs_list[@]} ; do
+		[ "$MASH_SCENARY" = "no"  ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "BEGIN_POLYGON" | tail -n 1 | awk {'print $2'} )"
+	        [ "$MASH_SCENARY" = "yes" ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "TERRAIN_DEF"   | grep -v "terrain_Water" | wc -l | awk {'print $1'} )"
+
+		begin="$[ $begin + 1 ]"
+
+		dsf_cont="$( cat "$output_dir/$output_sub_dir/${f}.txt" | sed -e s/"\/"/":"/g )"
+
+		# PROPERTY sim/exclude_net 13.000/40.000/14.000/41.000
+		k="0"
+		for coord in west south east north ; do
+			val[$k]="$( echo "$dsf_cont" | grep "PROPERTY sim:$coord"  | awk {'print $3'}).000"
+			k=$[ $k + 1 ]
+		done
+		exclude_string="PROPERTY sim:exclude_net $( echo "${val[@]}" | tr " " ":" )"
+
+		[ "$( uname -s )" = "Linux" ]   && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent\n$exclude_string\n"/g )"
+		[ "$( uname -s )" = "Darwin" ]  && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent;$exclude_string;"/g )"
+
+
+		# NETWORK_DEF lib/g8/roads.net
+		if [ "$MASH_SCENARY" = "yes" ] ; then
+			last_ter="$( echo "$dsf_cont" | grep "TERRAIN_DEF" | tail -n 1 | sed -e s/"\/"/":"/g )"
+			[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter\nNETWORK_DEF lib:g8:roads.net\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
+			[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter;NETWORK_DEF lib:g8:roads.net;"/g 		| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
 		fi
-
-		TAG_KEY=( $(    echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $2'} | tr "\n" " " ) )
-		TAG_VALUE=( $(  echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $4'} | tr "\n" " " ) )
-	
-		s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "highway" | awk -F: {'print $1'} )" 
-		[ -z "$s" ] && s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "railway" | awk -F: {'print $1'} )" 
-
-
-		if [ -z "$s" ] ; then
-		        echo "Not highway or railway, skip..."
-		        i="$[ $i + 1 ]"
-		        continue
+		if [ "$MASH_SCENARY" = "no" ] ; then
+			first_pol="$( echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g )"
+			[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net\n$first_pol\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
+			[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net;$first_pol;"/g 	| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
 		fi
-		s="$[ $s  - 1 ]" 
+		unset dsf_cont
 
 
-		[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-footway" ] 	&& echo "$i - highway-footway skip..." && i="$[ $i + 1 ]" 	&& continue
-		[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-pedestrian" ] 	&& echo "$i - highway-pedestrian skip..." && i="$[ $i + 1 ]" 	&& continue
+		i="0"
+		while [ ! -z "${WAYS_START[$i]}" ]  ; do
 
-
-		rtype="$( echo "$ROAD_TYPE" | awk {'print $1"- "$2'} | grep "^${TAG_KEY[$s]}-${TAG_VALUE[$s]}-" | awk {'print $2'} )"
-
-		if [ -z "$rtype" ] ; then
-		        echo "Road ${TAG_KEY[$s]}-${TAG_VALUE[$s]} unknown"
-			i="$[ $i + 1 ]"
-			continue
-		        #exit
-		fi
-		echo -n "$i - Add ${TAG_KEY[$s]}-${TAG_VALUE[$s]} "
-
-		REF="$(     echo "$CONTENT"     | grep "<nd ref=" | awk -F\' {'print $2'} | tr "\n" " " )"
-
-		cnt="0"
-		WAY=()
-		ALT=()
-		for r in $REF ; do
-		        echo -n "." 
-		        WAY[$cnt]="$( echo "$NODES" | grep "^$r" | awk '{ printf "%.7f %.7f", $3, $2 }')"
-			ori_lat="$( echo "${WAY[$cnt]}" | awk {'print $2'} )"
-			ori_lon="$( echo "${WAY[$cnt]}" | awk {'print $1'} )"
-
-			ori_lat="$( echo "scale = 8; $ori_lat + $lat_fix" | bc -l )"	
-			ori_lon="$( echo "scale = 8; $ori_lon + $lon_fix" | bc -l )"
-
-
-			if [ "$rot_fix" = "0" ] ; then
-				lat="$ori_lat"
-				lon="$ori_lon"
+			way_file="$tiles_dir/$md5road-${WAYS_START[$i]}-${WAYS_END[$i]}.osm"     
+			if [ ! -f "$way_file" ] ; then
+				CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
+				echo "$CONTENT" > "$way_file"
 			else
-				# With rotation...
-				lat="$( echo "scale = 8; $ori_lat - $lat_plane" | bc -l )"
-				lon="$( echo "scale = 8; $ori_lon - $lon_plane" | bc -l )"
-				lon="$( echo "scale = 8; $lon * c( ($pi/180) * $rot_fix ) - $lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-				lat="$( echo "scale = 8; $lon * s( ($pi/180) * $rot_fix ) + $lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-				lat="$( echo "scale = 8; $lat + $lat_plane" | bc -l )"
-				lon="$( echo "scale = 8; $lon + $lon_plane" | bc -l )"
-
+				CONTENT="$( cat "$way_file" )"
 			fi
+
+			TAG_KEY=( $(    echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $2'} | tr "\n" " " ) )
+			TAG_VALUE=( $(  echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $4'} | tr "\n" " " ) )
+	
+			s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "highway" | awk -F: {'print $1'} )" 
+			[ -z "$s" ] && s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "railway" | awk -F: {'print $1'} )" 
+
+
+			if [ -z "$s" ] ; then
+			        echo "Not highway or railway, skip..."
+			        i="$[ $i + 1 ]"
+			        continue
+			fi
+			s="$[ $s  - 1 ]" 
+
+
+			[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-footway" ] 	&& echo "$i - highway-footway skip..." && i="$[ $i + 1 ]" 	&& continue
+			[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-pedestrian" ] 	&& echo "$i - highway-pedestrian skip..." && i="$[ $i + 1 ]" 	&& continue
+
+
+			rtype="$( echo "$ROAD_TYPE" | awk {'print $1"- "$2'} | grep "^${TAG_KEY[$s]}-${TAG_VALUE[$s]}-" | awk {'print $2'} )"
+
+			if [ -z "$rtype" ] ; then
+			        echo "Road ${TAG_KEY[$s]}-${TAG_VALUE[$s]} unknown"
+				i="$[ $i + 1 ]"
+				continue
+			        #exit
+			fi
+			echo -n "$i - Add ${TAG_KEY[$s]}-${TAG_VALUE[$s]} "
+
+			REF="$(     echo "$CONTENT"     | grep "<nd ref=" | awk -F\' '{ printf "%020d\n", $2 }' | tr "\n" " " )"
+
+			cnt="0"
+			WAY=()
+			ALT=()
+			for r in $REF ; do
+			        echo -n "." 
+			        WAY[$cnt]="$( echo "$NODES" | grep "^$r" | awk '{ printf "%.7f %.7f", $3, $2 }')"
+				ori_lat="$( echo "${WAY[$cnt]}" | awk {'print $2'} )"
+				ori_lon="$( echo "${WAY[$cnt]}" | awk {'print $1'} )"
+
+				ori_lat="$( echo "scale = 8; $ori_lat + $lat_fix" | bc -l )"	
+				ori_lon="$( echo "scale = 8; $ori_lon + $lon_fix" | bc -l )"
+
+
+				if [ "$rot_fix" = "0" ] ; then
+					lat="$ori_lat"
+					lon="$ori_lon"
+				else
+					# With rotation...
+					lat="$( echo "scale = 8; $ori_lat - $lat_plane" | bc -l )"
+					lon="$( echo "scale = 8; $ori_lon - $lon_plane" | bc -l )"
+					lon="$( echo "scale = 8; $lon * c( ($pi/180) * $rot_fix ) - $lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+					lat="$( echo "scale = 8; $lon * s( ($pi/180) * $rot_fix ) + $lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+					lat="$( echo "scale = 8; $lat + $lat_plane" | bc -l )"
+					lon="$( echo "scale = 8; $lon + $lon_plane" | bc -l )"
+
+				fi
+				lat="$( echo "$lat" | awk '{ printf "%.8f", $1 }')"
+				lon="$( echo "$lon" | awk '{ printf "%.8f", $1 }')"
 				
-			[ "$( echo "scale = 6; ( ( $lon < ${val[0]} ) || ( $lon > ${val[2]} ) )" | bc )" = "1" ] && continue
-			[ "$( echo "scale = 6; ( ( $lat < ${val[1]} ) || ( $lat > ${val[3]} ) )" | bc )" = "1" ] && continue
+				[ "$( echo "scale = 6; ( ( $lon < ${val[0]} ) || ( $lon > ${val[2]} ) )" | bc )" = "1" ] && continue
+				[ "$( echo "scale = 6; ( ( $lat < ${val[1]} ) || ( $lat > ${val[3]} ) )" | bc )" = "1" ] && continue
 
-			WAY[$cnt]="$lon $lat"	
-			ALT[$cnt]="$( echo "scale = 8; $( getAltitude ${WAY[$cnt]} ) + 1" | bc -l )"
-		        cnt=$[ $cnt + 1 ]
-		done
-		echo
+				WAY[$cnt]="$lon $lat"	
+				ALT[$cnt]="$( echo "scale = 8; $( getAltitude ${WAY[$cnt]} ) + 1" | bc -l )"
+			        cnt=$[ $cnt + 1 ]
+			done
+			echo
 
-		cnt="1"
-		echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[0]}"	>> "$output_dir/$output_sub_dir/${f}.txt"
-		while [ "$cnt" -lt $[ ${#WAY[@]} - 1 ] ] ; do           
-		        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
-		        cnt=$[ $cnt + 1 ]
-		done
-		begin=$[ $begin + 1 ]
-		echo "END_SEGMENT $begin ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
-		begin=$[ $begin + 1 ]
+			cnt="1"
+			echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[0]}"	>> "$output_dir/$output_sub_dir/${f}.txt"
+			while [ "$cnt" -lt $[ ${#WAY[@]} - 1 ] ] ; do           
+			        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
+			        cnt=$[ $cnt + 1 ]
+			done
+			begin=$[ $begin + 1 ]
+			echo "END_SEGMENT $begin ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
+			begin=$[ $begin + 1 ]
 	
 
-		i="$[ $i + 1 ]"
+			i="$[ $i + 1 ]"
+		done
 	done
-done
+fi
 
 
 
