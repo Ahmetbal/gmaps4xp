@@ -8,7 +8,7 @@ url="http://khm.google.com/kh?v=3&t="
 
 servers_tile=( khm0.google.com khm1.google.com khm2.google.com khm3.google.com )
 servers_maps=( mt0.google.com  mt1.google.com  mt2.google.com  mt3.google.com  )
-
+OSM="yes"
 server_index="0"
 SLEEP_TIME="20"
 MAX_PERC_COVER="1"
