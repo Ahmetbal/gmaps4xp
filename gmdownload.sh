@@ -1,5 +1,15 @@
 #!/bin/bash
 
+
+export LC_NUMERIC="us"
+export LC_COLLATE="us"
+export LC_CTYPE="us"
+export LC_MESSAGES="us"
+export LC_MONETARY="us"
+export LC_NUMERIC="us"
+export LC_TIME="us"     
+
+
 # Q	R
 #
 # T	S
@@ -250,7 +260,7 @@ if [ "$( uname -s )" = "Darwin" ] ; then
 	# Dsf tool
 	dsftool="$( dirname -- "$0" )/ext_app/xptools_apr08_mac/DSFTool"
 	ddstool="$( dirname -- "$0" )/ext_app/xptools_apr08_mac/DDSTool"
-
+	
 
 	# wget command
 	export PATH="$( dirname -- "$0" )/ext_app/wget:$PATH"
@@ -976,7 +986,6 @@ GetCoordinatesFromAddress(){
 
 	str="$1"
 	ori_str="tile-$str.crd" 
-
 	if [ -f "$tiles_dir/$ori_str" ] ; then
 		crd=( $( cat  "$tiles_dir/$ori_str" ) )
 
@@ -991,7 +1000,7 @@ GetCoordinatesFromAddress(){
 	scale=1.0;
 	str="${str:1}" # skip the first character
 	
-	prec="8"
+	prec="16"
 	while [  ${#str} != 0 ] ; do
 		scale="$( echo "scale = $prec ; $scale * 0.5" | bc -l )"
 
@@ -1016,7 +1025,6 @@ GetCoordinatesFromAddress(){
 	echo "$lon $lat $lon_min $lat_min $lon_max $lat_max" > "$tiles_dir/$ori_str"
 	echo "$lon $lat $lon_min $lat_min $lon_max $lat_max"
 }
-
 
 getDirName(){
 	lat="$1"
@@ -1098,10 +1106,7 @@ tile_size(){
 	decLatA="${info[3]}"
 
 	decLonB="${info[2]}"
-
 	decLatB="${info[5]}"
-
-	
    
 	radLatA="$( 	echo "scale = 16; $pi * $decLatA / 180" | bc -l )"  
 	radLonA="$( 	echo "scale = 16; $pi * $decLonA / 180" | bc -l )"
@@ -1118,7 +1123,7 @@ tile_size(){
 }  
 
 tile_resolution(){
-	echo "scale=16; $( tile_size $1 ) / 256" | bc | awk '{ printf "%.4f", $1 }'
+	echo "scale=16; $( tile_size $1 ) / 256" | bc | awk '{ printf "%.8f", $1 }'
 }
 
 
