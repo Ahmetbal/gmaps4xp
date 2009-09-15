@@ -23,7 +23,6 @@
 #include "XPLMGraphics.h"
 #include "XPLMScenery.h"
 
-#define MESH_SIZE	5
 
 struct gl_texture_t{
 	GLsizei width;
@@ -94,6 +93,28 @@ PLUGIN_API void XPluginReceiveMessage(	XPLMPluginID		inFromWho,
 					long			inMessage,
 					void *			inParam){}
 
+/*
+Zoom level 0 1:20088000.56607700 meters
+Zoom level 1 1:10044000.28303850 meters
+Zoom level 2 1:5022000.14151925 meters
+Zoom level 3 1:2511000.07075963 meters
+Zoom level 4 1:1255500.03537981 meters
+Zoom level 5 1:627750.01768991 meters
+Zoom level 6 1:313875.00884495 meters
+Zoom level 7 1:156937.50442248 meters
+Zoom level 8 1:78468.75221124 meters
+Zoom level 9 1:39234.37610562 meters
+Zoom level 10 1:19617.18805281 meters
+Zoom level 11 1:9808.59402640 meters
+Zoom level 12 1:4909.29701320 meters
+Zoom level 13 1:2452.14850660 meters
+Zoom level 14 1:1226.07425330 meters
+Zoom level 15 1:613.03712665 meters
+Zoom level 16 1:306.51856332 meters
+Zoom level 17 1:153.25928166 meters
+Zoom level 18 1:76.62964083 meters
+Zoom level 19 1:38.31482042 meters
+*/
 
 int MyDrawCallback(	XPLMDrawingPhase     inPhase,    
                         int                  inIsBefore,    
@@ -115,7 +136,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	double 	tileX_UR,	tileY_UR,	tileZ_UR;
 
 	int	zoom;
-	int	TILE_SIZE;
+	int	TILE_SIZE, MESH_SIZE;
 
 	XPLMProbeInfo_t outInfo;
 
@@ -146,6 +167,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
 
 	TILE_SIZE = (int)(( tileX_UR - tileX_LL ) / 2.0f);
+	MESH_SIZE = 2;
 
 	printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d\n",quad, coord[1], coord[0], TILE_SIZE);
 
@@ -173,8 +195,8 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 			terX[k] 	= outInfo.locationX;
 			terY[k] 	= outInfo.locationY;
 			terZ[k] 	= outInfo.locationZ;
-			TexCoordX[k] 	= ( 1.0f / (float)matrixSize ) * ( k % matrixSize );
-			TexCoordY[k] 	= ( 1.0f / (float)matrixSize ) * ( k / matrixSize );
+			TexCoordX[k] 	= 	 ( 1.0f / (float)matrixSize ) * ( k / matrixSize );
+			TexCoordY[k] 	= 1.0f - ( 1.0f / (float)matrixSize ) * ( k % matrixSize );
 			
 		}
 	}
@@ -185,13 +207,9 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	 * guarantees that our axes will be seen no matter what. */
 	XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
 	
-//	printf("terX: %f\t  terY: %f\t terZ: %f\n", terX, terY, terZ);
-//	glColor3f(1.0, 0.0, 1.0);
-
 
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, texId);
-
 	glBegin(GL_TRIANGLES);
 	for( i = 0 ; i < ( matrixSize - 1 ); i++){
 		for( j = 0 ; j < ( matrixSize - 1 ); j++){
