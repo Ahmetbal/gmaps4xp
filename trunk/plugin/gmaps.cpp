@@ -127,7 +127,8 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	double	outLatitude,	outLongitude,	outAltitude;
 	float	*TexCoordX, 	*TexCoordY;
 	int	i,		j,		k;
-	int	stepMesh, 	matrixSize;	
+	int	matrixSize;	
+	float	stepMesh;	
 	char 	quad[25] = {};
 	float	coord[6];
 
@@ -166,28 +167,28 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	XPLMWorldToLocal( (double)coord[3], (double)coord[2], outAltitude, &tileX_LL,	&tileY_LL,	&tileZ_LL 	);
 	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
 
-	TILE_SIZE = (int)(( tileX_UR - tileX_LL ) / 2.0f);
-	MESH_SIZE = 2;
+	TILE_SIZE = (int)( tileX_UR - tileX_LL );
+	MESH_SIZE = 4;
 
-	printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d\n",quad, coord[1], coord[0], TILE_SIZE);
+	printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d Plane: %f %f\n",quad, coord[1], coord[0], TILE_SIZE, outLatitude, outLongitude);
 
 
+	matrixSize	= MESH_SIZE + 1;
+	stepMesh 	= (float)TILE_SIZE / (float)MESH_SIZE;
 
-	terX 		= (float *)malloc( ( MESH_SIZE * MESH_SIZE * 4 ) * sizeof(float) );
-	terY 		= (float *)malloc( ( MESH_SIZE * MESH_SIZE * 4 ) * sizeof(float) );
-	terZ 		= (float *)malloc( ( MESH_SIZE * MESH_SIZE * 4 ) * sizeof(float) );
-	TexCoordX 	= (float *)malloc( ( MESH_SIZE * MESH_SIZE * 4 ) * sizeof(float) );
-	TexCoordY	= (float *)malloc( ( MESH_SIZE * MESH_SIZE * 4 ) * sizeof(float) );
+	terX 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	terY 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	terZ 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	TexCoordX 	= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	TexCoordY	= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
 
 	outInfo.structSize = sizeof(outInfo);
-	stepMesh 	= TILE_SIZE / MESH_SIZE;
-	matrixSize	= ((MESH_SIZE*2)-1);
 
 	
-	for( i = ( (MESH_SIZE-1) * -1 ), k = 0 ; i < MESH_SIZE ; i++){
-		for( j = ( (MESH_SIZE-1) * -1 ) ; j < MESH_SIZE ; j++, k++){
-			pntX = tileX + ( i * stepMesh );
-			pntZ = tileZ + ( j * stepMesh );
+	for( i = 0, k = 0; i < matrixSize ; i++){
+		for( j = 0 ; j < matrixSize ; j++, k++){
+			pntX = tileX_LL + ( i * stepMesh );
+			pntZ = tileZ_LL + ( j * stepMesh );
 			pntY = tileY;
 			//printf("pntX: %f pntY: %f pntZ: %f i: %d j: %d\n", pntX, pntY, pntZ, i, j);
 
@@ -195,12 +196,12 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 			terX[k] 	= outInfo.locationX;
 			terY[k] 	= outInfo.locationY;
 			terZ[k] 	= outInfo.locationZ;
-			TexCoordX[k] 	= 	 ( 1.0f / (float)matrixSize ) * ( k / matrixSize );
-			TexCoordY[k] 	= 1.0f - ( 1.0f / (float)matrixSize ) * ( k % matrixSize );
-			
+
+			TexCoordX[k] 	=	(float)i / (float)(matrixSize - 1);
+			TexCoordY[k] 	= 1.0f -(float)j / (float)(matrixSize - 1);
+			//printf("%f\t%f\n", TexCoordX[k], TexCoordY[k]);
 		}
 	}
-
 
 	/* Reset the graphics state.  This turns off fog, texturing, lighting,
 	 * alpha blending or testing and depth reading and writing, which
@@ -213,8 +214,9 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	glBegin(GL_TRIANGLES);
 	for( i = 0 ; i < ( matrixSize - 1 ); i++){
 		for( j = 0 ; j < ( matrixSize - 1 ); j++){
-
+			
 			// First triangle		
+			// glColor3f(1.0, 0.0, 0.0);
 			k = j 		+ ( matrixSize * i 	);
 			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
 			glVertex3f(terX[k], terY[k], terZ[k]);
@@ -229,6 +231,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 
 
 			// Second triangle
+			// glColor3f(0.0, 1.0, 1.0);
 			k = j + 1	+ ( matrixSize * (i+1)	);
 			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
 			glVertex3f(terX[k], terY[k], terZ[k]);
