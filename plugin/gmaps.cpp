@@ -11,48 +11,82 @@
 #include <gl.h>
 #endif
 #endif
-#include <string.h>
+
+
+// Generic include
 #include <stdio.h>
 #include <stdlib.h>
-#include <jpeglib.h>
+#include <string.h>
+#include <unistd.h>
 #include <math.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 
+// Libreary include
+#include <jpeglib.h>
+#include <curl/curl.h>
+#include <curl/types.h>
+#include <curl/easy.h>
+
+// SDK include
 #include "XPLMDisplay.h"
 #include "XPLMDataAccess.h"
 #include "XPLMGraphics.h"
 #include "XPLMScenery.h"
 
+#define	CACHE_DIR "./GMapsCache"
 
+
+// Define support structure
 struct gl_texture_t{
-	GLsizei width;
+	GLsizei	width;
 	GLsizei height;
 
-	GLenum format;
-	GLint internalFormat;
-	GLuint id;
+	GLenum	format;
+	GLint	internalFormat;
+	GLuint	id;
 
 	GLubyte *texels;
 };
 
+struct MemoryStruct {
+	char *memory;
+	size_t size;
+};
 
-static struct gl_texture_t *ReadJPEGFromFile (const char *filename);
-GLuint 	loadJPEGTexture (const char *filename);
-int 	GetQuadtreeAddress(float lat, float lon, int zoom, char *quad);
-int 	GetCoordinatesFromAddress(char *str, int zoom, float *output);
-
+// Global variables dichiaration
 XPLMDataRef		gPlaneX;
 XPLMDataRef		gPlaneY;
 XPLMDataRef		gPlaneZ;
 GLuint 			texId; 
 XPLMProbeRef		inProbe;
+CURL 			*curl;
+CURLcode 		res;
+struct MemoryStruct 	chunk;
 
+
+// Function prototype
+static struct gl_texture_t 	*ReadJPEGFromFile (const char *filename);
+GLuint 				loadJPEGTexture (const char *filename);
+int 				GetQuadtreeAddress(float lat, float lon, int zoom, char *quad);
+int 				GetCoordinatesFromAddress(char *str, int zoom, float *output);
+static size_t 			write_data(void *ptr, size_t size, size_t nmemb, void *stream);
+static void 			print_cookies(CURL *curl);
+size_t 				WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
+void 				*myrealloc(void *ptr, size_t size);
+int 				DownloadTile(char *quad);
+
+
+
+//----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
 				XPLMDrawingPhase     inPhase,    
                                 int                  inIsBefore,    
                                 void *               inRefcon);
 
 
+//----------------------------------------------------------------------------------------------------//
 PLUGIN_API int XPluginStart(	char *		outName,
 				char *		outSig,
 				char *		outDesc){
@@ -71,13 +105,46 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	gPlaneY 	= XPLMFindDataRef("sim/flightmodel/position/local_y");
 	gPlaneZ 	= XPLMFindDataRef("sim/flightmodel/position/local_z");
 	inProbe 	= XPLMCreateProbe(xplm_ProbeY);  
-	texId		= loadJPEGTexture ("./test.jpg");
 
-	if (!texId) return 1;
+
+	// Create directory for cache file
+	mkdir(CACHE_DIR,  S_IRWXU);
+
+
+	// lib cURL init, get cookies 
+   	chunk.memory	= NULL; /* we expect realloc(NULL, size) to work */
+    	chunk.size	= 0;    /* no data at this point */
+
+
+	curl_global_init(CURL_GLOBAL_ALL);
+ 
+	
+	// Fake Firefox
+	curl = curl_easy_init();
+ 	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 	1L);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 	1);
+	curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 	1);
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, "Firefox (WindowsXP) – Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6″,");
+ 
+
+	// Get coockie
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,	WriteMemoryCallback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, 	(void *)&chunk);
+	curl_easy_setopt(curl, CURLOPT_URL, 		"http://map.google.com/"); 
+	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	""); 
+	res = curl_easy_perform(curl);
+	if (res != CURLE_OK) {
+		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
+		return 1;
+	}
+ 
+
 	return 1;
 }
+//----------------------------------------------------------------------------------------------------//
 
 PLUGIN_API void	XPluginStop(void){
+	curl_easy_cleanup(curl);
 	XPLMUnregisterDrawCallback(
 					MyDrawCallback,
 					xplm_Phase_LastCockpit, 
@@ -85,10 +152,13 @@ PLUGIN_API void	XPluginStop(void){
 					NULL);	
 }
 
+//----------------------------------------------------------------------------------------------------//
 PLUGIN_API void XPluginDisable(void){}
 
+//----------------------------------------------------------------------------------------------------//
 PLUGIN_API int XPluginEnable(void){ return 1; }
 
+//----------------------------------------------------------------------------------------------------//
 PLUGIN_API void XPluginReceiveMessage(	XPLMPluginID		inFromWho,
 					long			inMessage,
 					void *			inParam){}
@@ -116,6 +186,7 @@ Zoom level 18 1:76.62964083 meters
 Zoom level 19 1:38.31482042 meters
 */
 
+//----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(	XPLMDrawingPhase     inPhase,    
                         int                  inIsBefore,    
                         void *               inRefcon){
@@ -129,15 +200,21 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	int	i,		j,		k;
 	int	matrixSize;	
 	float	stepMesh;	
-	char 	quad[25] = {};
-	float	coord[6];
+	char 	quad[25] 	= {};
 
+
+	FILE 	*image;
+	char	image_name[255] = {};
+	char	image_url[255] 	= {};
+
+	float	coord[6];
 	double 	tileX,		tileY, 		tileZ;
 	double 	tileX_LL,	tileY_LL,	tileZ_LL;
 	double 	tileX_UR,	tileY_UR,	tileZ_UR;
 
 	int	zoom;
 	int	TILE_SIZE, MESH_SIZE;
+
 
 	XPLMProbeInfo_t outInfo;
 
@@ -155,9 +232,22 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 
 	// Set zoom livel
 	zoom = 19;
+
+
 	
 	// Get google maps string based on plane coordinates
 	GetQuadtreeAddress(outLatitude, outLongitude, zoom, quad);
+	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
+
+	// Try to load texture
+	texId = loadJPEGTexture (image_name);
+	if (!texId){
+		if (DownloadTile(quad)) return 1;
+		texId = loadJPEGTexture (image_name);
+		if (!texId) return 1;
+
+	}
+
 
 	// Get tile posizione 
 	GetCoordinatesFromAddress(quad, zoom, coord);
@@ -170,7 +260,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	TILE_SIZE = (int)( tileX_UR - tileX_LL );
 	MESH_SIZE = 4;
 
-	printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d Plane: %f %f\n",quad, coord[1], coord[0], TILE_SIZE, outLatitude, outLongitude);
+	//printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d Plane: %f %f\n",quad, coord[1], coord[0], TILE_SIZE, outLatitude, outLongitude);
 
 
 	matrixSize	= MESH_SIZE + 1;
@@ -253,6 +343,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	return 1;
 }
 
+//----------------------------------------------------------------------------------------------------//
 static struct gl_texture_t *ReadJPEGFromFile (const char *filename){
 	struct gl_texture_t *texinfo = NULL;
 	FILE *fp = NULL;
@@ -296,6 +387,7 @@ static struct gl_texture_t *ReadJPEGFromFile (const char *filename){
 	return(texinfo);
 }
 
+//----------------------------------------------------------------------------------------------------//
 GLuint loadJPEGTexture (const char *filename){
 	struct gl_texture_t *jpeg_tex = NULL;
 	GLuint tex_id = 0;
@@ -328,6 +420,7 @@ GLuint loadJPEGTexture (const char *filename){
 	return tex_id;
 }
 
+//----------------------------------------------------------------------------------------------------//
 float MercatorToNormal( float y){
 	y = sin( -1.0f * y * 4.0f * atan(1) / 180.0f );
 	y = (1.0f + y ) / ( 1.0f - y );
@@ -336,6 +429,7 @@ float MercatorToNormal( float y){
 	return(y + 0.5);
 
 }
+//----------------------------------------------------------------------------------------------------//
 float NormalToMercator( float y){
 	y = y - 0.5f;
 	y = y * (2.0f * 4.0f * atan(1.0f) );
@@ -347,6 +441,7 @@ float NormalToMercator( float y){
 }
 
 
+//----------------------------------------------------------------------------------------------------//
 
 int GetQuadtreeAddress(float lat, float lon, int zoom, char *quad){   
 	char 	lookup[4] = { 'q', 'r', 't', 's' };
@@ -372,6 +467,7 @@ int GetQuadtreeAddress(float lat, float lon, int zoom, char *quad){
 	return(0);
 }
 
+//----------------------------------------------------------------------------------------------------//
 int GetCoordinatesFromAddress(char *str, int zoom, float *output){
 
 	// get normalized coordinate first
@@ -402,4 +498,86 @@ int GetCoordinatesFromAddress(char *str, int zoom, float *output){
 	return(0);
 }
 
+//----------------------------------------------------------------------------------------------------//
+void *myrealloc(void *ptr, size_t size){
+	if(ptr)	return realloc(ptr, size);
+	else	return malloc(size);
+}
 
+//----------------------------------------------------------------------------------------------------//
+
+size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data){
+	size_t realsize = size * nmemb;
+	struct MemoryStruct *mem = (struct MemoryStruct *)data;
+ 
+	mem->memory = (char *)myrealloc(mem->memory, mem->size + realsize + 1);
+	if (mem->memory) {
+		memcpy(&(mem->memory[mem->size]), ptr, realsize);
+		mem->size += realsize;
+		mem->memory[mem->size] = 0;
+	}
+	return realsize;
+}
+
+//----------------------------------------------------------------------------------------------------//
+ 
+static void print_cookies(CURL *curl){
+	CURLcode res;
+	struct curl_slist *cookies;
+	struct curl_slist *nc;
+	int i;
+ 
+	printf("Cookies, curl knows:\n");
+	res = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
+	if (res != CURLE_OK) {
+		fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
+	exit(1);
+	}
+	nc = cookies, i = 1;
+	while (nc) {
+	printf("[%d]: %s\n", i, nc->data);
+		nc = nc->next;
+		i++;
+	}
+	if (i == 1) {
+		printf("(none)\n");
+	}
+	curl_slist_free_all(cookies);
+}
+
+//----------------------------------------------------------------------------------------------------//
+static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream){
+	int written = fwrite(ptr, size, nmemb, (FILE *)stream);
+	return written;
+}
+
+
+int DownloadTile(char *quad){
+
+	FILE 	*image;
+	char	image_name[255] = {};
+	char	image_url[255] 	= {};
+
+	sprintf(image_name, "%s/%s.jpg", 				CACHE_DIR, quad );
+	sprintf(image_url, "http://khm0.google.com/kh?v=3&t=%s", 	quad);
+
+	printf("Image not found download it...\n");
+
+	// Image download 
+	curl_easy_setopt(curl, CURLOPT_URL, image_url);
+
+	image = fopen(image_name,"w");
+	if (image == NULL) {
+		curl_easy_cleanup(curl);
+		return 1;
+	}
+	curl_easy_setopt(curl,	CURLOPT_WRITEFUNCTION, 	write_data);
+	curl_easy_setopt(curl,	CURLOPT_WRITEDATA, 	image);
+	curl_easy_perform(curl);
+	if (res != CURLE_OK) {
+		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
+		return 1;
+	}
+
+	fclose(image); 
+}
