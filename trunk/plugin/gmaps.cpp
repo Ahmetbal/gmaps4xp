@@ -35,8 +35,8 @@
 #include "XPLMGraphics.h"
 #include "XPLMScenery.h"
 
-#define	CACHE_DIR "./GMapsCache"
-
+#define	CACHE_DIR 	"./GMapsCache"
+#define GRID_SIZE	3
 
 // Define support structure
 struct gl_texture_t{
@@ -55,16 +55,20 @@ struct MemoryStruct {
 	size_t size;
 };
 
+struct displatTile{
+	char quad[25];
+
+}
+
 // Global variables dichiaration
 XPLMDataRef		gPlaneX;
 XPLMDataRef		gPlaneY;
 XPLMDataRef		gPlaneZ;
-GLuint 			texId; 
 XPLMProbeRef		inProbe;
 CURL 			*curl;
 CURLcode 		res;
 struct MemoryStruct 	chunk;
-
+GLuint 			texId; 
 
 // Function prototype
 static struct gl_texture_t 	*ReadJPEGFromFile (const char *filename);
@@ -76,8 +80,9 @@ static void 			print_cookies(CURL *curl);
 size_t 				WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
 void 				*myrealloc(void *ptr, size_t size);
 int 				DownloadTile(char *quad);
-
-
+int 				DrawTile(char *quad, int zoom, double outAltitude);
+static char			*GetNextTileX(char *addr, int forward);
+static char			*GetNextTileY(char *addr, int forward);
 
 //----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
@@ -192,31 +197,13 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
                         void *               inRefcon){
 
 
+	int	i,x,y;
 	float 	planeX,		planeY, 	planeZ;
-	float 	pntX,		pntY, 		pntZ;
-	float 	*terX, 		*terY, 		*terZ;
 	double	outLatitude,	outLongitude,	outAltitude;
-	float	*TexCoordX, 	*TexCoordY;
-	int	i,		j,		k;
-	int	matrixSize;	
-	float	stepMesh;	
-	char 	quad[25] 	= {};
-
-
-	FILE 	*image;
-	char	image_name[255] = {};
-	char	image_url[255] 	= {};
-
-	float	coord[6];
-	double 	tileX,		tileY, 		tileZ;
-	double 	tileX_LL,	tileY_LL,	tileZ_LL;
-	double 	tileX_UR,	tileY_UR,	tileZ_UR;
-
+	char 	quad[25] = {};
+	char	*next, *cursor, *c2;
 	int	zoom;
-	int	TILE_SIZE, MESH_SIZE;
 
-
-	XPLMProbeInfo_t outInfo;
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1;
@@ -237,108 +224,23 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	
 	// Get google maps string based on plane coordinates
 	GetQuadtreeAddress(outLatitude, outLongitude, zoom, quad);
-	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
-
-	// Try to load texture
-	texId = loadJPEGTexture (image_name);
-	if (!texId){
-		if (DownloadTile(quad)) return 1;
-		texId = loadJPEGTexture (image_name);
-		if (!texId) return 1;
-
-	}
 
 
-	// Get tile posizione 
-	GetCoordinatesFromAddress(quad, zoom, coord);
+	// move to top left
+	cursor = quad;
+	cursor = GetNextTileX(cursor,0); 
+	cursor = GetNextTileY(cursor,0);
 
-	// Get OGL coordiantes of tile posizione
-	XPLMWorldToLocal( (double)coord[1], (double)coord[0], outAltitude, &tileX,	&tileY,		&tileZ 		);
-	XPLMWorldToLocal( (double)coord[3], (double)coord[2], outAltitude, &tileX_LL,	&tileY_LL,	&tileZ_LL 	);
-	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
-
-	TILE_SIZE = (int)( tileX_UR - tileX_LL );
-	MESH_SIZE = 4;
-
-	//printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d Plane: %f %f\n",quad, coord[1], coord[0], TILE_SIZE, outLatitude, outLongitude);
-
-
-	matrixSize	= MESH_SIZE + 1;
-	stepMesh 	= (float)TILE_SIZE / (float)MESH_SIZE;
-
-	terX 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
-	terY 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
-	terZ 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
-	TexCoordX 	= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
-	TexCoordY	= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
-
-	outInfo.structSize = sizeof(outInfo);
-
-	
-	for( i = 0, k = 0; i < matrixSize ; i++){
-		for( j = 0 ; j < matrixSize ; j++, k++){
-			pntX = tileX_LL + ( i * stepMesh );
-			pntZ = tileZ_LL + ( j * stepMesh );
-			pntY = tileY;
-			//printf("pntX: %f pntY: %f pntZ: %f i: %d j: %d\n", pntX, pntY, pntZ, i, j);
-
-			XPLMProbeTerrainXYZ( inProbe, pntX, pntY, pntZ, &outInfo);    
-			terX[k] 	= outInfo.locationX;
-			terY[k] 	= outInfo.locationY;
-			terZ[k] 	= outInfo.locationZ;
-
-			TexCoordX[k] 	=	(float)i / (float)(matrixSize - 1);
-			TexCoordY[k] 	= 1.0f -(float)j / (float)(matrixSize - 1);
-			//printf("%f\t%f\n", TexCoordX[k], TexCoordY[k]);
+	// Draw tile around the plane
+ 	for (x = 0, i = 0; x < GRID_SIZE; x++) {
+		c2 	= cursor;
+		cursor 	= GetNextTileX(cursor,1);
+		for (y = 0; y < GRID_SIZE; y++, i++){
+			DrawTile(c2, zoom,  outAltitude);
+			c2 = GetNextTileY(c2,1);
 		}
 	}
 
-	/* Reset the graphics state.  This turns off fog, texturing, lighting,
-	 * alpha blending or testing and depth reading and writing, which
-	 * guarantees that our axes will be seen no matter what. */
-	XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
-	
-
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, texId);
-	glBegin(GL_TRIANGLES);
-	for( i = 0 ; i < ( matrixSize - 1 ); i++){
-		for( j = 0 ; j < ( matrixSize - 1 ); j++){
-			
-			// First triangle		
-			// glColor3f(1.0, 0.0, 0.0);
-			k = j 		+ ( matrixSize * i 	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-			
-			k = j  		+ ( matrixSize * (i+1)	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-
-			k = j + 1  	+ ( matrixSize * i 	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-
-
-			// Second triangle
-			// glColor3f(0.0, 1.0, 1.0);
-			k = j + 1	+ ( matrixSize * (i+1)	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-
-			k = j + 1  	+ ( matrixSize * i 	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-
-			k = j  		+ ( matrixSize * (i+1)	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-
-
-		}
-	}
-	glEnd();
-	glDisable(GL_TEXTURE_2D);
 
 	return 1;
 }
@@ -552,6 +454,7 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream){
 }
 
 
+//----------------------------------------------------------------------------------------------------//
 int DownloadTile(char *quad){
 
 	FILE 	*image;
@@ -581,3 +484,206 @@ int DownloadTile(char *quad){
 
 	fclose(image); 
 }
+
+//----------------------------------------------------------------------------------------------------//
+
+int DrawTile(char *quad, int zoom, double outAltitude){
+
+	float	*TexCoordX, 	*TexCoordY;
+	int	i,		j,		k;
+	int	matrixSize;	
+	float	stepMesh;	
+
+
+	FILE 	*image;
+	char	image_name[255] = {};
+	char	image_url[255] 	= {};
+
+	float	coord[6];
+	double 	tileX,		tileY, 		tileZ;
+	double 	tileX_LL,	tileY_LL,	tileZ_LL;
+	double 	tileX_UR,	tileY_UR,	tileZ_UR;
+	float 	pntX,		pntY, 		pntZ;
+	float 	*terX, 		*terY, 		*terZ;
+
+
+	int	TILE_SIZE, MESH_SIZE;
+
+
+	XPLMProbeInfo_t outInfo;
+
+
+	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
+	// Try to load texture
+	texId = loadJPEGTexture (image_name);
+	if (!texId){
+		if (DownloadTile(quad)) return 1;
+		texId = loadJPEGTexture (image_name);
+		if (!texId) return 1;
+
+	}
+
+
+	// Get tile posizione 
+	GetCoordinatesFromAddress(quad, zoom, coord);
+
+	// Get OGL coordiantes of tile posizione
+	XPLMWorldToLocal( (double)coord[1], (double)coord[0], outAltitude, &tileX,	&tileY,		&tileZ 		);
+	XPLMWorldToLocal( (double)coord[3], (double)coord[2], outAltitude, &tileX_LL,	&tileY_LL,	&tileZ_LL 	);
+	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
+
+	TILE_SIZE = (int)( tileX_UR - tileX_LL );
+	MESH_SIZE = 4;
+
+	//printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d Plane: %f %f\n",quad, coord[1], coord[0], TILE_SIZE, outLatitude, outLongitude);
+
+
+	matrixSize	= MESH_SIZE + 1;
+	stepMesh 	= (float)TILE_SIZE / (float)MESH_SIZE;
+
+	terX 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	terY 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	terZ 		= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	TexCoordX 	= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+	TexCoordY	= (float *)malloc( ( matrixSize * matrixSize ) * sizeof(float) );
+
+	outInfo.structSize = sizeof(outInfo);
+
+	
+	for( i = 0, k = 0; i < matrixSize ; i++){
+		for( j = 0 ; j < matrixSize ; j++, k++){
+			pntX = tileX_LL + ( i * stepMesh );
+			pntZ = tileZ_LL + ( j * stepMesh );
+			pntY = tileY;
+			//printf("pntX: %f pntY: %f pntZ: %f i: %d j: %d\n", pntX, pntY, pntZ, i, j);
+
+			XPLMProbeTerrainXYZ( inProbe, pntX, pntY, pntZ, &outInfo);    
+			terX[k] 	= outInfo.locationX;
+			terY[k] 	= outInfo.locationY;
+			terZ[k] 	= outInfo.locationZ;
+
+			TexCoordX[k] 	=	(float)i / (float)(matrixSize - 1);
+			TexCoordY[k] 	= 1.0f -(float)j / (float)(matrixSize - 1);
+			//printf("%f\t%f\n", TexCoordX[k], TexCoordY[k]);
+		}
+	}
+
+	/* Reset the graphics state.  This turns off fog, texturing, lighting,
+	 * alpha blending or testing and depth reading and writing, which
+	 * guarantees that our axes will be seen no matter what. */
+	XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
+	
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, texId);
+	glBegin(GL_TRIANGLES);
+	for( i = 0 ; i < ( matrixSize - 1 ); i++){
+		for( j = 0 ; j < ( matrixSize - 1 ); j++){
+			
+			// First triangle		
+			// glColor3f(1.0, 0.0, 0.0);
+			k = j 		+ ( matrixSize * i 	);
+			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			glVertex3f(terX[k], terY[k], terZ[k]);
+			
+			k = j  		+ ( matrixSize * (i+1)	);
+			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			glVertex3f(terX[k], terY[k], terZ[k]);
+
+			k = j + 1  	+ ( matrixSize * i 	);
+			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			glVertex3f(terX[k], terY[k], terZ[k]);
+
+
+			// Second triangle
+			// glColor3f(0.0, 1.0, 1.0);
+			k = j + 1	+ ( matrixSize * (i+1)	);
+			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			glVertex3f(terX[k], terY[k], terZ[k]);
+
+			k = j + 1  	+ ( matrixSize * i 	);
+			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			glVertex3f(terX[k], terY[k], terZ[k]);
+
+			k = j  		+ ( matrixSize * (i+1)	);
+			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			glVertex3f(terX[k], terY[k], terZ[k]);
+
+
+		}
+	}
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+
+}
+
+//----------------------------------------------------------------------------------------------------//
+
+
+static char *GetNextTileX(char *addr, int forward){
+	int 		length, i;
+	char		last;
+	static char	*parent;
+	static char	*new_addr;
+
+
+	if (!strcmp(addr, "") ){
+		return(new_addr);
+		return(0); 
+	}
+
+	parent		= (char *)malloc(sizeof(char) * 25);
+	new_addr 	= (char *)malloc(sizeof(char) * 25);
+	for (i = 0; i < 25 ; i ++){ parent[i] = '\0'; new_addr[i] = '\0'; }
+
+	length		= strlen(addr);
+	last		= addr[ length - 1 ];
+	strncpy(parent, addr, length-1);
+	
+	if 	( last == 'q' ) {	last = 'r'; 	if (! forward ) parent = GetNextTileX( parent,  forward );	}	
+	else if ( last == 'r' ) {	last = 'q'; 	if (  forward ) parent = GetNextTileX( parent,  forward );	}	
+	else if ( last == 's' ) {	last = 't'; 	if (  forward ) parent = GetNextTileX( parent,  forward ); 	}	
+	else if ( last == 't' ) {	last = 's'; 	if (! forward ) parent = GetNextTileX( parent,  forward );	}	
+
+	sprintf(new_addr, "%s%c", parent, last);
+	return(new_addr);
+
+	return(0);
+
+}
+
+//----------------------------------------------------------------------------------------------------//
+
+
+static char *GetNextTileY(char *addr, int forward){
+	int 		length, i;
+	char		last;
+	static char	*parent;
+	static char	*new_addr;
+
+
+	if (!strcmp(addr, "") ){
+		return(new_addr);
+		return(0); 
+	}
+
+	parent		= (char *)malloc(sizeof(char) * 25);
+	new_addr 	= (char *)malloc(sizeof(char) * 25);
+	for (i = 0; i < 25 ; i ++){ parent[i] = '\0'; new_addr[i] = '\0'; }
+
+	length		= strlen(addr);
+	last		= addr[ length - 1 ];
+	strncpy(parent, addr, length-1);
+	
+	if 	( last == 'q' ) {	last = 't'; 	if (! forward ) parent = GetNextTileY( parent,  forward );	}	
+	else if ( last == 'r' ) {	last = 's'; 	if (! forward ) parent = GetNextTileY( parent,  forward );	}	
+	else if ( last == 's' ) {	last = 'r'; 	if (  forward ) parent = GetNextTileY( parent,  forward ); 	}	
+	else if ( last == 't' ) {	last = 'q'; 	if (  forward ) parent = GetNextTileY( parent,  forward );	}	
+
+	sprintf(new_addr, "%s%c", parent, last);
+	return(new_addr);
+
+	return(0);
+
+}
+
