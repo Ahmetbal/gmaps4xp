@@ -55,9 +55,7 @@ struct MemoryStruct {
 
 struct thread_data{
 	int  	thread_id;
-	int  	zoom;
 	char	*quad;
-   	double	outAltitude;
 };
 
 
@@ -90,8 +88,8 @@ static size_t 			write_data(void *ptr, size_t size, size_t nmemb, void *stream);
 static void 			print_cookies(CURL *curl);
 size_t 				WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
 void 				*myrealloc(void *ptr, size_t size);
-int 				DownloadTile(char *quad);
-void 				*DrawTile(void *threadarg);
+void 				*DownloadTile(void *threadarg);
+int 				DrawTile(char *quad, int zoom, double  outAltitude);
 static char			*GetNextTileX(char *addr, int forward);
 static char			*GetNextTileY(char *addr, int forward);
 GLuint 				searchTexId(char *quad);
@@ -156,6 +154,8 @@ PLUGIN_API int XPluginStart(	char *		outName,
 		return 1;
 	}
 
+	pthread_mutex_init(&mutex, NULL);
+
 	return 1;
 }
 //----------------------------------------------------------------------------------------------------//
@@ -215,8 +215,6 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	char 	quad[25] = {};
 	char	*cursor, *c2;
 	int	zoom;
-	struct thread_data 	*thread_data_array;
-	pthread_t 		*threads;
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1;
@@ -245,32 +243,15 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	cursor = GetNextTileY(cursor,0);
 
 
-	thread_data_array 	= (struct thread_data 	*)malloc(sizeof(struct thread_data) * GRID_SIZE * GRID_SIZE);
-	threads 		= (pthread_t 		*)malloc(sizeof(pthread_t  	  ) * GRID_SIZE * GRID_SIZE);
-
  	for (x = 0, i = 0; x < GRID_SIZE; x++) {
 		c2 	= cursor;
 		cursor 	= GetNextTileX(cursor,1);
 		for (y = 0; y < GRID_SIZE; y++, i++){
-			thread_data_array[i].quad = (char *)malloc(sizeof(char) * ( strlen(c2) + 1) );
-			strcpy(thread_data_array[i].quad, c2);
-			thread_data_array[i].zoom 	 	= zoom;
-			thread_data_array[i].outAltitude 	= outAltitude;
-			thread_data_array[i].thread_id		= i;
+			DrawTile( c2, zoom, outAltitude );
 			c2 = GetNextTileY(c2,1);
 		}
 	}
 
-	i = 0;
-	// Draw tile around the plane
-	//for (i = 0; i < ( GRID_SIZE * GRID_SIZE ); i++){
-		pthread_create(&threads[i], NULL, DrawTile, (void *) &thread_data_array[i]);
-	//}
-
-	//for (i = 0; i < ( GRID_SIZE * GRID_SIZE ); i++){
-		pthread_join( threads[i], NULL); 
-	//}
-	
 	return 1;
 }
 
@@ -328,20 +309,24 @@ GLuint loadJPEGTexture (const char *filename){
 
 	if (jpeg_tex && jpeg_tex->texels){
 		glGenTextures (1, &jpeg_tex->id);
+
 		glBindTexture (GL_TEXTURE_2D, jpeg_tex->id);
 
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-/*
+
+#if 0
 		glTexImage2D (GL_TEXTURE_2D, 0, jpeg_tex->internalFormat,
 				jpeg_tex->width, jpeg_tex->height, 0, jpeg_tex->format,
 				GL_UNSIGNED_BYTE, jpeg_tex->texels);
 
-*/
+#else
+
 		gluBuild2DMipmaps (GL_TEXTURE_2D, jpeg_tex->internalFormat,
 	                         jpeg_tex->width, jpeg_tex->height,
 	                         jpeg_tex->format, GL_UNSIGNED_BYTE, jpeg_tex->texels);
+#endif
 
 		tex_id = jpeg_tex->id;
 
@@ -484,14 +469,20 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream){
 
 
 //----------------------------------------------------------------------------------------------------//
-int DownloadTile(char *quad){
+void *DownloadTile(void *threadarg){
 
 	FILE 	*image;
 	char	image_name[255] = {};
 	char	image_url[255] 	= {};
 
-	sprintf(image_name, "%s/%s.jpg", 				CACHE_DIR, quad );
-	sprintf(image_url, "http://khm0.google.com/kh?v=3&t=%s", 	quad);
+	struct thread_data *data;
+	data = (struct thread_data *)threadarg;
+
+	printf("Thread %d\n", data->thread_id);
+
+
+	sprintf(image_name, "%s/%s.jpg", 				CACHE_DIR, data->quad );
+	sprintf(image_url, "http://khm0.google.com/kh?v=3&t=%s", 	data->quad);
 
 	printf("Image not found download it...\n");
 
@@ -501,23 +492,22 @@ int DownloadTile(char *quad){
 	image = fopen(image_name,"w");
 	if (image == NULL) {
 		curl_easy_cleanup(curl);
-		return 1;
+		pthread_exit(0);
 	}
 	curl_easy_setopt(curl,	CURLOPT_WRITEFUNCTION, 	write_data);
 	curl_easy_setopt(curl,	CURLOPT_WRITEDATA, 	image);
 	curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
-		return 1;
+		pthread_exit(0);
 	}
 
 	fclose(image);
-	return(0); 
+	pthread_exit(0);
 }
 
 //----------------------------------------------------------------------------------------------------//
-
-void *DrawTile(void *threadarg){
+int  DrawTile(char *quad, int zoom, double  outAltitude){
 
 	float	*TexCoordX, 	*TexCoordY;
 	int	i,		j,		k;
@@ -538,37 +528,39 @@ void *DrawTile(void *threadarg){
 	XPLMProbeInfo_t outInfo;
 
 
-	struct thread_data *data;
-	int	zoom;
-	double	outAltitude;
+	struct thread_data 	thread_data_array;
+	pthread_t 		threads;
+	pthread_attr_t 		attr;
 
-	data = (struct thread_data *)threadarg;
-	outAltitude 	= data->outAltitude;
-	zoom		= data->zoom;
 
-	printf("Hi, I'm thread %d %s\n", data->thread_id, data->quad);
 
-	texId = searchTexId(data->quad);
+	texId = searchTexId(quad);
+
 	if (!texId){
-	        sprintf(image_name, "%s/%s.jpg", CACHE_DIR, data->quad );
+	        sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
 	        // Try to load texture
 	        texId = loadJPEGTexture (image_name);
-
-		printf("cacca\n");
-
 	        if (!texId){
-	                if (DownloadTile(data->quad)) return (void*)(1);
-	                texId = loadJPEGTexture (image_name);
-	                if (!texId) return (void*)(1);
-	        }
-		PutListTile(data->quad, texId);
 
+			thread_data_array.quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
+			strcpy(thread_data_array.quad, quad);
+			pthread_attr_init(&attr);
+			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+			pthread_create(&threads, NULL, DownloadTile, (void *) &thread_data_array);
+
+			DownloadTile((void *) &thread_data_array);	
+	                texId = loadJPEGTexture (image_name);
+			if (!texId) return(0);
+			
+	        }
+	
+	//	PutListTile(quad, texId);
 	}
 
-	return (void*)(1);
+
 
 	// Get tile posizione 
-	GetCoordinatesFromAddress(data->quad, zoom, coord);
+	GetCoordinatesFromAddress(quad, zoom, coord);
 
 	// Get OGL coordiantes of tile posizione
 	XPLMWorldToLocal( (double)coord[1], (double)coord[0], outAltitude, &tileX,	&tileY,		&tileZ 		);
@@ -657,7 +649,7 @@ void *DrawTile(void *threadarg){
 	}
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
-	return (void*)(1);
+	return(0);
 }
 
 //----------------------------------------------------------------------------------------------------//
@@ -734,28 +726,24 @@ static char *GetNextTileY(char *addr, int forward){
 int PutListTile(char *quad,  GLuint  texId){
 	struct displayTile *tmp;
 
-	pthread_mutex_lock( &mutex );
-	printf("PutListTile %s\n", quad);
+	//printf("PutListTile... %s\n", quad);
 	if (listTile == NULL){
-		printf("Empty list...\n");
+		//printf("Empty list...\n");
 		listTile = (struct displayTile *)malloc(sizeof( struct displayTile ) );
-
 		listTile->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
-
 		strcpy(listTile->quad,quad);
 		listTile->texId = texId;
-		pthread_mutex_unlock( &mutex );
+		listTile->next	= NULL;
 		return(0);
 	}
+	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){};
 	
-	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  );
-	
-	tmp->next = (struct displayTile *)malloc(sizeof(struct displayTile) );
+	tmp->next 	= (struct displayTile *)malloc(sizeof(struct displayTile) );
+	tmp->next->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
 
 	strcpy(tmp->next->quad,quad);
 	tmp->next->texId 	= texId;
 	tmp->next->next 	= NULL;
-	pthread_mutex_unlock( &mutex );
 	return(0);
 }
 
@@ -765,18 +753,13 @@ int PutListTile(char *quad,  GLuint  texId){
 GLuint searchTexId(char *quad){
 	struct displayTile *tmp;
 	GLuint tex_id = 0;
-
-	pthread_mutex_lock( &mutex );
-	printf("searchTexId %s\n", quad);
-
-	if ( listTile == NULL ) return(0);
+	//printf("searchTexId %s...\n", quad);
+	if ( listTile == NULL ) return(tex_id);
 	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
 		if ( !strcmp(tmp->quad, quad) ){
-			pthread_mutex_unlock( &mutex );
-			return( tmp->texId);
+			return(tmp->texId);
 		}
 	}
-	pthread_mutex_unlock( &mutex );
 	return(tex_id);
 }
 
