@@ -1,12 +1,10 @@
-#if IBM
-#include <windows.h>
-#endif
 #if LIN
 #include <GL/gl.h>
 #include <GL/glu.h>
 #else
 #if __GNUC__
 #include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
 #include <gl.h>
 #endif
@@ -21,7 +19,7 @@
 #include <math.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include <pthread.h>
 
 // Libreary include
 #include <jpeglib.h>
@@ -55,10 +53,22 @@ struct MemoryStruct {
 	size_t size;
 };
 
-struct displatTile{
-	char quad[25];
+struct thread_data{
+	int  	thread_id;
+	int  	zoom;
+	char	*quad;
+   	double	outAltitude;
+};
 
-}
+
+struct displayTile{
+	char 	*quad;
+	GLuint	texId;
+	int	used;
+	struct	displayTile *next;
+
+} displayTile;
+
 
 // Global variables dichiaration
 XPLMDataRef		gPlaneX;
@@ -68,7 +78,8 @@ XPLMProbeRef		inProbe;
 CURL 			*curl;
 CURLcode 		res;
 struct MemoryStruct 	chunk;
-GLuint 			texId; 
+struct displayTile	*listTile = NULL;
+pthread_mutex_t 	mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Function prototype
 static struct gl_texture_t 	*ReadJPEGFromFile (const char *filename);
@@ -80,9 +91,11 @@ static void 			print_cookies(CURL *curl);
 size_t 				WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
 void 				*myrealloc(void *ptr, size_t size);
 int 				DownloadTile(char *quad);
-int 				DrawTile(char *quad, int zoom, double outAltitude);
+void 				*DrawTile(void *threadarg);
 static char			*GetNextTileX(char *addr, int forward);
 static char			*GetNextTileY(char *addr, int forward);
+GLuint 				searchTexId(char *quad);
+int 				PutListTile(char *quad,  GLuint  texId);
 
 //----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
@@ -142,7 +155,6 @@ PLUGIN_API int XPluginStart(	char *		outName,
 		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
 		return 1;
 	}
- 
 
 	return 1;
 }
@@ -197,13 +209,14 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
                         void *               inRefcon){
 
 
-	int	i,x,y;
+	int	i,j,x,y;
 	float 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	char 	quad[25] = {};
-	char	*next, *cursor, *c2;
+	char	*cursor, *c2;
 	int	zoom;
-
+	struct thread_data 	*thread_data_array;
+	pthread_t 		*threads;
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1;
@@ -231,17 +244,33 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	cursor = GetNextTileX(cursor,0); 
 	cursor = GetNextTileY(cursor,0);
 
-	// Draw tile around the plane
+
+	thread_data_array 	= (struct thread_data 	*)malloc(sizeof(struct thread_data) * GRID_SIZE * GRID_SIZE);
+	threads 		= (pthread_t 		*)malloc(sizeof(pthread_t  	  ) * GRID_SIZE * GRID_SIZE);
+
  	for (x = 0, i = 0; x < GRID_SIZE; x++) {
 		c2 	= cursor;
 		cursor 	= GetNextTileX(cursor,1);
 		for (y = 0; y < GRID_SIZE; y++, i++){
-			DrawTile(c2, zoom,  outAltitude);
+			thread_data_array[i].quad = (char *)malloc(sizeof(char) * ( strlen(c2) + 1) );
+			strcpy(thread_data_array[i].quad, c2);
+			thread_data_array[i].zoom 	 	= zoom;
+			thread_data_array[i].outAltitude 	= outAltitude;
+			thread_data_array[i].thread_id		= i;
 			c2 = GetNextTileY(c2,1);
 		}
 	}
 
+	i = 0;
+	// Draw tile around the plane
+	//for (i = 0; i < ( GRID_SIZE * GRID_SIZE ); i++){
+		pthread_create(&threads[i], NULL, DrawTile, (void *) &thread_data_array[i]);
+	//}
 
+	//for (i = 0; i < ( GRID_SIZE * GRID_SIZE ); i++){
+		pthread_join( threads[i], NULL); 
+	//}
+	
 	return 1;
 }
 
@@ -296,6 +325,7 @@ GLuint loadJPEGTexture (const char *filename){
 
 	jpeg_tex = ReadJPEGFromFile (filename);
 
+
 	if (jpeg_tex && jpeg_tex->texels){
 		glGenTextures (1, &jpeg_tex->id);
 		glBindTexture (GL_TEXTURE_2D, jpeg_tex->id);
@@ -303,22 +333,21 @@ GLuint loadJPEGTexture (const char *filename){
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-#if 0                                                                                                                                                                                                                                        
-      glTexImage2D (GL_TEXTURE_2D, 0, jpeg_tex->internalFormat,
-                    jpeg_tex->width, jpeg_tex->height, 0, jpeg_tex->format,
-                    GL_UNSIGNED_BYTE, jpeg_tex->texels);
-#else
-	      gluBuild2DMipmaps (GL_TEXTURE_2D, jpeg_tex->internalFormat,
+/*
+		glTexImage2D (GL_TEXTURE_2D, 0, jpeg_tex->internalFormat,
+				jpeg_tex->width, jpeg_tex->height, 0, jpeg_tex->format,
+				GL_UNSIGNED_BYTE, jpeg_tex->texels);
+
+*/
+		gluBuild2DMipmaps (GL_TEXTURE_2D, jpeg_tex->internalFormat,
 	                         jpeg_tex->width, jpeg_tex->height,
 	                         jpeg_tex->format, GL_UNSIGNED_BYTE, jpeg_tex->texels);
-#endif
 
 		tex_id = jpeg_tex->id;
 
 		free (jpeg_tex->texels);
 		free (jpeg_tex);
 	}
-
 	return tex_id;
 }
 
@@ -482,22 +511,20 @@ int DownloadTile(char *quad){
 		return 1;
 	}
 
-	fclose(image); 
+	fclose(image);
+	return(0); 
 }
 
 //----------------------------------------------------------------------------------------------------//
 
-int DrawTile(char *quad, int zoom, double outAltitude){
+void *DrawTile(void *threadarg){
 
 	float	*TexCoordX, 	*TexCoordY;
 	int	i,		j,		k;
 	int	matrixSize;	
 	float	stepMesh;	
-
-
-	FILE 	*image;
+	GLuint  texId;
 	char	image_name[255] = {};
-	char	image_url[255] 	= {};
 
 	float	coord[6];
 	double 	tileX,		tileY, 		tileZ;
@@ -508,24 +535,40 @@ int DrawTile(char *quad, int zoom, double outAltitude){
 
 
 	int	TILE_SIZE, MESH_SIZE;
-
-
 	XPLMProbeInfo_t outInfo;
 
 
-	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
-	// Try to load texture
-	texId = loadJPEGTexture (image_name);
+	struct thread_data *data;
+	int	zoom;
+	double	outAltitude;
+
+	data = (struct thread_data *)threadarg;
+	outAltitude 	= data->outAltitude;
+	zoom		= data->zoom;
+
+	printf("Hi, I'm thread %d %s\n", data->thread_id, data->quad);
+
+	texId = searchTexId(data->quad);
 	if (!texId){
-		if (DownloadTile(quad)) return 1;
-		texId = loadJPEGTexture (image_name);
-		if (!texId) return 1;
+	        sprintf(image_name, "%s/%s.jpg", CACHE_DIR, data->quad );
+	        // Try to load texture
+	        texId = loadJPEGTexture (image_name);
+
+		printf("cacca\n");
+
+	        if (!texId){
+	                if (DownloadTile(data->quad)) return (void*)(1);
+	                texId = loadJPEGTexture (image_name);
+	                if (!texId) return (void*)(1);
+	        }
+		PutListTile(data->quad, texId);
 
 	}
 
+	return (void*)(1);
 
 	// Get tile posizione 
-	GetCoordinatesFromAddress(quad, zoom, coord);
+	GetCoordinatesFromAddress(data->quad, zoom, coord);
 
 	// Get OGL coordiantes of tile posizione
 	XPLMWorldToLocal( (double)coord[1], (double)coord[0], outAltitude, &tileX,	&tileY,		&tileZ 		);
@@ -614,7 +657,7 @@ int DrawTile(char *quad, int zoom, double outAltitude){
 	}
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
-
+	return (void*)(1);
 }
 
 //----------------------------------------------------------------------------------------------------//
@@ -652,8 +695,8 @@ static char *GetNextTileX(char *addr, int forward){
 
 }
 
-//----------------------------------------------------------------------------------------------------//
 
+//----------------------------------------------------------------------------------------------------//
 
 static char *GetNextTileY(char *addr, int forward){
 	int 		length, i;
@@ -686,4 +729,56 @@ static char *GetNextTileY(char *addr, int forward){
 	return(0);
 
 }
+
+//----------------------------------------------------------------------------------------------------//
+int PutListTile(char *quad,  GLuint  texId){
+	struct displayTile *tmp;
+
+	pthread_mutex_lock( &mutex );
+	printf("PutListTile %s\n", quad);
+	if (listTile == NULL){
+		printf("Empty list...\n");
+		listTile = (struct displayTile *)malloc(sizeof( struct displayTile ) );
+
+		listTile->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
+
+		strcpy(listTile->quad,quad);
+		listTile->texId = texId;
+		pthread_mutex_unlock( &mutex );
+		return(0);
+	}
+	
+	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  );
+	
+	tmp->next = (struct displayTile *)malloc(sizeof(struct displayTile) );
+
+	strcpy(tmp->next->quad,quad);
+	tmp->next->texId 	= texId;
+	tmp->next->next 	= NULL;
+	pthread_mutex_unlock( &mutex );
+	return(0);
+}
+
+
+//----------------------------------------------------------------------------------------------------//
+
+GLuint searchTexId(char *quad){
+	struct displayTile *tmp;
+	GLuint tex_id = 0;
+
+	pthread_mutex_lock( &mutex );
+	printf("searchTexId %s\n", quad);
+
+	if ( listTile == NULL ) return(0);
+	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
+		if ( !strcmp(tmp->quad, quad) ){
+			pthread_mutex_unlock( &mutex );
+			return( tmp->texId);
+		}
+	}
+	pthread_mutex_unlock( &mutex );
+	return(tex_id);
+}
+
+
 
