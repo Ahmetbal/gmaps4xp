@@ -18,6 +18,8 @@ LNFLAGS+=-undefined warning -flat_namespace -dynamiclib -shared -rdynamic -nodef
 # Math libs
 LIBS+=-lm
 LIBS+=-ljpeg
+LIBS+=-lcurl
+LIBS+=-lpthread
  
 all: $(TARGET)
  
