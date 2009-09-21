@@ -34,7 +34,7 @@
 #include "XPLMScenery.h"
 
 #define	CACHE_DIR 	"./GMapsCache"
-#define GRID_SIZE	3
+#define GRID_SIZE	4
 
 #define READY		0
 #define LOADED		1
@@ -239,7 +239,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	float 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	char 	quad[25] = {};
-	char	*cursor, *c2;
+	char	*cursor, *c2, *frame;
 	int	zoom;
 
 	/* If any data refs are missing, do not draw. */
@@ -265,10 +265,12 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 
 	// move to top left
 	cursor = quad;
-	cursor = GetNextTileX(cursor,0); 
-	cursor = GetNextTileY(cursor,0);
-
-
+	for( i = 0 ; i < (int)(GRID_SIZE/2); i++){
+		cursor = GetNextTileX(cursor,0); 
+		cursor = GetNextTileY(cursor,0);
+	}
+	frame = cursor;
+	// Drow near the plane
  	for (x = 0, i = 0; x < GRID_SIZE; x++) {
 		c2 	= cursor;
 		cursor 	= GetNextTileX(cursor,1);
@@ -277,6 +279,18 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 			c2 = GetNextTileY(c2,1);
 		}
 	}
+
+
+	// Drow first frame
+	frame[ strlen(frame) - 1 ] = '\0';
+	frame = GetNextTileX( frame, 0 ); 
+	frame = GetNextTileY( frame, 0 );
+
+	zoom--;
+	DrawTile( frame, zoom, outAltitude, 0);
+		
+
+
 
 	return 1;
 }
