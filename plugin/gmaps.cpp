@@ -36,6 +36,7 @@
 #define	CACHE_DIR 	"./GMapsCache"
 #define GRID_SIZE	4
 
+
 #define READY		0
 #define LOADED		1
 #define BUSY		2
@@ -154,7 +155,6 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 
 	curl_global_init(CURL_GLOBAL_ALL);
- 
 	
 	// Fake Firefox
 	curl = curl_easy_init();
@@ -168,7 +168,8 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,	WriteMemoryCallback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, 	(void *)&chunk);
 	curl_easy_setopt(curl, CURLOPT_URL, 		"http://map.google.com/"); 
-	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	""); 
+	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	"");
+ 
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
@@ -235,12 +236,14 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
                         void *               inRefcon){
 
 
-	int	i,j,x,y;
+	int	i,x,y;
 	float 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	char 	quad[25] = {};
 	char	*cursor, *c2, *frame;
 	int	zoom;
+	int	FRAME_GRID_SIZE;
+
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1;
@@ -255,13 +258,13 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	//printf("Lat: %f Lon: %f Alt: %f x: %f y: %f z: %f\n", outLatitude, outLongitude, outAltitude, planeX, planeY, planeZ);
 
 	// Set zoom livel
-	zoom = 17;
+	zoom = 19;
 
 
 	
 	// Get google maps string based on plane coordinates
 	GetQuadtreeAddress(outLatitude, outLongitude, zoom, quad);
-
+	quad[ strlen(quad) - 1 ] = 'q';
 
 	// move to top left
 	cursor = quad;
@@ -281,14 +284,30 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	}
 
 
+	
 	// Drow first frame
-	frame[ strlen(frame) - 1 ] = '\0';
 	frame = GetNextTileX( frame, 0 ); 
 	frame = GetNextTileY( frame, 0 );
-
+	frame[ strlen(frame) - 1 ] = '\0';
+	cursor = frame;
+	FRAME_GRID_SIZE =  (int)(GRID_SIZE/2) + 2;
 	zoom--;
-	DrawTile( frame, zoom, outAltitude, 0);
-		
+
+ 	for (x = 0, i = 0; x < FRAME_GRID_SIZE; x++) {
+		c2 	= cursor;
+		cursor 	= GetNextTileX(cursor,1);
+		for (y = 0; y < FRAME_GRID_SIZE; y++, i++){
+			if ( y == 0 ) 				DrawTile( c2, zoom, outAltitude, i);
+			if ( y == (FRAME_GRID_SIZE - 1) ) 	DrawTile( c2, zoom, outAltitude, i);
+
+			if ( x == 0 ) 				DrawTile( c2, zoom, outAltitude, i);
+			if ( x == (FRAME_GRID_SIZE - 1) ) 	DrawTile( c2, zoom, outAltitude, i);
+			
+			c2 = GetNextTileY(c2,1);
+		}
+	}
+
+
 
 
 
@@ -483,11 +502,11 @@ static void print_cookies(CURL *curl){
 	struct curl_slist *nc;
 	int i;
  
-	printf("Cookies, curl knows:\n");
+	printf("Cookies, it knows:\n");
 	res = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
 	if (res != CURLE_OK) {
 		fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
-	exit(1);
+		exit(1);
 	}
 	nc = cookies, i = 1;
 	while (nc) {
@@ -518,10 +537,31 @@ void *DownloadTile(void *threadarg){
 	CURL		*icurl;
 	CURLcode	ires;
 
-	struct thread_data *data;
+	struct curl_slist	*cookies;
+	struct thread_data	*data;
 
-	icurl 	= curl_easy_duphandle(curl);
 	data 	= (struct thread_data *)threadarg;
+
+	res = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
+	if (res != CURLE_OK) {
+		printf("Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
+		pthread_exit(0);
+	}
+
+	icurl = curl_easy_init();
+ 	curl_easy_setopt(icurl, CURLOPT_NOPROGRESS, 		1L);
+	curl_easy_setopt(icurl, CURLOPT_FOLLOWLOCATION, 	1);
+	curl_easy_setopt(icurl, CURLOPT_FORBID_REUSE, 		1);
+	curl_easy_setopt(icurl, CURLOPT_USERAGENT, "Firefox (WindowsXP) – Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6″,");
+ 
+	ires 	= curl_easy_setopt(icurl, CURLOPT_COOKIELIST, cookies->data);
+
+    	if (ires != CURLE_OK) {
+		printf("Curl curl_easy_setopt failed: %s\n", curl_easy_strerror(ires));
+		pthread_exit(0);
+	}
+
+
 
 
 	pthread_mutex_lock(&mut);	// Lock!
@@ -816,7 +856,6 @@ int PutListTile(char *quad,  GLuint  texId){
 
 GLuint getTexId(char *quad){
 	struct displayTile *tmp;
-	GLuint tex_id = 0;
 	//printf("searchTexId %s...\n", quad);
 	if ( listTile == NULL ) return(NOT_FOUND);
 	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
