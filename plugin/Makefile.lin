@@ -29,7 +29,7 @@ clean_gmaps:
 
 gmaps:
 	$(MAKE) gmaps.xpl TARGET=gmaps.xpl\
- CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lGL -lGLU -ljpeg -lcurl"
+ CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lGL -lGLU -ljpeg -lcurl -lpthread"
 
 gmaps.xpl: ${OBJS_gmaps}
 	${CC} -shared ${LDFLAGS} -o gmaps.xpl ${OBJS_gmaps} ${LIBS}
