@@ -36,6 +36,12 @@
 #define	CACHE_DIR 	"./GMapsCache"
 #define GRID_SIZE	3
 
+#define READY		0
+#define LOADED		1
+#define BUSY		2
+#define FOUND		3
+#define NOT_FOUND 	4
+
 // Define support structure
 struct gl_texture_t{
 	GLsizei	width;
@@ -63,6 +69,7 @@ struct displayTile{
 	char 	*quad;
 	GLuint	texId;
 	int	used;
+	int	status;
 	struct	displayTile *next;
 
 } displayTile;
@@ -77,7 +84,15 @@ CURL 			*curl;
 CURLcode 		res;
 struct MemoryStruct 	chunk;
 struct displayTile	*listTile = NULL;
-pthread_mutex_t 	mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t 	mut = PTHREAD_MUTEX_INITIALIZER;
+struct thread_data 	*thread_data_array;
+pthread_t 		*threads;
+
+
+
+char 	servers[4][16] 	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
+int	server_index	= 0;	
 
 // Function prototype
 static struct gl_texture_t 	*ReadJPEGFromFile (const char *filename);
@@ -89,11 +104,17 @@ static void 			print_cookies(CURL *curl);
 size_t 				WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data);
 void 				*myrealloc(void *ptr, size_t size);
 void 				*DownloadTile(void *threadarg);
-int 				DrawTile(char *quad, int zoom, double  outAltitude);
+int 				DrawTile(char *quad, int zoom, double  outAltitude, int id);
 static char			*GetNextTileX(char *addr, int forward);
 static char			*GetNextTileY(char *addr, int forward);
-GLuint 				searchTexId(char *quad);
+GLuint 				getTexId(char *quad);
+int 				setTexId(char *quad, GLuint  texId);
 int 				PutListTile(char *quad,  GLuint  texId);
+int 				setStatusImage(char *quad, int status);
+int 				getStatusImage(char *quad);
+char 				*getServerName();
+int				printStatus(int status);
+
 
 //----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
@@ -154,7 +175,12 @@ PLUGIN_API int XPluginStart(	char *		outName,
 		return 1;
 	}
 
-	pthread_mutex_init(&mutex, NULL);
+
+	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * GRID_SIZE * GRID_SIZE );
+	threads			= (pthread_t 		*)malloc( sizeof(pthread_t		) * GRID_SIZE * GRID_SIZE );
+
+
+
 
 	return 1;
 }
@@ -229,7 +255,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	//printf("Lat: %f Lon: %f Alt: %f x: %f y: %f z: %f\n", outLatitude, outLongitude, outAltitude, planeX, planeY, planeZ);
 
 	// Set zoom livel
-	zoom = 19;
+	zoom = 17;
 
 
 	
@@ -247,7 +273,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 		c2 	= cursor;
 		cursor 	= GetNextTileX(cursor,1);
 		for (y = 0; y < GRID_SIZE; y++, i++){
-			DrawTile( c2, zoom, outAltitude );
+			DrawTile( c2, zoom, outAltitude, i);
 			c2 = GetNextTileY(c2,1);
 		}
 	}
@@ -471,43 +497,61 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream){
 //----------------------------------------------------------------------------------------------------//
 void *DownloadTile(void *threadarg){
 
-	FILE 	*image;
-	char	image_name[255] = {};
-	char	image_url[255] 	= {};
+	FILE 		*image;
+	char		image_name[255] = {};
+	char		image_url[255] 	= {};
+	char		quad[25]	= {};
+	CURL		*icurl;
+	CURLcode	ires;
 
 	struct thread_data *data;
-	data = (struct thread_data *)threadarg;
 
-	printf("Thread %d\n", data->thread_id);
+	icurl 	= curl_easy_duphandle(curl);
+	data 	= (struct thread_data *)threadarg;
 
 
-	sprintf(image_name, "%s/%s.jpg", 				CACHE_DIR, data->quad );
-	sprintf(image_url, "http://khm0.google.com/kh?v=3&t=%s", 	data->quad);
+	pthread_mutex_lock(&mut);	// Lock!
+	strcpy(quad, data->quad);
 
-	printf("Image not found download it...\n");
+
+	sprintf(image_url, "http://%s/kh?v=3&t=%s", 	getServerName(), 	quad);
+	pthread_mutex_unlock(&mut);	// Unlock!
+
+	sprintf(image_name, "%s/%s.jpg", 		CACHE_DIR, 		quad);
+	//printf("Start to download %s ...\n", image_url);
 
 	// Image download 
-	curl_easy_setopt(curl, CURLOPT_URL, image_url);
+	curl_easy_setopt(icurl, CURLOPT_URL, image_url);
 
 	image = fopen(image_name,"w");
 	if (image == NULL) {
-		curl_easy_cleanup(curl);
+		printf("fopen in DownloadTile problem!\n");
+		curl_easy_cleanup(icurl);
 		pthread_exit(0);
 	}
-	curl_easy_setopt(curl,	CURLOPT_WRITEFUNCTION, 	write_data);
-	curl_easy_setopt(curl,	CURLOPT_WRITEDATA, 	image);
-	curl_easy_perform(curl);
-	if (res != CURLE_OK) {
-		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
-		pthread_exit(0);
+	curl_easy_setopt(icurl,	CURLOPT_WRITEFUNCTION, 	write_data);
+	curl_easy_setopt(icurl,	CURLOPT_WRITEDATA, 	image);
+	curl_easy_perform(icurl);
+	if (ires != CURLE_OK){
+		printf("Curl perform failed: %s\n", curl_easy_strerror(ires));
+		pthread_exit(0);	
 	}
 
 	fclose(image);
+
+	pthread_mutex_lock(&mut);	// Lock!
+	if ( setStatusImage(quad, READY) == NOT_FOUND ){
+		printf("setStatusImage in DownloadTile problem!\n");
+		pthread_exit(0);
+	}	
+	pthread_mutex_unlock(&mut);	// Unlock!
+
+	//printf("End to download %s...\n", image_name);
 	pthread_exit(0);
 }
 
 //----------------------------------------------------------------------------------------------------//
-int  DrawTile(char *quad, int zoom, double  outAltitude){
+int  DrawTile(char *quad, int zoom, double  outAltitude, int id){
 
 	float	*TexCoordX, 	*TexCoordY;
 	int	i,		j,		k;
@@ -527,36 +571,40 @@ int  DrawTile(char *quad, int zoom, double  outAltitude){
 	int	TILE_SIZE, MESH_SIZE;
 	XPLMProbeInfo_t outInfo;
 
+	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
 
-	struct thread_data 	thread_data_array;
-	pthread_t 		threads;
-	pthread_attr_t 		attr;
+	switch(	getStatusImage(quad) ) {
+		case NOT_FOUND:
+			PutListTile(quad, 0);
+			break;
 
-
-
-	texId = searchTexId(quad);
-
-	if (!texId){
-	        sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
-	        // Try to load texture
-	        texId = loadJPEGTexture (image_name);
-	        if (!texId){
-
-			thread_data_array.quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
-			strcpy(thread_data_array.quad, quad);
-			pthread_attr_init(&attr);
-			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-			pthread_create(&threads, NULL, DownloadTile, (void *) &thread_data_array);
-
-			DownloadTile((void *) &thread_data_array);	
-	                texId = loadJPEGTexture (image_name);
-			if (!texId) return(0);
+		case FOUND:
+			setStatusImage(quad, BUSY);	
+			// Download image
+			thread_data_array[id].quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
+			strcpy(thread_data_array[id].quad, quad);
+			thread_data_array[id].thread_id = id;
 			
-	        }
-	
-	//	PutListTile(quad, texId);
-	}
+			pthread_create( &threads[id], NULL, DownloadTile, (void *) &thread_data_array[id] );
+			break;
 
+		case BUSY:
+			break;
+
+		case READY:
+			setTexId( quad, loadJPEGTexture(image_name) );
+			setStatusImage(quad, LOADED);
+			break;
+
+		case LOADED:
+			texId = getTexId(quad);
+			break;
+		default:
+			printf("Status %d unknow!\n", getStatusImage(quad));
+			break;
+
+	}
+	if ( getStatusImage(quad) != LOADED ) return(0);
 
 
 	// Get tile posizione 
@@ -732,9 +780,10 @@ int PutListTile(char *quad,  GLuint  texId){
 		listTile = (struct displayTile *)malloc(sizeof( struct displayTile ) );
 		listTile->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
 		strcpy(listTile->quad,quad);
-		listTile->texId = texId;
-		listTile->next	= NULL;
-		return(0);
+		listTile->texId 	= texId;
+		listTile->status 	= FOUND;
+		listTile->next		= NULL;
+		return(FOUND);
 	}
 	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){};
 	
@@ -743,25 +792,104 @@ int PutListTile(char *quad,  GLuint  texId){
 
 	strcpy(tmp->next->quad,quad);
 	tmp->next->texId 	= texId;
+	tmp->next->status	= FOUND;
 	tmp->next->next 	= NULL;
-	return(0);
+	return(FOUND);
 }
 
 
 //----------------------------------------------------------------------------------------------------//
 
-GLuint searchTexId(char *quad){
+GLuint getTexId(char *quad){
 	struct displayTile *tmp;
 	GLuint tex_id = 0;
 	//printf("searchTexId %s...\n", quad);
-	if ( listTile == NULL ) return(tex_id);
+	if ( listTile == NULL ) return(NOT_FOUND);
 	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
 		if ( !strcmp(tmp->quad, quad) ){
 			return(tmp->texId);
 		}
 	}
-	return(tex_id);
+	return(NOT_FOUND);
 }
 
+
+//----------------------------------------------------------------------------------------------------//
+int setTexId(char *quad, GLuint  texId){
+	struct displayTile *tmp;
+	//printf("searchTexId %s...\n", quad);
+	if ( listTile == NULL ) return(NOT_FOUND);
+	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
+		if ( !strcmp(tmp->quad, quad) ){
+			tmp->texId = texId;
+			return(FOUND);
+		}
+	}
+	return(NOT_FOUND);
+}
+
+//----------------------------------------------------------------------------------------------------//
+
+
+int setStatusImage(char *quad, int status){
+	struct displayTile *tmp;
+	if ( listTile == NULL ) return(NOT_FOUND);
+	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
+		if ( !strcmp(tmp->quad, quad) ){
+			tmp->status = status;
+			return(FOUND);
+		}
+	}
+	return(NOT_FOUND);
+}
+
+//----------------------------------------------------------------------------------------------------//
+
+int getStatusImage(char *quad){
+	struct displayTile *tmp;
+	if ( listTile == NULL ) return(NOT_FOUND);
+	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){
+		if ( !strcmp(tmp->quad, quad) ){
+			return(tmp->status);
+		}
+	}
+	return(NOT_FOUND);
+}
+
+
+//----------------------------------------------------------------------------------------------------//
+
+char *getServerName(){
+	char *out;
+	out = servers[server_index];
+	server_index++;
+	if (server_index == 4 ) server_index = 0;
+	return(out);
+}
+
+//----------------------------------------------------------------------------------------------------//
+
+int printStatus(int status){
+	switch(status){
+		case READY:
+			printf("READY");
+			break;	
+		case LOADED:
+			printf("LOADED");
+			break;
+		case BUSY:
+			printf("BUSY");
+			break;
+		case FOUND:
+			printf("FOUND");
+			break;
+		case NOT_FOUND:
+			printf("NOT_FOUND");
+			break;
+			
+	}
+	return(0);
+
+}
 
 
