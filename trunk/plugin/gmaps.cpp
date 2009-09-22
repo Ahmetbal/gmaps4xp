@@ -208,6 +208,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	headers = curl_slist_append (headers, HEADER_KEEP_ALIVE);
 	headers = curl_slist_append (headers, HEADER_CONNECTION);
 
+
 	// Fake Firefox
 	curl = curl_easy_init();
  	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 	1L);
@@ -223,6 +224,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	curl_easy_setopt(curl, CURLOPT_URL, 		"http://maps.google.com/"); 
 
 	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	"");
+	curl_easy_setopt(curl, CURLOPT_COOKIE, "name1=var1; name2=var2;"); 
  
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
@@ -230,7 +232,9 @@ PLUGIN_API int XPluginStart(	char *		outName,
 		return 1;
 	}
 
+	// _mSatelliteToken
 	print_cookies(curl);
+
 	dim = ( GRID_SIZE * GRID_SIZE + (((GRID_SIZE/2) + 2) * 4 ) );
 
 	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * dim );
@@ -603,7 +607,7 @@ static void print_cookies(CURL *curl){
 	}
 	nc = cookies, i = 1;
 	while (nc) {
-	printf("[%d]: %s\n", i, nc->data);
+		printf("[%d]: %s\n", i, nc->data);
 		nc = nc->next;
 		i++;
 	}
@@ -636,6 +640,7 @@ void *DownloadTile(void *threadarg){
 	data 	= (struct thread_data *)threadarg;
 
 	res = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
+
 	if (res != CURLE_OK) {
 		printf("Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
 		pthread_exit(0);
@@ -658,8 +663,8 @@ void *DownloadTile(void *threadarg){
 
 
 	pthread_mutex_lock(&mut);	// Lock!
-	strcpy(quad, data->quad);
 
+	strcpy(quad, data->quad);
 	sprintf(image_url, "http://%s/kh/v=45&%s", 	getServerName(), 	qrst2xyz(quad));
 	
 
