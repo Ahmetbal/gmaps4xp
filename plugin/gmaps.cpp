@@ -223,8 +223,8 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 	curl_easy_setopt(curl, CURLOPT_URL, 		"http://maps.google.com/"); 
 
-	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	"");
-	curl_easy_setopt(curl, CURLOPT_COOKIE, "name1=var1; name2=var2;"); 
+	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	"./cookies.txt");
+	//curl_easy_setopt(curl, CURLOPT_COOKIE, "name1=var1; name2=var2;"); 
  
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
