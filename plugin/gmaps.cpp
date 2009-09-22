@@ -43,6 +43,9 @@
 #define FOUND		3
 #define NOT_FOUND 	4
 
+
+#define USER_AGENT	"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; it; rv:1.9.1.3) Gecko/20090824 Firefox/3.5.3 GTB"
+
 // Define support structure
 struct gl_texture_t{
 	GLsizei	width;
@@ -129,7 +132,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
 				char *		outSig,
 				char *		outDesc){
 
-
+	int dim;
 	strcpy(outName,	"GMaps For X-Plane");
 	strcpy(outSig,	"Mario Cavicchi");
 	strcpy(outDesc,	"http://members.ferrara.linux.it/cavicchi/GMaps");
@@ -161,7 +164,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
  	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 	1L);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 	1);
 	curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 	1);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "Firefox (WindowsXP) – Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6″,");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, 	USER_AGENT);
  
 
 	// Get coockie
@@ -176,9 +179,10 @@ PLUGIN_API int XPluginStart(	char *		outName,
 		return 1;
 	}
 
+	dim = ( GRID_SIZE * GRID_SIZE + (((GRID_SIZE/2) + 2) * 4 ) );
 
-	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * GRID_SIZE * GRID_SIZE );
-	threads			= (pthread_t 		*)malloc( sizeof(pthread_t		) * GRID_SIZE * GRID_SIZE );
+	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * dim );
+	threads			= (pthread_t 		*)malloc( sizeof(pthread_t		) * dim );
 
 
 
@@ -552,7 +556,7 @@ void *DownloadTile(void *threadarg){
  	curl_easy_setopt(icurl, CURLOPT_NOPROGRESS, 		1L);
 	curl_easy_setopt(icurl, CURLOPT_FOLLOWLOCATION, 	1);
 	curl_easy_setopt(icurl, CURLOPT_FORBID_REUSE, 		1);
-	curl_easy_setopt(icurl, CURLOPT_USERAGENT, "Firefox (WindowsXP) – Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6″,");
+	curl_easy_setopt(icurl, CURLOPT_USERAGENT,		USER_AGENT);
  
 	ires 	= curl_easy_setopt(icurl, CURLOPT_COOKIELIST, cookies->data);
 
