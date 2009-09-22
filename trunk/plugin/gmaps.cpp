@@ -32,6 +32,10 @@
 #include "XPLMDataAccess.h"
 #include "XPLMGraphics.h"
 #include "XPLMScenery.h"
+#include "XPLMMenus.h"
+#include "XPWidgets.h"
+#include "XPStandardWidgets.h"
+
 
 #define	CACHE_DIR 	"./GMapsCache"
 #define GRID_SIZE	4
@@ -44,7 +48,17 @@
 #define NOT_FOUND 	4
 
 
-#define USER_AGENT	"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; it; rv:1.9.1.3) Gecko/20090824 Firefox/3.5.3 GTB"
+//#define USER_AGENT	"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; it; rv:1.9.1.3) Gecko/20090824 Firefox/3.5.3 GTB"
+
+#define HEADER_USER_AGENT	"User-Agent: Mozilla/5.0 (X11; U; Linux i686; it-IT; rv:1.9.0.14) Gecko/2009090216 Ubuntu/9.04 (jaunty) Firefox/3.0.14 GTB5"
+#define HEADER_ACCEPT		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+#define HEADER_ACCEPT_LANGUAGE	"Accept-Language: it-IT,it;q=0.7,chrome://global/locale/intl.properties;q=0.3"		
+#define HEADER_ACCEPT_ENCODING	"Accept-Encoding: gzip,deflate"
+#define HEADER_ACCEPT_CHARSET	"ISO-8859-1,utf-8;q=0.7,*;q=0.7"
+#define HEADER_KEEP_ALIVE	"Keep-Alive: 300"
+#define HEADER_CONNECTION	"Connection: keep-alive"
+
+
 
 // Define support structure
 struct gl_texture_t{
@@ -84,6 +98,9 @@ XPLMDataRef		gPlaneX;
 XPLMDataRef		gPlaneY;
 XPLMDataRef		gPlaneZ;
 XPLMProbeRef		inProbe;
+XPWidgetID 		GMapsWidget = NULL;
+
+
 CURL 			*curl;
 CURLcode 		res;
 struct MemoryStruct 	chunk;
@@ -92,7 +109,7 @@ struct displayTile	*listTile = NULL;
 pthread_mutex_t 	mut = PTHREAD_MUTEX_INITIALIZER;
 struct thread_data 	*thread_data_array;
 pthread_t 		*threads;
-
+struct curl_slist 	*headers = NULL;
 
 
 char 	servers[4][16] 	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
@@ -118,6 +135,7 @@ int 				setStatusImage(char *quad, int status);
 int 				getStatusImage(char *quad);
 char 				*getServerName();
 int				printStatus(int status);
+char 				*qrst2xyz(char *quad);
 
 
 //----------------------------------------------------------------------------------------------------//
@@ -126,16 +144,38 @@ int MyDrawCallback(
                                 int                  inIsBefore,    
                                 void *               inRefcon);
 
+void GMapsMenuHandler(		void * mRef, void * iRef);
+
+int GMapsHandler(
+			XPWidgetMessage			inMessage,
+			XPWidgetID			inWidget,
+			long				inParam1,
+			long				inParam2);
+
 
 //----------------------------------------------------------------------------------------------------//
 PLUGIN_API int XPluginStart(	char *		outName,
 				char *		outSig,
 				char *		outDesc){
 
-	int dim;
+	int 		dim;
+	XPLMMenuID	id;
+	int		item;
+
+
 	strcpy(outName,	"GMaps For X-Plane");
 	strcpy(outSig,	"Mario Cavicchi");
-	strcpy(outDesc,	"http://members.ferrara.linux.it/cavicchi/GMaps");
+	strcpy(outDesc,	"http://members.ferrara.linux.it/cavicchi/GMaps/");
+
+
+	
+	item 		= XPLMAppendMenuItem(XPLMFindPluginsMenu(), "GMaps", NULL, 1);
+	id 		= XPLMCreateMenu("GMaps", XPLMFindPluginsMenu(), item, GMapsMenuHandler, NULL);
+	XPLMAppendMenuItem(id, "Setting", (void *)"GMaps", 1);
+
+
+
+
 	
 	XPLMRegisterDrawCallback(	MyDrawCallback,	
 					xplm_Phase_Objects, 	
@@ -158,19 +198,30 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 
 	curl_global_init(CURL_GLOBAL_ALL);
-	
+
+
+	headers = curl_slist_append (headers, HEADER_USER_AGENT);
+	headers = curl_slist_append (headers, HEADER_ACCEPT);
+	headers = curl_slist_append (headers, HEADER_ACCEPT_LANGUAGE);
+	headers = curl_slist_append (headers, HEADER_ACCEPT_ENCODING);
+	headers = curl_slist_append (headers, HEADER_ACCEPT_CHARSET);
+	headers = curl_slist_append (headers, HEADER_KEEP_ALIVE);
+	headers = curl_slist_append (headers, HEADER_CONNECTION);
+
 	// Fake Firefox
 	curl = curl_easy_init();
  	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 	1L);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 	1);
 	curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 	1);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, 	USER_AGENT);
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, 	headers);
  
 
 	// Get coockie
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,	WriteMemoryCallback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, 	(void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_URL, 		"http://map.google.com/"); 
+
+	curl_easy_setopt(curl, CURLOPT_URL, 		"http://maps.google.com/"); 
+
 	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	"");
  
 	res = curl_easy_perform(curl);
@@ -179,6 +230,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
 		return 1;
 	}
 
+	print_cookies(curl);
 	dim = ( GRID_SIZE * GRID_SIZE + (((GRID_SIZE/2) + 2) * 4 ) );
 
 	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * dim );
@@ -189,6 +241,43 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 	return 1;
 }
+//----------------------------------------------------------------------------------------------------//
+
+void GMapsMenuHandler(void * mRef, void * iRef){
+
+	if (!strcmp((char *) iRef, "GMaps")){
+		printf("ciao\n");
+		GMapsWidget = XPCreateWidget(300, 550, 650, 230,
+					1,			// Visible
+					"GMaps Setting",	// desc
+					1,			// root
+					NULL,			// no container
+					xpWidgetClass_MainWindow);
+
+		XPSetWidgetProperty(GMapsWidget, xpProperty_MainWindowHasCloseBoxes, 1);
+		//XPAddWidgetCallback(GMapsWidget, GMapsHandler);
+
+
+		XPShowWidget(GMapsWidget);
+
+	}
+}
+
+int GMapsHandler(
+			XPWidgetMessage			inMessage,
+			XPWidgetID			inWidget,
+			long				inParam1,
+			long				inParam2){
+
+	if ( inMessage == xpMessage_CloseButtonPushed ){
+		//XPDestroyWidget(GMapsWidget, 1);
+		return 1;
+	}
+
+
+}
+
+
 //----------------------------------------------------------------------------------------------------//
 
 PLUGIN_API void	XPluginStop(void){
@@ -556,8 +645,8 @@ void *DownloadTile(void *threadarg){
  	curl_easy_setopt(icurl, CURLOPT_NOPROGRESS, 		1L);
 	curl_easy_setopt(icurl, CURLOPT_FOLLOWLOCATION, 	1);
 	curl_easy_setopt(icurl, CURLOPT_FORBID_REUSE, 		1);
-	curl_easy_setopt(icurl, CURLOPT_USERAGENT,		USER_AGENT);
- 
+	curl_easy_setopt(icurl, CURLOPT_HTTPHEADER,      	headers); 
+
 	ires 	= curl_easy_setopt(icurl, CURLOPT_COOKIELIST, cookies->data);
 
     	if (ires != CURLE_OK) {
@@ -571,8 +660,9 @@ void *DownloadTile(void *threadarg){
 	pthread_mutex_lock(&mut);	// Lock!
 	strcpy(quad, data->quad);
 
+	sprintf(image_url, "http://%s/kh/v=45&%s", 	getServerName(), 	qrst2xyz(quad));
+	
 
-	sprintf(image_url, "http://%s/kh?v=3&t=%s", 	getServerName(), 	quad);
 	pthread_mutex_unlock(&mut);	// Unlock!
 
 	sprintf(image_name, "%s/%s.jpg", 		CACHE_DIR, 		quad);
@@ -924,8 +1014,8 @@ char *getServerName(){
 	return(out);
 }
 
-//----------------------------------------------------------------------------------------------------//
 
+//----------------------------------------------------------------------------------------------------//
 int printStatus(int status){
 	switch(status){
 		case READY:
@@ -949,4 +1039,36 @@ int printStatus(int status){
 
 }
 
+//----------------------------------------------------------------------------------------------------//
+char *qrst2xyz(char *quad){
+	int 	i,j;
+        int 	x = 0;
+        int 	y = 0;
+        int 	z = 17;
+	char 	c;
+	char	gal[8] 		= "Galileo";
+        char	qrst[4][3] 	= { "00", "01", "10", "11" };
+
+	static 	char tmp[255];
+	// 48
+
+	for(i= 1; i < strlen(quad) ; i++){
+		c = quad[i];
+		if ( c == 'q' ) j = 0;
+		if ( c == 't' ) j = 1;
+		if ( c == 'r' ) j = 2;
+		if ( c == 's' ) j = 3;
+		x = x * 2 + ( qrst[j][0] - 48 );
+		y = y * 2 + ( qrst[j][1] - 48 );
+		z = z - 1;
+	}	
+
+	//f="Galileo".substr(0,(b.x*3+b.y)%8)
+	gal[ ((x*3+y)%8)+1 ] = '\0';
+
+	sprintf(tmp, "x=%d&y=%d&zoom=%d&s=Gal", x,y,z);
+
+
+	return(tmp);
+}
 
