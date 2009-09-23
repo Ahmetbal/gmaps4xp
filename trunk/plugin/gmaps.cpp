@@ -41,7 +41,9 @@
 
 #define	CACHE_DIR 	"./GMapsCache"
 #define COOKIE_FILE	"./cookies.txt"
-#define GRID_SIZE	4
+#define GRID_SIZE	2
+#define FRAME_NUMBER	3
+#define GROUND_ZOOM	19
 
 #define ENABLE		1
 #define DISABLE		0
@@ -247,7 +249,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 	// _mSatelliteToken
 
-	dim = ( GRID_SIZE * GRID_SIZE + (((GRID_SIZE/2) + 2) * 4 ) );
+	dim = ( GRID_SIZE * GRID_SIZE + ( (((GRID_SIZE/2) + 2) * 4 ) * FRAME_NUMBER ) );
 
 	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * dim );
 	threads			= (pthread_t 		*)malloc( sizeof(pthread_t		) * dim );
@@ -345,15 +347,20 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
                         void *               inRefcon){
 
 
-	int	i,x,y;
+	int	i,j,x,y;
 	float 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
-	char 	quad[25] = {};
+	double	terLatitude,	terLongitude,	terAltitude;
+	int	Altitude;
+	char 	quad[25] = {}, last;
 	char	*cursor, *c2, *frame;
 	int	zoom;
 	int	FRAME_GRID_SIZE;
 	int	left, top, right, bottom;
 	float	color[] = { 1.0, 1.0, 1.0 };
+
+	XPLMProbeInfo_t outInfo;  
+
 
 	if ( PLUGIN_STATUS != ENABLE ){
 		window_message = (char *)malloc( sizeof(char) * 255);
@@ -374,23 +381,44 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 
 	// Get Geo position of the plane
 	XPLMLocalToWorld(planeX, planeY, planeZ, &outLatitude, &outLongitude, &outAltitude);
+	outInfo.structSize = sizeof(outInfo);
+	XPLMProbeTerrainXYZ( inProbe, planeX, planeY, planeZ, &outInfo);
+	XPLMLocalToWorld(outInfo.locationX, outInfo.locationY, outInfo.locationZ, &terLatitude, &terLongitude, &terAltitude);
+	Altitude = (int)(outAltitude - terAltitude );
+
 	//printf("Lat: %f Lon: %f Alt: %f x: %f y: %f z: %f\n", outLatitude, outLongitude, outAltitude, planeX, planeY, planeZ);
 
 	// Set zoom livel
-	zoom = 19;
+	zoom = GROUND_ZOOM;
 
+	if 	( Altitude < 10		) 	zoom = (GROUND_ZOOM - 0);
+	else if	( Altitude < 50 	) 	zoom = (GROUND_ZOOM - 1);
+	else if	( Altitude < 100 	) 	zoom = (GROUND_ZOOM - 2);
+	else if	( Altitude < 150 	) 	zoom = (GROUND_ZOOM - 3);
+	else					zoom = (GROUND_ZOOM - 4);
+
+/*
+  q | r
+ ---+---
+  t | s
+*/
 
 	
 	// Get google maps string based on plane coordinates
 	GetQuadtreeAddress(outLatitude, outLongitude, zoom, quad);
-	quad[ strlen(quad) - 1 ] = 'q';
+
 
 	// move to top left
 	cursor = quad;
-	for( i = 0 ; i < (int)(GRID_SIZE/2); i++){
-		cursor = GetNextTileX(cursor,0); 
-		cursor = GetNextTileY(cursor,0);
-	}
+	last = cursor[ strlen(cursor) - 1 ];
+
+
+	if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
+	if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
+	if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
+
+
+
 	frame = cursor;
 	// Drow near the plane
  	for (x = 0, i = 0; x < GRID_SIZE; x++) {
@@ -404,29 +432,33 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 
 
 	
-	// Drow first frame
-	frame = GetNextTileX( frame, 0 ); 
-	frame = GetNextTileY( frame, 0 );
-	frame[ strlen(frame) - 1 ] = '\0';
-	cursor = frame;
+	// Drow frames
 	FRAME_GRID_SIZE =  (int)(GRID_SIZE/2) + 2;
-	zoom--;
+	for(j = 0 ; j < FRAME_NUMBER ; j++){
+		frame = GetNextTileX( frame, 0 ); 
+		frame = GetNextTileY( frame, 0 );
+		frame[ strlen(frame) - 1 ] = '\0';
+		cursor = frame;
+		zoom--;
 
- 	for (x = 0 ; x < FRAME_GRID_SIZE; x++) {
-		c2 	= cursor;
-		cursor 	= GetNextTileX(cursor,1);
-		for (y = 0; y < FRAME_GRID_SIZE; y++, i++){
-			if ( y == 0 ) 				DrawTile( c2, zoom, outAltitude, i);
-			if ( y == (FRAME_GRID_SIZE - 1) ) 	DrawTile( c2, zoom, outAltitude, i);
+	 	for (x = 0 ; x < FRAME_GRID_SIZE; x++) {
+			c2 	= cursor;
+			cursor 	= GetNextTileX(cursor,1);
+			for (y = 0; y < FRAME_GRID_SIZE; y++, i++){
+				if ( y == 0 ) 				DrawTile( c2, zoom, outAltitude, i);
+				if ( y == (FRAME_GRID_SIZE - 1) ) 	DrawTile( c2, zoom, outAltitude, i);
 
-			if ( x == 0 ) 				DrawTile( c2, zoom, outAltitude, i);
-			if ( x == (FRAME_GRID_SIZE - 1) ) 	DrawTile( c2, zoom, outAltitude, i);
-			
-			c2 = GetNextTileY(c2,1);
+				if ( x == 0 ) 				DrawTile( c2, zoom, outAltitude, i);
+				if ( x == (FRAME_GRID_SIZE - 1) ) 	DrawTile( c2, zoom, outAltitude, i);
+				
+				c2 = GetNextTileY(c2,1);
+			}
 		}
+
 	}
 
 	return 1;
+
 }
 
 //----------------------------------------------------------------------------------------------------//
@@ -766,6 +798,33 @@ int  DrawTile(char *quad, int zoom, double  outAltitude, int id){
 	float 	pntX,		pntY, 		pntZ;
 	float 	*terX, 		*terY, 		*terZ;
 
+	int	MESH_ZOOM[25] = {
+			1,	// 0
+			1,	// 1
+			1,	// 2
+			1,	// 3
+			1,	// 4
+			1,	// 5
+			32,	// 6
+			32,	// 7
+			32,	// 8
+			16,	// 9
+			16,	// 10
+			16,	// 11
+			8,	// 12
+			8,	// 13
+			8,	// 14
+			4,	// 15
+			4,	// 16
+			4,	// 17
+			2,	// 18
+			1,	// 19
+			1,	// 20
+			1,	// 21
+			1,	// 22
+			1,	// 23
+			1	// 24
+		};
 
 	int	TILE_SIZE, MESH_SIZE;
 	XPLMProbeInfo_t outInfo;
@@ -815,7 +874,7 @@ int  DrawTile(char *quad, int zoom, double  outAltitude, int id){
 	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
 
 	TILE_SIZE = (int)( tileX_UR - tileX_LL );
-	MESH_SIZE = 4;
+	MESH_SIZE = MESH_ZOOM[zoom];
 
 	//printf("http://khm0.google.com/kh?v=3&t=%s center: %f %f TILE_SIZE: %d Plane: %f %f\n",quad, coord[1], coord[0], TILE_SIZE, outLatitude, outLongitude);
 
