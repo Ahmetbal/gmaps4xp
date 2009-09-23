@@ -17,6 +17,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <pthread.h>
@@ -37,9 +38,13 @@
 #include "XPStandardWidgets.h"
 
 
+
 #define	CACHE_DIR 	"./GMapsCache"
+#define COOKIE_FILE	"./cookies.txt"
 #define GRID_SIZE	4
 
+#define ENABLE		1
+#define DISABLE		0
 
 #define READY		0
 #define LOADED		1
@@ -98,8 +103,10 @@ XPLMDataRef		gPlaneX;
 XPLMDataRef		gPlaneY;
 XPLMDataRef		gPlaneZ;
 XPLMProbeRef		inProbe;
+XPLMWindowID		gWindow = NULL;
 XPWidgetID 		GMapsWidget = NULL;
-
+int			PLUGIN_STATUS = DISABLE; 
+char			*window_message = NULL;
 
 CURL 			*curl;
 CURLcode 		res;
@@ -136,8 +143,7 @@ int 				getStatusImage(char *quad);
 char 				*getServerName();
 int				printStatus(int status);
 char 				*qrst2xyz(char *quad);
-
-
+int 				cookieTest();
 //----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
 				XPLMDrawingPhase     inPhase,    
@@ -152,6 +158,9 @@ int GMapsHandler(
 			long				inParam1,
 			long				inParam2);
 
+void MyDrawWindowCallback(
+                                   XPLMWindowID         inWindowID,                                                                                                                                                                          
+                                   void *               inRefcon);
 
 //----------------------------------------------------------------------------------------------------//
 PLUGIN_API int XPluginStart(	char *		outName,
@@ -162,18 +171,16 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	XPLMMenuID	id;
 	int		item;
 
-
 	strcpy(outName,	"GMaps For X-Plane");
 	strcpy(outSig,	"Mario Cavicchi");
 	strcpy(outDesc,	"http://members.ferrara.linux.it/cavicchi/GMaps/");
 
 
-	
+	/*	
 	item 		= XPLMAppendMenuItem(XPLMFindPluginsMenu(), "GMaps", NULL, 1);
 	id 		= XPLMCreateMenu("GMaps", XPLMFindPluginsMenu(), item, GMapsMenuHandler, NULL);
 	XPLMAppendMenuItem(id, "Setting", (void *)"GMaps", 1);
-
-
+	*/
 
 
 	
@@ -181,6 +188,8 @@ PLUGIN_API int XPluginStart(	char *		outName,
 					xplm_Phase_Objects, 	
 					0,	
 					NULL);
+        gWindow = XPLMCreateWindow( 400, 700, 900, 650, 1, MyDrawWindowCallback, NULL,NULL,NULL);       
+        
 					
 	gPlaneX 	= XPLMFindDataRef("sim/flightmodel/position/local_x");
 	gPlaneY 	= XPLMFindDataRef("sim/flightmodel/position/local_y");
@@ -191,11 +200,15 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	// Create directory for cache file
 	mkdir(CACHE_DIR,  S_IRWXU);
 
+	// Get status of cookie file
+	PLUGIN_STATUS = cookieTest();
+	if ( PLUGIN_STATUS != ENABLE ) return 1;
 
 	// lib cURL init, get cookies 
    	chunk.memory	= NULL; /* we expect realloc(NULL, size) to work */
     	chunk.size	= 0;    /* no data at this point */
 
+	
 
 	curl_global_init(CURL_GLOBAL_ALL);
 
@@ -220,20 +233,19 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	// Get coockie
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,	WriteMemoryCallback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, 	(void *)&chunk);
-
 	curl_easy_setopt(curl, CURLOPT_URL, 		"http://maps.google.com/"); 
-
-	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	"./cookies.txt");
-	//curl_easy_setopt(curl, CURLOPT_COOKIE, "name1=var1; name2=var2;"); 
+	curl_easy_setopt(curl, CURLOPT_COOKIEFILE, 	COOKIE_FILE);
  
 	res = curl_easy_perform(curl);
+
 	if (res != CURLE_OK) {
-		fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
+		window_message = (char *)malloc( sizeof(char) * 255);
+		sprintf(window_message, "Curl perform failed: %s\n", curl_easy_strerror(res));
+		PLUGIN_STATUS = DISABLE;
 		return 1;
 	}
 
 	// _mSatelliteToken
-	print_cookies(curl);
 
 	dim = ( GRID_SIZE * GRID_SIZE + (((GRID_SIZE/2) + 2) * 4 ) );
 
@@ -340,7 +352,17 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	char	*cursor, *c2, *frame;
 	int	zoom;
 	int	FRAME_GRID_SIZE;
+	int	left, top, right, bottom;
+	float	color[] = { 1.0, 1.0, 1.0 };
 
+	if ( PLUGIN_STATUS != ENABLE ){
+		window_message = (char *)malloc( sizeof(char) * 255);
+		sprintf(window_message, "GMaps DISABLE: cookie file doesn't exist or it's too old!\n");
+		PLUGIN_STATUS = cookieTest();
+		return 1;
+
+	}else window_message = NULL;
+	
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1;
@@ -390,7 +412,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	FRAME_GRID_SIZE =  (int)(GRID_SIZE/2) + 2;
 	zoom--;
 
- 	for (x = 0, i = 0; x < FRAME_GRID_SIZE; x++) {
+ 	for (x = 0 ; x < FRAME_GRID_SIZE; x++) {
 		c2 	= cursor;
 		cursor 	= GetNextTileX(cursor,1);
 		for (y = 0; y < FRAME_GRID_SIZE; y++, i++){
@@ -404,14 +426,29 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 		}
 	}
 
-
-
-
-
 	return 1;
 }
 
 //----------------------------------------------------------------------------------------------------//
+
+void MyDrawWindowCallback(
+                                   XPLMWindowID         inWindowID,                                                                                                                                                                          
+                                   void *               inRefcon){
+        int     left, top, right, bottom;
+        float   color[] = { 1.0, 1.0, 1.0 };    /* RGB White */
+
+	if ( window_message != NULL ){
+	        XPLMGetWindowGeometry(inWindowID, &left, &top, &right, &bottom);
+	        XPLMDrawTranslucentDarkBox(left, top, right, bottom);
+	        XPLMDrawString(color, left + 5, top - 20, window_message, NULL, xplmFont_Basic);
+
+	}
+}
+
+
+//----------------------------------------------------------------------------------------------------//
+
+
 static struct gl_texture_t *ReadJPEGFromFile (const char *filename){
 	struct gl_texture_t *texinfo = NULL;
 	FILE *fp = NULL;
@@ -642,7 +679,9 @@ void *DownloadTile(void *threadarg){
 	res = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
 
 	if (res != CURLE_OK) {
-		printf("Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
+
+                window_message = (char *)malloc( sizeof(char) * 255);
+                sprintf(window_message, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
 		pthread_exit(0);
 	}
 
@@ -652,14 +691,18 @@ void *DownloadTile(void *threadarg){
 	curl_easy_setopt(icurl, CURLOPT_FORBID_REUSE, 		1);
 	curl_easy_setopt(icurl, CURLOPT_HTTPHEADER,      	headers); 
 
-	ires 	= curl_easy_setopt(icurl, CURLOPT_COOKIELIST, cookies->data);
+        while (cookies) {
+		ires 	= curl_easy_setopt(icurl, CURLOPT_COOKIELIST, cookies->data);
+    		if (ires != CURLE_OK) {
+        	        window_message = (char *)malloc( sizeof(char) * 255);
+        	        sprintf(window_message, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
+			pthread_exit(0);
+		}
+		cookies = cookies->next;
+        }
 
-    	if (ires != CURLE_OK) {
-		printf("Curl curl_easy_setopt failed: %s\n", curl_easy_strerror(ires));
-		pthread_exit(0);
-	}
 
-
+// 	print_cookies(curl);
 
 
 	pthread_mutex_lock(&mut);	// Lock!
@@ -678,7 +721,8 @@ void *DownloadTile(void *threadarg){
 
 	image = fopen(image_name,"w");
 	if (image == NULL) {
-		printf("fopen in DownloadTile problem!\n");
+                window_message = (char *)malloc( sizeof(char) * 255);
+                sprintf(window_message, "fopen in DownloadTile problem!\n");
 		curl_easy_cleanup(icurl);
 		pthread_exit(0);
 	}
@@ -686,7 +730,8 @@ void *DownloadTile(void *threadarg){
 	curl_easy_setopt(icurl,	CURLOPT_WRITEDATA, 	image);
 	curl_easy_perform(icurl);
 	if (ires != CURLE_OK){
-		printf("Curl perform failed: %s\n", curl_easy_strerror(ires));
+                window_message = (char *)malloc( sizeof(char) * 255);
+                sprintf(window_message, "Curl perform failed: %s\n", curl_easy_strerror(res));
 		pthread_exit(0);	
 	}
 
@@ -694,7 +739,8 @@ void *DownloadTile(void *threadarg){
 
 	pthread_mutex_lock(&mut);	// Lock!
 	if ( setStatusImage(quad, READY) == NOT_FOUND ){
-		printf("setStatusImage in DownloadTile problem!\n");
+		window_message = (char *)malloc( sizeof(char) * 255);
+		sprintf(window_message, "setStatusImage in DownloadTile problem!\n");
 		pthread_exit(0);
 	}	
 	pthread_mutex_unlock(&mut);	// Unlock!
@@ -1075,5 +1121,27 @@ char *qrst2xyz(char *quad){
 
 
 	return(tmp);
+}
+//----------------------------------------------------------------------------------------------------//
+
+int cookieTest(){
+	FILE 	*fp;
+	struct 	stat buf;
+	time_t 	ltime;
+	float 	max;
+
+	
+	if (fp = fopen(COOKIE_FILE, "r")){
+		if (!stat(COOKIE_FILE, &buf)){
+			time( &ltime );
+			max = 3600.0f * 24.0f;
+			if ( difftime(ltime, buf.st_mtime ) > max ) 	return(DISABLE);
+			else						return(ENABLE);
+
+		}else{
+			return(DISABLE);
+		}
+	}
+	return(DISABLE);
 }
 
