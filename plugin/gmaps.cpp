@@ -116,8 +116,6 @@ struct MemoryStruct 	chunk;
 struct displayTile	*listTile = NULL;
 
 pthread_mutex_t 	mut = PTHREAD_MUTEX_INITIALIZER;
-struct thread_data 	*thread_data_array;
-pthread_t 		*threads;
 struct curl_slist 	*headers = NULL;
 
 
@@ -251,10 +249,7 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 	dim = ( GRID_SIZE * GRID_SIZE + ( (((GRID_SIZE/2) + 2) * 4 ) * FRAME_NUMBER ) );
 
-	thread_data_array 	= (struct thread_data 	*)malloc( sizeof(struct thread_data	) * dim );
-	threads			= (pthread_t 		*)malloc( sizeof(pthread_t		) * dim );
-
-
+	
 
 
 	return 1;
@@ -776,7 +771,7 @@ void *DownloadTile(void *threadarg){
 		pthread_exit(0);
 	}	
 	pthread_mutex_unlock(&mut);	// Unlock!
-
+	
 	//printf("End to download %s...\n", image_name);
 	pthread_exit(0);
 }
@@ -827,6 +822,9 @@ int  DrawTile(char *quad, int zoom, double  outAltitude, int id){
 		};
 
 	int	TILE_SIZE, MESH_SIZE;
+	struct thread_data 	*thread_data_array;
+	pthread_t 		*threads;
+
 	XPLMProbeInfo_t outInfo;
 
 	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
@@ -839,11 +837,14 @@ int  DrawTile(char *quad, int zoom, double  outAltitude, int id){
 		case FOUND:
 			setStatusImage(quad, BUSY);	
 			// Download image
-			thread_data_array[id].quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
-			strcpy(thread_data_array[id].quad, quad);
-			thread_data_array[id].thread_id = id;
+			thread_data_array 		= (struct thread_data 	*)malloc( sizeof(struct thread_data	) );
+			threads				= (pthread_t 		*)malloc( sizeof(pthread_t		) );
+			thread_data_array->thread_id 	= id;
+
+			thread_data_array->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
+			strcpy(thread_data_array->quad, quad);
 			
-			pthread_create( &threads[id], NULL, DownloadTile, (void *) &thread_data_array[id] );
+			pthread_create( threads, NULL, DownloadTile, (void *) thread_data_array );
 			break;
 
 		case BUSY:
@@ -1031,26 +1032,55 @@ static char *GetNextTileY(char *addr, int forward){
 //----------------------------------------------------------------------------------------------------//
 int PutListTile(char *quad,  GLuint  texId){
 	struct displayTile *tmp;
+	char   image_name[255] = {}; 
+	FILE    *fp;
+	int	test = FALSE;
 
 	//printf("PutListTile... %s\n", quad);
+	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
+	if ( fp = fopen(image_name, "r")){
+		fclose(fp);
+		test = TRUE;
+	}
+
+
 	if (listTile == NULL){
 		//printf("Empty list...\n");
 		listTile = (struct displayTile *)malloc(sizeof( struct displayTile ) );
 		listTile->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
+
 		strcpy(listTile->quad,quad);
-		listTile->texId 	= texId;
-		listTile->status 	= FOUND;
+
+		if ( test == FALSE ){
+			listTile->texId 	= texId;
+			listTile->status 	= FOUND;
+
+		}else{
+			listTile->texId 	= loadJPEGTexture(image_name);
+			listTile->status 	= LOADED;
+		}
+
 		listTile->next		= NULL;
 		return(FOUND);
 	}
+
 	for( tmp = listTile; tmp->next != NULL; tmp = tmp->next  ){};
 	
 	tmp->next 	= (struct displayTile *)malloc(sizeof(struct displayTile) );
 	tmp->next->quad = (char *)malloc(sizeof(char) * ( strlen(quad) + 1) );
 
 	strcpy(tmp->next->quad,quad);
-	tmp->next->texId 	= texId;
-	tmp->next->status	= FOUND;
+
+
+	if ( test == FALSE ){
+		tmp->next->texId 	= texId;
+		tmp->next->status 	= FOUND;
+
+	}else{
+		tmp->next->texId 	= loadJPEGTexture(image_name);
+		tmp->next->status 	= LOADED;
+	}
+
 	tmp->next->next 	= NULL;
 	return(FOUND);
 }
