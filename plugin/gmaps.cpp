@@ -36,7 +36,7 @@
 #include "XPLMMenus.h"
 #include "XPWidgets.h"
 #include "XPStandardWidgets.h"
-
+#include "XPLMUtilities.h"
 
 
 #define	CACHE_DIR 	"./GMapsCache"
@@ -151,6 +151,7 @@ char 				*getServerName();
 int				printStatus(int status);
 char 				*qrst2xyz(char *quad);
 int 				cookieTest();
+int				testImage(char *name);
 
 //----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
@@ -263,7 +264,6 @@ PLUGIN_API int XPluginStart(	char *		outName,
 
 	dim = ( GRID_SIZE * GRID_SIZE + ( (((GRID_SIZE/2) + 2) * 4 ) * FRAME_NUMBER ) );
 
-	
 
 
 	return 1;
@@ -427,35 +427,41 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	cursor = quad;
 	last = cursor[ strlen(cursor) - 1 ];
 
-
-
-	if ( ( Heading >= 45.0f ) && ( Heading < 135.0f ) ){
-		if ( last == 'r' ) { cursor = GetNextTileX(cursor,1); }
-		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
+	if ( ( Heading >= 0.0f   ) && ( Heading < 45.0f  ) ){ 
+		if ( last == 'q' ) { cursor = GetNextTileY(cursor,0); cursor = GetNextTileY(cursor,0); }
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,1); cursor = GetNextTileY(cursor,0); cursor = GetNextTileY(cursor,0); }
 		if ( last == 's' ) { cursor = GetNextTileX(cursor,1); cursor = GetNextTileY(cursor,0); }
+		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
 	}
-
-	if ( ( Heading >= 135.0f ) && ( Heading < 225.0f ) ){
-		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
+	if ( ( Heading >= 45.0f  ) && ( Heading < 135.0f  ) ){
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,1); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,1); cursor = GetNextTileY(cursor,0); }	
+		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
+	}
+	if ( ( Heading >= 135.0f ) && ( Heading < 180.0f ) ){
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,1); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,1); cursor = GetNextTileY(cursor,1); }
 		if ( last == 't' ) { cursor = GetNextTileY(cursor,1); }
+	}
+	if ( ( Heading >= 180.0f ) && ( Heading < 225.0f ) ){
+		if ( last == 'q' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); }
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
 		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,1); }
+		if ( last == 't' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,1); }
 	}
 	if ( ( Heading >= 225.0f ) && ( Heading < 315.0f ) ){
 		if ( last == 'q' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); }
 		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
-		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
-		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); }
-	} 	
-
-	if ( ( Heading < 45.0f ) || ( Heading >= 315.0f ) ){
-		if ( last == 'q' ) { cursor = GetNextTileY(cursor,0); cursor = GetNextTileY(cursor,0); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); } 
+		if ( last == 't' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
+		
+	}
+	if ( ( Heading >= 315.0f ) && ( Heading < 360.0f ) ){
+		if ( last == 'q' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
 		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); cursor = GetNextTileY(cursor,0); }
-		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
 		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
-
-	}	
-
-
+		if ( last == 't' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
+	}
 
 	frame = cursor;
 	// Drow near the plane
@@ -805,8 +811,12 @@ void *DownloadTile(void *threadarg){
                 sprintf(window_message, "Curl perform failed: %s\n", curl_easy_strerror(res));
 		pthread_exit(0);	
 	}
-
 	fclose(image);
+	if ( testImage(image_name) != TRUE ){
+		remove(image_name);
+		pthread_exit(0);
+
+	}
 
 	pthread_mutex_lock(&mut);	// Lock!
 	if ( setStatusImage(quad, READY) == NOT_FOUND ){
@@ -1088,15 +1098,13 @@ static char *GetNextTileY(char *addr, int forward){
 int PutListTile(char *quad,  GLuint  texId){
 	struct displayTile *tmp;
 	char   image_name[255] = {}; 
-	FILE    *fp;
 	int	test = FALSE;
 
 	//printf("PutListTile... %s\n", quad);
 	sprintf(image_name, "%s/%s.jpg", CACHE_DIR, quad );
-	if ( fp = fopen(image_name, "r")){
-		fclose(fp);
-		test = TRUE;
-	}
+
+	if ( testImage(image_name) != TRUE ) 	remove(image_name);
+	else					test = TRUE;
 
 
 	if (listTile == NULL){
@@ -1145,18 +1153,18 @@ int PutListTile(char *quad,  GLuint  texId){
 
 int CutListTile(){
 	struct displayTile *tmp, *del;
-	int i, num;
+	int i, num, tot;
 	if ( listTile == NULL ) return(0);
 
-	for( tmp = listTile, i = 0; tmp->next != NULL; tmp = tmp->next, i++ ){}	
+	for( tmp = listTile, tot = 0; tmp->next != NULL; tmp = tmp->next, tot++ ){}	
 
-	num = ( i - MAX_SIZE_LIST );
+	num = ( tot - MAX_SIZE_LIST );
 
 	if ( num <= 0 ) return(0);
 
 	for( tmp = listTile, i = 0; tmp->next != NULL; i++){
 		
-		printf("%d %d\n", num, i);
+		printf("%d %d %d \n", tot, num, i);
 		
 		if ( i >= num  ){ listTile = tmp; return(0); }
 
@@ -1319,4 +1327,15 @@ int cookieTest(){
 	}
 	return(DISABLE);
 }
+
+//----------------------------------------------------------------------------------------------------//
+
+int testImage(char *name){
+	struct stat file_status;
+	if(stat(name, &file_status) != 0) 	return (FALSE);
+	if( ((int)file_status.st_size) == 0 ) 	return (FALSE);
+	return(TRUE);
+
+}
+
 
