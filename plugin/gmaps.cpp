@@ -44,6 +44,7 @@
 #define GRID_SIZE	2
 #define FRAME_NUMBER	3
 #define GROUND_ZOOM	19
+#define MAX_SIZE_LIST	50
 
 #define ENABLE		1
 #define DISABLE		0
@@ -104,6 +105,11 @@ struct displayTile{
 XPLMDataRef		gPlaneX;
 XPLMDataRef		gPlaneY;
 XPLMDataRef		gPlaneZ;
+XPLMDataRef		gPlaneHeading;
+XPLMDataRef		gPlaneLat;
+XPLMDataRef		gPlaneLon;
+XPLMDataRef		gPlaneAlt;
+
 XPLMProbeRef		inProbe;
 XPLMWindowID		gWindow = NULL;
 XPWidgetID 		GMapsWidget = NULL;
@@ -138,12 +144,14 @@ static char			*GetNextTileY(char *addr, int forward);
 GLuint 				getTexId(char *quad);
 int 				setTexId(char *quad, GLuint  texId);
 int 				PutListTile(char *quad,  GLuint  texId);
+int 				CutListTile();
 int 				setStatusImage(char *quad, int status);
 int 				getStatusImage(char *quad);
 char 				*getServerName();
 int				printStatus(int status);
 char 				*qrst2xyz(char *quad);
 int 				cookieTest();
+
 //----------------------------------------------------------------------------------------------------//
 int MyDrawCallback(
 				XPLMDrawingPhase     inPhase,    
@@ -194,6 +202,12 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	gPlaneX 	= XPLMFindDataRef("sim/flightmodel/position/local_x");
 	gPlaneY 	= XPLMFindDataRef("sim/flightmodel/position/local_y");
 	gPlaneZ 	= XPLMFindDataRef("sim/flightmodel/position/local_z");
+
+	gPlaneHeading	= XPLMFindDataRef("sim/flightmodel/position/psi");
+	gPlaneLat	= XPLMFindDataRef("sim/flightmodel/position/latitude");
+	gPlaneLon	= XPLMFindDataRef("sim/flightmodel/position/longitude");
+	gPlaneAlt	= XPLMFindDataRef("sim/flightmodel/position/elevation");
+
 	inProbe 	= XPLMCreateProbe(xplm_ProbeY);  
 
 
@@ -346,6 +360,7 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	float 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	double	terLatitude,	terLongitude,	terAltitude;
+	double	Heading;
 	int	Altitude;
 	char 	quad[25] = {}, last;
 	char	*cursor, *c2, *frame;
@@ -370,16 +385,21 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1;
 		
 	/* Fetch the plane's location at this instant in OGL coordinates. */	
-	planeX 	= XPLMGetDataf(gPlaneX);
-	planeY 	= XPLMGetDataf(gPlaneY);
-	planeZ 	= XPLMGetDataf(gPlaneZ);
+	
+	planeX 		= XPLMGetDataf(gPlaneX);
+	planeY 		= XPLMGetDataf(gPlaneY);
+	planeZ 		= XPLMGetDataf(gPlaneZ);
+	outLatitude	= XPLMGetDataf(gPlaneLat);
+	outLongitude	= XPLMGetDataf(gPlaneLon);
+	outAltitude	= XPLMGetDataf(gPlaneAlt);
+	Heading		= XPLMGetDataf(gPlaneHeading);
 
-	// Get Geo position of the plane
-	XPLMLocalToWorld(planeX, planeY, planeZ, &outLatitude, &outLongitude, &outAltitude);
 	outInfo.structSize = sizeof(outInfo);
 	XPLMProbeTerrainXYZ( inProbe, planeX, planeY, planeZ, &outInfo);
 	XPLMLocalToWorld(outInfo.locationX, outInfo.locationY, outInfo.locationZ, &terLatitude, &terLongitude, &terAltitude);
+
 	Altitude = (int)(outAltitude - terAltitude );
+
 
 	//printf("Lat: %f Lon: %f Alt: %f x: %f y: %f z: %f\n", outLatitude, outLongitude, outAltitude, planeX, planeY, planeZ);
 
@@ -408,9 +428,32 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 	last = cursor[ strlen(cursor) - 1 ];
 
 
-	if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
-	if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
-	if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
+
+	if ( ( Heading >= 45.0f ) && ( Heading < 135.0f ) ){
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,1); }
+		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,1); cursor = GetNextTileY(cursor,0); }
+	}
+
+	if ( ( Heading >= 135.0f ) && ( Heading < 225.0f ) ){
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
+		if ( last == 't' ) { cursor = GetNextTileY(cursor,1); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,1); }
+	}
+	if ( ( Heading >= 225.0f ) && ( Heading < 315.0f ) ){
+		if ( last == 'q' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); }
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
+		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); cursor = GetNextTileX(cursor,0); cursor = GetNextTileX(cursor,0); }
+	} 	
+
+	if ( ( Heading < 45.0f ) || ( Heading >= 315.0f ) ){
+		if ( last == 'q' ) { cursor = GetNextTileY(cursor,0); cursor = GetNextTileY(cursor,0); }
+		if ( last == 'r' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); cursor = GetNextTileY(cursor,0); }
+		if ( last == 't' ) { cursor = GetNextTileY(cursor,0); }
+		if ( last == 's' ) { cursor = GetNextTileX(cursor,0); cursor = GetNextTileY(cursor,0); }
+
+	}	
 
 
 
@@ -452,8 +495,9 @@ int MyDrawCallback(	XPLMDrawingPhase     inPhase,
 
 	}
 
-	return 1;
+	CutListTile();
 
+	return 1;
 }
 
 //----------------------------------------------------------------------------------------------------//
@@ -913,7 +957,18 @@ int  DrawTile(char *quad, int zoom, double  outAltitude, int id){
 	/* Reset the graphics state.  This turns off fog, texturing, lighting,
 	 * alpha blending or testing and depth reading and writing, which
 	 * guarantees that our axes will be seen no matter what. */
-	XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
+	//XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
+
+	XPLMSetGraphicsState(
+			1, 	// inEnableFog,    
+			1, 	// inNumberTexUnits,    
+			1, 	// inEnableLighting,    
+			1, 	// inEnableAlphaTesting,    
+			1, 	// inEnableAlphaBlending,    
+			0, 	// inEnableDepthTesting,    
+			1);  	// inEnableDepthWriting
+			    
+
 	
 
 	glEnable(GL_TEXTURE_2D);
@@ -1087,6 +1142,37 @@ int PutListTile(char *quad,  GLuint  texId){
 
 
 //----------------------------------------------------------------------------------------------------//
+
+int CutListTile(){
+	struct displayTile *tmp, *del;
+	int i, num;
+	if ( listTile == NULL ) return(0);
+
+	for( tmp = listTile, i = 0; tmp->next != NULL; tmp = tmp->next, i++ ){}	
+
+	num = ( i - MAX_SIZE_LIST );
+
+	if ( num <= 0 ) return(0);
+
+	for( tmp = listTile, i = 0; tmp->next != NULL; i++){
+		
+		printf("%d %d\n", num, i);
+		
+		if ( i >= num  ){ listTile = tmp; return(0); }
+
+		del = tmp;
+		tmp = tmp->next;
+		free((void *)del->quad);
+		free((void *)del);
+		
+	} 
+
+
+	return(0);
+}
+
+//----------------------------------------------------------------------------------------------------//
+
 
 GLuint getTexId(char *quad){
 	struct displayTile *tmp;
