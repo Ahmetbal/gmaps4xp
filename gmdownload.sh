@@ -18,7 +18,7 @@ url="http://khm.google.com/kh?v=3&t="
 
 servers_tile=( khm0.google.com khm1.google.com khm2.google.com khm3.google.com )
 servers_maps=( mt0.google.com  mt1.google.com  mt2.google.com  mt3.google.com  )
-OSM="yes"
+OSM="no"
 server_index="0"
 SLEEP_TIME="20"
 MAX_PERC_COVER="1"
@@ -959,6 +959,7 @@ qrst2xyz(){
 	x=0
 	y=0
 	z=17
+	gal="Galileo"
 
 	str="${str:1}" # skip the first character
 	qrst=( 00 01 10 11 )	
@@ -977,8 +978,9 @@ qrst2xyz(){
 		cnt=$[ $cnt + 1 ]
 
 	done
+	gal="$(echo "$gal" | cut -c -$[ ((x*3+y)%8)+1 ] )"
 
-	echo "x=$x&y=$y&zoom=$z"
+	echo -n "x=$x&y=$y&zoom=$z%s=$gal"
 }
 
 
@@ -1090,8 +1092,8 @@ getDSFName(){
 upDateServer(){
 	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
-
-	server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
@@ -1223,7 +1225,7 @@ if [ "$RESTORE" = "no" ] ; then
 	fi
 	while : ; do
 		upDateServer
-		remote="$( swget "${server[0]}${cursor_reference}" 2>&1 )"
+		remote="$( swget "${server[0]}$( qrst2xyz ${cursor_reference} )" 2>&1 )"
 		if [ ! -z "$( echo "$remote" | grep "403 Forbidden" )" ] || [ ! -z "$( echo "$remote" | grep "503 Service Unavailable" )" ]  ; then
 			echo "ERROR from Google Maps: Forbidden! You must wait one day!"
 			exit 4
@@ -1238,7 +1240,7 @@ if [ "$RESTORE" = "no" ] ; then
 	while : ; do
 		echo "-----------------------------------------------------------"
 		echo "Tile size: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
-		echo "Use this URL to view an example: ${server}${cursor_reference}"
+		echo "Use this URL to view an example: ${server}$( qrst2xyz ${cursor_reference} )"
 		echo
 		while : ; do
 			echo -n "Press [ENTER] to continue or \"-\" to decrease zoom (less tiles) [CTRL+C to abort]: "
@@ -1482,7 +1484,7 @@ for c2 in ${good_tile[@]} ; do
 	fi
 	if [ ! -f "$tiles_dir/tile-$c2.png" ] ; then
 		upDateServer
-		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$c2"  &> /dev/null
+		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$c2" )"  &> /dev/null
 		if [ ! -f "$tiles_dir/${TMPFILE}.jpg" ] ; then
 			echo "Elaboration problem!!"
 			exit 6
@@ -1502,7 +1504,7 @@ for c2 in ${good_tile[@]} ; do
 				echo "Try to zoom out one step..."
 				subc2="$( echo "$subc2" | rev | cut -c 2- | rev )"
 
-				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$subc2" &> /dev/null
+				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$subc2" )" &> /dev/null
 
 				if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
 					blank="$( convert  "$tiles_dir/${TMPFILE}.jpg"   -crop 1x255+0+0 txt:- | grep -v "^#" | grep -i "$SHIT_COLOR"  | wc -l )"
