@@ -958,7 +958,8 @@ qrst2xyz(){
 	# get normalized coordinate first
 	x=0
 	y=0
-	z=17
+	#z=17
+	z=0
 	gal="Galileo"
 
 	str="${str:1}" # skip the first character
@@ -974,13 +975,13 @@ qrst2xyz(){
 		[ "$c" = "s" ] && c="3"
 		x=$[ $x * 2 + ${qrst[$c]:0:1} ]
 		y=$[ $y * 2 + ${qrst[$c]:1:1} ]
-		z=$[ $z - 1 ]
+		z=$[ $z + 1 ]
 		cnt=$[ $cnt + 1 ]
 
 	done
-	gal="$(echo "$gal" | cut -c -$[ ((x*3+y)%8)+1 ] )"
+	gal="$(echo "$gal" | cut -c -$[ (($x*3+$y)%8)+1 ] )"
 
-	echo -n "x=$x&y=$y&zoom=$z%s=$gal"
+	echo -n "x=$x&y=$y&z=$z&s=$gal"
 }
 
 
@@ -1093,7 +1094,8 @@ upDateServer(){
 	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+	#server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
@@ -1308,7 +1310,7 @@ if [ "$RESTORE" = "no" ] ; then
 		
 		echo "Estimated end date for download tiles: $end_date..."
 		echo "Tile site: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
-		echo "Use this URL to view an example: $server$cursor_reference"
+		echo "Use this URL to view an example:  ${server}$( qrst2xyz ${cursor_reference} )"
 		echo
 	
 	
