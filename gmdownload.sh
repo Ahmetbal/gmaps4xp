@@ -301,13 +301,8 @@ if [ "$( uname -s )" = "Linux" ] ; then
 		echo "ERROR: Utility missing, you must install the Wget package"
 		exit 3
 	fi
-
-	# set wine env
-	export WINE="$( dirname -- "$0" )/ext_app/wine/usr"
-	export PATH="$WINE/bin:$PATH"
-	export LD_LIBRARY_PATH="$WINE/lib"
-	dsftool="$( dirname -- "$0" )/ext_app/xptools_apr08_win/DSFTool.exe"
-	ddstool="$( dirname -- "$0" )/ext_app/xptools_apr08_win/DDSTool.exe"
+	dsftool="$( dirname -- "$0" )/ext_app/xptools20090917.lnx.i386/DSFTool"
+	ddstool="$( dirname -- "$0" )/ext_app/xptools20090917.lnx.i386/DDSTool"
 fi	
 
 
@@ -1869,11 +1864,7 @@ for x in $( seq 0 $dim_x ) ; do
 
 		        if [ ! -f "$TARGET_IMG_DIR/$TEXTURE" ] ; then
 				if [ ! -f "$tiles_dir/tile-$c2.dds" ] ; then
-					if [ "$( uname -s )" = "Linux" ] ; then
-						wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
-					else
-						"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
-					fi
+					"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
 					cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
 				else
 					cp -f "$tiles_dir/tile-$c2.dds" "$TARGET_IMG_DIR/$TEXTURE"
@@ -2508,11 +2499,7 @@ for cursor in ${split_tile[@]} ; do
 
 			        if [ ! -f "$TARGET_IMG_DIR/$TEXTURE" ] ; then
 					if [ ! -f "$tiles_dir/tile-$c2.dds" ] ; then
-						if [ "$( uname -s )" = "Linux" ] ; then
-							wine "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
-						else
-							"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
-						fi
+						"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
 						cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
 					else
 						cp -f "$tiles_dir/tile-$c2.dds" "$TARGET_IMG_DIR/$TEXTURE"
@@ -3347,11 +3334,7 @@ fi
 if [  ! -z "$dsftool" ] ; then
 	for i in ${dfs_list[@]} ; do
 		echo "Create DSF file \"$i\"..."
-		if [ "$( uname -s )" = "Linux" ] ; then
-			wine "$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i" 
-		else
-			"$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i"
-		fi
+		"$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i"
 		echo "-------------------------------------------------------"
 	done
 fi
