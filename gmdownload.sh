@@ -1,14 +1,15 @@
 #!/bin/bash
 
 
-export LC_NUMERIC="us"
-export LC_COLLATE="us"
-export LC_CTYPE="us"
-export LC_MESSAGES="us"
-export LC_MONETARY="us"
-export LC_NUMERIC="us"
-export LC_TIME="us"     
-
+if [ "$( uname -s )" = "Darwin" ] ; then
+	export LC_NUMERIC="us"
+	export LC_COLLATE="us"
+	export LC_CTYPE="us"
+	export LC_MESSAGES="us"
+	export LC_MONETARY="us"
+	export LC_NUMERIC="us"
+	export LC_TIME="us"     
+fi
 
 # Q	R
 #
@@ -332,6 +333,15 @@ fi
 # format=png
 # q= quality in % (1-100)
 #
+
+log(){
+	if [ -z "$1" ] ; then
+		log "Invalid paramters for function log (usage: log \"blabla...\""
+		exit 40
+	fi	
+	echo "$(date) - $1" 1>&2
+}
+
 
 ewget(){
 	out="$1"
@@ -1027,11 +1037,15 @@ GetCoordinatesFromAddress(){
 getDirName(){
 	lat="$1"
 	lon="$2"
+	[ -z "$lat" ] && log "getDirName Latitude is empty" 	&& exit 1
+	[ -z "$lon" ] && log "getDirName Longitude is empty" 	&& exit 1
+
 
 
 	[  "$( echo "$lat < 0" | bc -l )" = 1 ] && lat="$( echo "scale = 8; $lat - 10.0" | bc -l )"
 
 	int="${lat%.*}"
+	[ -z "$int" ] && int="0"
 	lat="$( echo  "$int - ( $int % 10 )" | bc )"
 	[ -z "$( echo "${lat%.*}" | tr -d "-" )" ] && lat="$( echo "$lat" | sed -e s/"\."/"0\."/g )"
 	[ "$( echo "$lat > 0" | bc -l )" = 1  ] && lat="+$lat"
@@ -1041,6 +1055,7 @@ getDirName(){
 	[  "$( echo "$lon < 0" | bc -l )" = 1 ] && lon="$( echo "scale = 8; $lon - 10.0" | bc -l )"
 
 	int="${lon%.*}"
+	[ -z "$int" ] && int="0"
 	lon="$( echo  "$int - ( $int % 10 )" | bc )"
 	[ -z "$( echo "${lon%.*}" | tr -d "-" )" ] && lon="$( echo "$lon" | sed -e s/"\."/"0\."/g )"
 	[ "$( echo "$lon >= 0" | bc -l )" = 1  ] && lon="+$lon"
@@ -1058,14 +1073,19 @@ getDirName(){
 getDSFName(){
 	lat="$1"
 	lon="$2"
+	[ -z "$lat" ] && log "getDSFName Latitude is empty" 	&& exit 1
+	[ -z "$lon" ] && log "getDSFName Longitude is empty" 	&& exit 1
 
 	lat="$( echo "$lat" | awk -F. {'print $1'} )"
+	[ -z "$lat" ] && lat="0"
 	[ -z "$( echo "${lat%.*}" | tr -d "-" )" ] && lat="$( echo "$lat" | sed -e s/"\."/"0\."/g )"
 
 	[ "$( echo "$lat < 0" | bc )" = 1  ] && lat="$( echo "$lat - 1" | bc )"
 	[ "$( echo "$lat > 0" | bc )" = 1  ] && lat="+$lat"
 
 	lon="$( echo "$lon" | awk -F. {'print $1'} )"
+	[ -z "$lon" ] && lon="0"
+	
 	[ -z "$( echo "${lon%.*}" | tr -d "-" )" ] && lon="$( echo "$lon" | sed -e s/"\."/"0\."/g )"
 
 	[ "$( echo "$lon < 0" | bc )" = 1  ] && lon="$( echo "$lon - 1" | bc )"
@@ -1082,7 +1102,6 @@ getDSFName(){
 
 	echo "$lat$lon.dsf"
 }
-
 
 
 upDateServer(){
@@ -1379,7 +1398,7 @@ if [ "$RESTORE" = "no" ] ; then
 	cnt=1
 
 	while [ "${#in_order[*]}" != "0" ] ; do
-		echo -ne "Step 2: $cnt / $tot...\r"
+		echo "Step 2: $cnt / $tot..."
 		ran=$[ $RANDOM % ${#in_order[*]} ]
 		tile_index[$i]="${in_order[$ran]}"
 		unset in_order[$ran] 
@@ -1397,7 +1416,7 @@ if [ "$RESTORE" = "no" ] ; then
 		cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
 		for y in $( seq 0 $dim_y  ) ; do
-			echo -ne "Step 3: $cnt / $tot...\r"
+			echo "Step 3: $cnt / $tot.."
 			if [ ! -z "${poly[*]}" ] ; then	
 				info=( $( GetCoordinatesFromAddress $c2 ) )
 				# $lon $lat $lon_min $lat_min $lon_max $lat_max
@@ -2012,7 +2031,7 @@ for x in $( seq 0 $dim_x ) ; do
 
 
 			if [ "$MASH_SCENARY" = "no" ] ; then
-				echo -ne "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"...                          \r"
+				echo "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"..."
 		
 				if [ -f "$output_dir/$POL_FILE" ] ; then
 					echo "Error! Polygon file already exists!"
@@ -2157,7 +2176,7 @@ for x in $( seq 0 $dim_x ) ; do
 			cnt=$[ $cnt + 1 ]
 			prog=$[ $prog + 1 ]
 		else
-			[ "$MASH_SCENARY" = "no" ] && echo -ne "$prog / $tot MISS...                                                              \r"
+			[ "$MASH_SCENARY" = "no" ] && echo "$prog / $tot MISS..."
 			if [ "$MASH_SCENARY" = "yes" ] ; then	
 				if 	[ "$[ ${lr_lat%.*} + 1  ]" != "${ul_lat%.*}" ] 						&& \
 					[ "$[ ${lr_lon%.*} + 1  ]" != "${ul_lon%.*}" ] 						&& \
@@ -2545,6 +2564,8 @@ for cursor in ${split_tile[@]} ; do
 						mkdir "$output_dir/$output_sub_dir/$dfs_dir"
 					fi
 	
+					echo "getDSFName $ori_ul_lat $ori_ul_lon"
+
 					dfs_file="$( getDSFName "$ori_ul_lat" "$ori_ul_lon" )"
 					dfs_list[$dfs_index]="$dfs_dir/$dfs_file"
 					if [ "$MASH_SCENARY" = "yes" ] ; then
@@ -2717,7 +2738,7 @@ for cursor in ${split_tile[@]} ; do
 
 
 				if [ "$MASH_SCENARY" = "no" ] ; then
-					echo -ne "$prog / $split_index / $tot: Create polygon (.pol) file \"$POL_FILE\"...                          \r"
+					echo "$prog / $split_index / $tot: Create polygon (.pol) file \"$POL_FILE\"..."
 		
 					if [ -f "$output_dir/$POL_FILE" ] ; then
 						echo "Error! Polygon file already exists!"
@@ -2879,7 +2900,7 @@ for cursor in ${split_tile[@]} ; do
 				cnt=$[ $cnt + 1 ]
 				prog=$[ $prog + 1 ]
 			else
-				[ "$MASH_SCENARY" = "no" ] && echo -ne "$prog / $split_index / $tot ...                                                              \r"
+				[ "$MASH_SCENARY" = "no" ] && echo "$prog / $split_index / $tot ..."
 
 				if [ "$MASH_SCENARY" = "yes" ] ; then	
 					if 	[ "$[ ${lr_lat%.*} + 1  ]" != "${ul_lat%.*}" ] 						&& \
