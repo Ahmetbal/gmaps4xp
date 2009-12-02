@@ -304,6 +304,10 @@ if [ "$( uname -s )" = "Linux" ] ; then
 	fi
 	dsftool="$( dirname -- "$0" )/ext_app/xptools20090917.lnx.i386/DSFTool"
 	ddstool="$( dirname -- "$0" )/ext_app/xptools20090917.lnx.i386/DDSTool"
+	if [ "$( uname -m )" = "x86_64" ] ; then
+		dsftool="$( dirname -- "$0" )/ext_app/xptools20090917.lnx.x86_64/DSFTool"
+		ddstool="$( dirname -- "$0" )/ext_app/xptools20090917.lnx.x86_64/DDSTool"
+	fi
 fi	
 
 
