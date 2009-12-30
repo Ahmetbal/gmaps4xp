@@ -1554,7 +1554,7 @@ for c2 in ${good_tile[@]} ; do
 			if [ ! -z "$subc2" ] ; then
 				if  [ "$( du -s "$tiles_dir/tile-$subc2-ori.png" | awk {'print $1'} )" != "0" ]	; then
 					echo "Found tile with less zoom..."
-					convert "$tiles_dir/tile-$subc2-ori.png" -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
+					convert "$tiles_dir/tile-$subc2-ori.png" -channel RGB -normalize -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
 				else
 					echo "Not found file with same zoom... Hole in scenery for tile ${server[0]}$c2 !"
 				fi
@@ -1563,7 +1563,7 @@ for c2 in ${good_tile[@]} ; do
 			fi
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
-			convert "$tiles_dir/${TMPFILE}.jpg"  -format PNG32  "$tiles_dir/tile-$c2.png"
+			convert "$tiles_dir/${TMPFILE}.jpg" -channel RGB -normalize -format PNG32  "$tiles_dir/tile-$c2.png"
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		fi
 
@@ -1664,7 +1664,7 @@ for cursor_huge in ${good_tile[@]} ; do
 					if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 						echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"	
 					else
-						convert  -fuzz 8%  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
+						convert  -fuzz 8%  "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Cubic -resize 2048x2048 "$tiles_dir/map-$cursor_huge.png"
 					fi
 					echo -n "Done "
 				fi
@@ -2487,7 +2487,7 @@ for cursor in ${split_tile[@]} ; do
 							if [  "$( echo "scale = 8; ( $content / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 								echo -n ""  >  "$tiles_dir/map-$c2.png"	
 							else
-								convert -fuzz 8% "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Point  "$tiles_dir/map-$c2.png"
+								convert -fuzz 8% "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Cubic  "$tiles_dir/map-$c2.png"
 							fi
 							echo -n "Done"
 							rm -f "$tiles_dir/${TMPFILE}.png"
