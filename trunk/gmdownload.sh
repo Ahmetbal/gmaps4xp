@@ -818,8 +818,8 @@ pointInPolygon(){
 	fi
 	
 	while [ $i -lt "${#polvectorX[*]}"  ] ;  do
-		if [ "$( echo "scale=8;  ${polvectorY[$i]} < $y && ${polvectorY[$j]} >= $y  || ${polvectorY[$j]} < $y && ${polvectorY[$i]} >= $y" | bc -l )" == 1 ] ; then
-			if [ "$( echo "scale=8; ${polvectorX[$i]} + ($y - ${polvectorY[$i]})/(${polvectorY[$j]} - ${polvectorY[$i]})*(${polvectorX[$j]} - ${polvectorX[$i]}) < $x" | bc -l )" == 1 ] ; then
+		if [ "$( echo "scale=16;  ${polvectorY[$i]} < $y && ${polvectorY[$j]} >= $y  || ${polvectorY[$j]} < $y && ${polvectorY[$i]} >= $y" | bc -l )" == 1 ] ; then
+			if [ "$( echo "scale=16; ${polvectorX[$i]} + ($y - ${polvectorY[$i]})/(${polvectorY[$j]} - ${polvectorY[$i]})*(${polvectorX[$j]} - ${polvectorX[$i]}) < $x" | bc -l )" == 1 ] ; then
 				if [ "$oddNodes" = "out" ] ; then
 					oddNodes="in"
 				else
@@ -1113,7 +1113,8 @@ upDateServer(){
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
 	#server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
+	#server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
@@ -1319,8 +1320,14 @@ if [ "$RESTORE" = "no" ] ; then
 			[  "$( echo "$y_lat < $lowright_lat" | bc )" = 1 ] && break 
 			dim_y=$[ $dim_y + 1 ]
 		done
-		
 		echo
+
+		if [ "$dim_x" -eq "0" ] || [ "$dim_y" -eq "0" ] ; then
+			echo "AOI selected is smaller than one tile, I take the entire tile to create texture..."
+		fi
+		[ "$dim_x" -le "1" ] && dim_x="8"
+		[ "$dim_y" -le "1" ] && dim_y="8"
+	
 		echo "Size of tiles $dim_x x $dim_y ..."
 
 		 [ "$( uname -s )" = "Linux" ]  && end_date="$( date --date=@$[ $(  date +%s ) +  ( $dim_x * $dim_y * $SLEEP_TIME ) ] )"
@@ -1554,7 +1561,7 @@ for c2 in ${good_tile[@]} ; do
 			if [ ! -z "$subc2" ] ; then
 				if  [ "$( du -s "$tiles_dir/tile-$subc2-ori.png" | awk {'print $1'} )" != "0" ]	; then
 					echo "Found tile with less zoom..."
-					convert "$tiles_dir/tile-$subc2-ori.png" -channel RGB -normalize -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
+					convert "$tiles_dir/tile-$subc2-ori.png" -channel RGB -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
 				else
 					echo "Not found file with same zoom... Hole in scenery for tile ${server[0]}$c2 !"
 				fi
@@ -1563,7 +1570,7 @@ for c2 in ${good_tile[@]} ; do
 			fi
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
-			convert "$tiles_dir/${TMPFILE}.jpg" -channel RGB -normalize -format PNG32  "$tiles_dir/tile-$c2.png"
+			convert "$tiles_dir/${TMPFILE}.jpg" -channel RGB -format PNG32  "$tiles_dir/tile-$c2.png"
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		fi
 
