@@ -14,14 +14,18 @@
 #include "XPLMUtilities.h"
 
 
-#define BUFFER_CONSOL_COL 80
-#define BUFFER_CONSOL_LIN 35
+#define BUFFER_CONSOL_COL	80
+#define BUFFER_CONSOL_LIN	35
+#define SERVERS_NUMBER		4
+#define GMAPS_VERION 		58
 
 
-XPLMWindowID    gConsole	= NULL;
-XPLMKeyFlags	gFlags		= 0;
-char		gVirtualKey	= 0;
-char		gChar		= 0;
+XPLMWindowID    gConsole		= NULL;
+XPLMKeyFlags	gFlags			= 0;
+char		gVirtualKey		= 0;
+char		gChar			= 0;
+char 	GMapServers[SERVERS_NUMBER][16]	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
+int		GMapsServerIndex	= 0;
 
 
 XPLMDataRef		gPlaneX;
@@ -33,6 +37,8 @@ XPLMDataRef		gPlaneLon;
 XPLMDataRef		gPlaneAlt;
 
 XPLMProbeRef		inProbe;
+
+
 
 struct consoleBuffer{
 	char *line;
@@ -58,7 +64,8 @@ struct TileObj{
 	double	*bitmapOrigo[2];
 	double	bc;
 	double	Wa;
-
+	char	*Galileo;
+	char	*url;
 } TileObj;
 
 
