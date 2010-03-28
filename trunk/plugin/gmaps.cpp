@@ -1,18 +1,28 @@
 #include "gmaps.h"
 
 
-int fillTileInfo(struct  TileObj *tile, double lat, double lng, int zoom){
 
-	int	d = 0;
+int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 
-	double	e = 0.0;
+
 	double	x = 0.0;
 	double	y = 0.0;
 
-	double	a = lat;
-	double	b = lng;
-	int	c = zoom - 1;
+	double	a 		= lat;
+	double	b 		= lng;
+	int	c		= 0;
+	int	d 		= 0;
+	double	e 		= 0.0;
+	int	zoom		= 0;
+	char	Galileo[8]	= "Galileo";
+	int	iGal		= 0;
+	char	url[1024]	= {};
+	int	LAYER_NMBER	= 20; //18
 
+	zoom	= LAYER_NMBER - (int)( alt / 100 );
+	if (zoom < 0 ) zoom = 0;
+
+	c 		= zoom;
 	tile->lat	= lat;
 	tile->lng	= lng;
 	tile->z		= zoom;
@@ -21,18 +31,19 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, int zoom){
 	tile->c		= 256;
 
 
-	tile->pixelsPerLonDegree	= (double *)malloc( sizeof(double) * 18);
-	tile->pixelsPerLonRadian	= (double *)malloc( sizeof(double) * 18);
-	tile->numTiles			= (double *)malloc( sizeof(double) * 18);
-	tile->bitmapOrigo[0]		= (double *)malloc( sizeof(double) * 18);
-	tile->bitmapOrigo[1]		= (double *)malloc( sizeof(double) * 18);
+	tile->pixelsPerLonDegree	= (double *)malloc( sizeof(double) * (LAYER_NMBER + 1));
+	tile->pixelsPerLonRadian	= (double *)malloc( sizeof(double) * (LAYER_NMBER + 1));
+	tile->numTiles			= (double *)malloc( sizeof(double) * (LAYER_NMBER + 1));
+	tile->bitmapOrigo[0]		= (double *)malloc( sizeof(double) * (LAYER_NMBER + 1));
+	tile->bitmapOrigo[1]		= (double *)malloc( sizeof(double) * (LAYER_NMBER + 1));
 
 
 	tile->bc = 2.0 * tile->PI;
 	tile->Wa = tile->PI / 180.0;
 
 
-	for( d = 17;  d >= 0; --d) {
+	//for( d = LAYER_NMBER;  d >= 0; --d) {
+	for( d = 0;  d < (LAYER_NMBER + 1); d++) {
 		e = tile->c / 2.0;
 		tile->pixelsPerLonDegree[d]	= tile->c / 360.0;
 		tile->pixelsPerLonRadian[d]	= tile->c / tile->bc;
@@ -43,13 +54,25 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, int zoom){
 
 	}
 
-	tile->x = floor( tile->bitmapOrigo[0][c] + b * tile->pixelsPerLonDegree[c] );
+	x = floor( tile->bitmapOrigo[0][c] + b * tile->pixelsPerLonDegree[c] );
 	e = sin(a * tile->Wa);
 
 	if(e > 0.9999)	e = 0.9999;
   	if(e < -0.9999)	e = -0.9999;
   		
-	tile->y = floor( tile->bitmapOrigo[1][c] + 0.5 * log((1.0 + e) / (1.0 - e)) * -1.0 * (tile->pixelsPerLonRadian[c]) );
+	y = floor( tile->bitmapOrigo[1][c] + 0.5 * log((1.0 + e) / (1.0 - e)) * -1.0 * (tile->pixelsPerLonRadian[c]) );
+
+	tile->x = floor( x / tile->tileSize);
+	tile->y = floor( y / tile->tileSize);
+
+
+
+	iGal		= ( ( (int)tile->x * 3 + (int)tile->y ) % 8 );
+	if ( iGal >= 8 ) iGal = 7;
+	Galileo[iGal]	= '\0';
+	tile->Galileo	= (char *)malloc( sizeof(char) *  iGal + 1 );
+	sprintf(tile->Galileo, "%s", Galileo);
+
 
 	a = tile->x;
 	b = tile->y;
@@ -57,6 +80,17 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, int zoom){
 	tile->lng = (a - tile->bitmapOrigo[0][c]) / tile->pixelsPerLonDegree[c];
 	e	  = (b - tile->bitmapOrigo[1][c]) / (-1.0 * tile->pixelsPerLonRadian[c]);
 	tile->lat = (2.0 * atan(exp(e)) - tile->PI / 2.0) / tile->Wa;
+
+
+	// http://khm1.google.com/kh/v=58&x=557121&y=379081&z=20&s=Gali
+	for( d = 0;  d < 1024; d++) url[d] = '\0';
+	sprintf(url,"http://%s/kh/v=%d&x=%d&y=%d&z=%d&s=%s", GMapServers[GMapsServerIndex], (int)GMAPS_VERION, (int)tile->x, (int)tile->y, (int)tile->z, tile->Galileo);
+
+	GMapsServerIndex++;
+	if (GMapsServerIndex >= SERVERS_NUMBER ) GMapsServerIndex = 0;
+
+	tile->url = (char *)malloc( sizeof(char) * ( strlen(url) + 1 ) );
+	strcpy(tile->url, url);
 
 
 
@@ -144,13 +178,15 @@ void GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon){
 	struct  consoleBuffer *cursor= NULL;
 	int	i;
 	struct	TileObj tile;
+	XPLMProbeInfo_t outInfo;  
 
 	double 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	double	terLatitude,	terLongitude,	terAltitude;
-	double	Heading;
+	double	Heading,	Altitude;
 
-	char	tmp[255] = {};
+
+	char	tmp[1024] = {};
 
 
         XPLMGetWindowGeometry(inWindowID, &left, &top, &right, &bottom);
@@ -168,16 +204,19 @@ void GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon){
 	outAltitude	= XPLMGetDataf(gPlaneAlt);
 	Heading		= XPLMGetDataf(gPlaneHeading);
 
+	outInfo.structSize = sizeof(outInfo);
+	XPLMProbeTerrainXYZ( inProbe, planeX, planeY, planeZ, &outInfo);
+	XPLMLocalToWorld(outInfo.locationX, outInfo.locationY, outInfo.locationZ, &terLatitude, &terLongitude, &terAltitude);
+
+	Altitude = (int)(outAltitude - terAltitude );
 
 
 
-	fillTileInfo(&tile, outLatitude, outLongitude, 13);
+	fillTileInfo(&tile, outLatitude, outLongitude,  Altitude );
 
 
-	sprintf(tmp, "x: %f y: %f z: %f lat: %f lng: %f\n", tile.x, tile.y, tile.y, tile.lng, tile.lat);
+	sprintf(tmp, "%s\n",  tile.url);
 	writeConsole(tmp);
-
-
 
 	// Message drow in debug windows
 	if ( consoleOutput == NULL ) return;
