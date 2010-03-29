@@ -1,27 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>  
-#include <unistd.h>
+#include "download.h"
 
 
-
- 
-#include <curl/curl.h>
-#include <curl/types.h>
-#include <curl/easy.h>
-
-
-#define USER_AGENT	"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
-#define	TOKEN_STRING	"mSatelliteToken"
- 
-struct MemoryStruct {
-	char *memory;
-	size_t size;
-};
- 
-static void *myrealloc(void *ptr, size_t size);
- 
 static void *myrealloc(void *ptr, size_t size){
 	if(ptr)	return realloc(ptr, size);
 	else	return malloc(size);
@@ -159,86 +138,5 @@ size_t downloadItem(CURL *curl_handle, const char *url, unsigned char **itemData
 
 	return size;
 
-}
-
-
- 
-int main(int argc, char **argv){
-	CURL	*curl_handle;
-	int 	i, j;
-	struct	curl_slist *cookie	= NULL;
-	struct	curl_slist *cursor	= NULL;
-	FILE	*file; 
-	CURLcode res;
-	char	tmp[255];
-	char	fileout[255];
-	int	size	= 0;
-	unsigned char *image = NULL;
-
-
-	curl_global_init(CURL_GLOBAL_ALL);
-
-	/* init the curl session */ 
-	curl_handle = curl_easy_init();
-	initCurlHandle(curl_handle);
-
-	/*
-	//------------------------------------------------------------------
-	printf("Print cookies list:\n");
-	res = curl_easy_getinfo(curl_handle, CURLINFO_COOKIELIST, &cookie);
-	if (res != CURLE_OK) {
-		fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
-		return 1;
-	}
-
-
-	cursor = cookie, i = 1;  
-	while (cursor) {  
-		printf("[%d]: %s\n", i, cursor->data);  
-		cursor = cursor->next;  
-		i++;  
-	}  
-	if (i == 1) {  
-		printf("(none)\n");  
-	}  
-	//------------------------------------------------------------------
-	*/
-
-	for ( i = 8725; i < 8725+10; i++){
-		for ( j = 5905; j < 5905+10; j++){
-			sprintf(tmp, "http://khm%d.google.com/kh/v=58&x=%d&y=%d&z=14&s=", j%4, i, j);
-			printf("%s\n", tmp);
-
-			if ( ( size = downloadItem(curl_handle, tmp, &image)) == 0 ){
-				fprintf(stderr, "Error: download problem\n");
-				return 1;
-
-			}
-			sprintf(fileout, "tile-%d-%d.jpg",  i,j);
-			printf("%s\n", fileout);
-	
-			file = fopen(fileout, "w"); 
-			if(file == NULL) {
-				fprintf(stderr, "Error: can't create file.\n");
-				return 1;
-			}
-			fwrite(image, 1, size, file);	
-		
-			fclose(file);
-			sleep(1);
-		}
-	}
-
-
-
-	//------------------------------------------------
-
-
-	curl_slist_free_all(cookie);  
-	curl_slist_free_all(cursor);  
-	curl_easy_cleanup(curl_handle);
-	curl_global_cleanup();
-
-	return 0;
 }
 
