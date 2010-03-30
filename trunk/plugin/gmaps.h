@@ -98,14 +98,20 @@ struct TileObj{
 	double	Wa;
 	char	*Galileo;
 	char	*url;
+	struct	TileObj *next;
+	struct	TileObj *prev;
+
 } TileObj;
 
-
+// Pointer to head of tile list
+struct TileObj *TileList = NULL;
 
 void	GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon);
+int     GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon);
 int	GMapsHandleMouseClickCallback( XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse, void *inRefcon);
 int	GMapsKeySniffer( char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *inRefcon);
 void	GMapsHandleKeyCallback( XPLMWindowID inWindowID, char inKey, XPLMKeyFlags inFlags, char inVirtualKey,  void *inRefcon, int  losingFocus);
 float	GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void *inRefcon);    
+
 
 #endif
