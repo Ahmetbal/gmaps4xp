@@ -26,7 +26,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	double	maxx		= 0.0;
 	double	maxy		= 0.0;
 
-	zoom	= LAYER_NMBER - (int)( alt / 100 );
+	zoom	= LAYER_NMBER - (int)( alt / 10 );
 	if (zoom < 0 ) zoom = 0;
 
 	c 		= zoom;
@@ -88,7 +88,6 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	tile->lat = (2.0 * atan(exp(e)) - M_PI / 2.0) / tile->Wa;
 
 
-	// http://khm1.google.com/kh/v=58&x=557121&y=379081&z=20&s=Gali
 	for( d = 0;  d < 1024; d++) url[d] = '\0';
 	sprintf(url,"http://%s/kh/v=%d&x=%d&y=%d&z=%d&s=%s", GMapServers[GMapsServerIndex], (int)GMAPS_VERION, (int)tile->x, (int)tile->y, (int)tile->z, tile->Galileo);
 
@@ -101,14 +100,6 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 
 	tile->Resolution	= 2.0 * M_PI * 6378137 / tile->tileSize / pow(2, zoom);
 	tile->originShift	= 2.0 * M_PI * 6378137 / 2.0;
-
-	/*
-	minx	= (tile->x * tile->tileSize )		* tile->Resolution - tile->originShift;
-	miny	= (tile->y * tile->tileSize )		* tile->Resolution - tile->originShift;
-	maxx	= ((tile->x+1.0) * tile->tileSize)	* tile->Resolution - tile->originShift;
-	maxy	= ((tile->y+1.0) * tile->tileSize)	* tile->Resolution - tile->originShift;
-	*/
-
 
 
 	minx	= (tile->x * tile->tileSize )		* tile->Resolution - tile->originShift;
@@ -126,15 +117,12 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	tile->maxLat = ( maxy / tile->originShift ) * 180.0;
 	tile->maxLat = 180.0 / M_PI * (2.0 * atan( exp( tile->maxLat * M_PI / 180.0)) - M_PI / 2.0);
 
+	XPLMWorldToLocal( tile->minLat, tile->minLon, 0.0, &(tile->X_LL), &(tile->Y_LL), &(tile->Z_LL) 	);
+	XPLMWorldToLocal( tile->maxLat, tile->maxLon, 0.0, &(tile->X_UR), &(tile->Y_UR), &(tile->Z_UR) 	);
 
-	/*
-	XPLMWorldToLocal( (double)coord[1], (double)coord[0], outAltitude, &tileX,	&tileY,		&tileZ 		);
-	XPLMWorldToLocal( (double)coord[3], (double)coord[2], outAltitude, &tileX_LL,	&tileY_LL,	&tileZ_LL 	);
-	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
-	*/
 
-	XPLMWorldToLocal( tile->minLon, tile->minLat, 0.0, &(tile->X_LL), &(tile->Y_LL), &(tile->Z_LL) 	);
-	XPLMWorldToLocal( tile->maxLon, tile->maxLat, 0.0, &(tile->X_UR), &(tile->Y_UR), &(tile->Z_UR) 	);
+	tile->next = NULL;
+	tile->prev = NULL;
 
 	return 0;
 }
@@ -178,11 +166,13 @@ int writeConsole(const char *msg){
 PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 	int i;
 
+	// Plugin description
 	strcpy(outName, "GMaps For X-Plane");
 	strcpy(outSig,  "Mario Cavicchi");
 	strcpy(outDesc, "http://members.ferrara.linux.it/cavicchi/GMaps/");
 
 
+	// Console windows creation
 	gConsole = XPLMCreateWindow(
 			50, 600, 600, 200,               
 			1,                               
@@ -190,12 +180,20 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 			NULL);    
 
 
+	// Register function to draw 3d obj
+        XPLMRegisterDrawCallback(
+			GMapsDrawCallback, 
+			xplm_Phase_Objects, 
+			0, NULL);                       
+
+
+	
 	XPLMRegisterFlightLoopCallback(		
 			GMapsMainFunction,	
 			1.0,
 			NULL);
 			
-
+	
 	XPLMRegisterKeySniffer( GMapsKeySniffer, 1, 0);
 
 	gPlaneX 	= XPLMFindDataRef("sim/flightmodel/position/local_x");
@@ -206,7 +204,7 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 	gPlaneLat	= XPLMFindDataRef("sim/flightmodel/position/latitude");
 	gPlaneLon	= XPLMFindDataRef("sim/flightmodel/position/longitude");
 	gPlaneAlt	= XPLMFindDataRef("sim/flightmodel/position/elevation");	
-	inProbe 	= XPLMCreateProbe(xplm_ProbeY);	
+	inProbe         = XPLMCreateProbe(xplm_ProbeY);  
 
 
 	// Create directory cache
@@ -230,7 +228,9 @@ int GMapsKeySniffer( char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void 
 	return 1;
 }
 
+
 //---------------------------------------------------------------------------------------//
+
 
 void GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon){
         int     left, top, right, bottom;
@@ -249,15 +249,17 @@ void GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon){
 
 }
 
+
 //---------------------------------------------------------------------------------------//
 
-int  DrawTile(struct  TileObj *tile){
+int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon){
 	int	i, j, k;
 	double	*TexCoordX	= NULL;
 	double 	*TexCoordY	= NULL;
 	int	matrixSize	= 0;	
 	double	stepMesh	= 0.0;	
 	GLuint  texId;
+	struct	TileObj *tile;
 
 	double	pntX		= 0.0;
 	double	pntY		= 0.0;
@@ -266,8 +268,8 @@ int  DrawTile(struct  TileObj *tile){
 	double	*terY		= NULL;
 	double	*terZ		= NULL;
 
-	int	TILE_SIZE	= 0;
-	int	MESH_SIZE	= 0;
+	double	TILE_SIZE	= 0.0;
+	double	MESH_SIZE	= 0.0;
 	int	MESH_ZOOM[LAYER_NMBER + 1] = {
 			1,	// 0
 			1,	// 1
@@ -275,10 +277,10 @@ int  DrawTile(struct  TileObj *tile){
 			1,	// 3
 			1,	// 4
 			1,	// 5
-			32,	// 6
-			32,	// 7
+			1,	// 6
+			1,	// 7
 			32,	// 8
-			16,	// 9
+			32,	// 9
 			16,	// 10
 			16,	// 11
 			8,	// 12
@@ -287,49 +289,17 @@ int  DrawTile(struct  TileObj *tile){
 			4,	// 15
 			4,	// 16
 			4,	// 17
-			2,	// 18
-			1,	// 19
+			4,	// 18
+			2,	// 19
 			1,	// 20
 		};
 
+	if ( TileList == NULL ) return 1; // Nothing to draw
 
 
 	XPLMProbeInfo_t outInfo;
 	outInfo.structSize = sizeof(outInfo);
-
-		    
-
-	TILE_SIZE	= (int)( tile->X_UR - tile->X_LL );
-	MESH_SIZE	= MESH_ZOOM[(int)tile->z];
-	matrixSize	= MESH_SIZE + 1;
-	stepMesh 	= (double)TILE_SIZE / (double)MESH_SIZE;
-
-	terX 		= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
-	terY 		= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
-	terZ 		= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
-	TexCoordX 	= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
-	TexCoordY	= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
-
-
 	
-	for( i = 0, k = 0; i < matrixSize ; i++){
-		for( j = 0 ; j < matrixSize ; j++, k++){
-			pntX = tile->X_LL + ( i * stepMesh );
-			pntZ = tile->Z_LL + ( j * stepMesh );
-
-			XPLMProbeTerrainXYZ( inProbe, pntX, 0.0, pntZ, &outInfo);    
-			terX[k] 	= outInfo.locationX;
-			terY[k] 	= outInfo.locationY;
-			terZ[k] 	= outInfo.locationZ;
-
-			TexCoordX[k] 	=	(double)i / (double)(matrixSize - 1);
-			TexCoordY[k] 	= 1.0f -(double)j / (double)(matrixSize - 1);
-		}
-	}
-	
-
-
-
 	XPLMSetGraphicsState(
 			1, 	// inEnableFog,    
 			1, 	// inNumberTexUnits,    
@@ -339,59 +309,99 @@ int  DrawTile(struct  TileObj *tile){
 			0, 	// inEnableDepthTesting,    
 			1);  	// inEnableDepthWriting
 	
+		    
 
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, texId);
-	glBegin(GL_TRIANGLES);
-	for( i = 0 ; i < ( matrixSize - 1 ); i++){
-		for( j = 0 ; j < ( matrixSize - 1 ); j++){
-			
-			// First triangle		
-			glColor3f(1.0, 0.0, 0.0);
-			k = j 		+ ( matrixSize * i 	);
-			//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
-			
-			k = j  		+ ( matrixSize * (i+1)	);
-			//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
+	for( tile = TileList; tile != NULL; tile = tile->next){
 
-			k = j + 1  	+ ( matrixSize * i 	);
-			//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
 
-			/*
-			// Second triangle
-			glColor3f(0.0, 1.0, 1.0);
-			k = j + 1	+ ( matrixSize * (i+1)	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
+		TILE_SIZE	= ( tile->X_UR - tile->X_LL );
+		MESH_SIZE	= MESH_ZOOM[(int)tile->z];
+		matrixSize	= MESH_SIZE + 1;
+		stepMesh 	= TILE_SIZE / MESH_SIZE;
 
-			k = j + 1  	+ ( matrixSize * i 	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
+		terX 		= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
+		terY 		= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
+		terZ 		= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
+		TexCoordX 	= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
+		TexCoordY	= (double *)malloc( ( matrixSize * matrixSize ) * sizeof(double) );
 
-			k = j  		+ ( matrixSize * (i+1)	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
-			glVertex3f(terX[k], terY[k], terZ[k]);
-			*/
 
+
+		for( i = 0, k = 0; i < matrixSize ; i++){
+			for( j = 0 ; j < matrixSize ; j++, k++){
+				pntX = tile->X_LL + ( i * stepMesh );
+				pntZ = tile->Z_LL + ( j * stepMesh );
+
+				XPLMProbeTerrainXYZ( inProbe, pntX, 0.0, pntZ, &outInfo);    
+				terX[k] 	= outInfo.locationX;
+				terY[k] 	= outInfo.locationY;
+				terZ[k] 	= outInfo.locationZ;
+
+				TexCoordX[k] 	=	(double)i / (double)(matrixSize - 1);
+				TexCoordY[k] 	= 1.0f -(double)j / (double)(matrixSize - 1);
+			}
 		}
+	
+
+
+
+		//glEnable(GL_TEXTURE_2D);
+		//glBindTexture(GL_TEXTURE_2D, texId);
+		glBegin(GL_TRIANGLES);
+		for( i = 0 ; i < ( matrixSize - 1 ); i++){
+			for( j = 0 ; j < ( matrixSize - 1 ); j++){
+			
+				// First triangle		
+				glColor3f(1.0, 0.0, 0.0);
+				k = j 		+ ( matrixSize * i 	);
+				//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+				glVertex3f(terX[k], terY[k], terZ[k]);
+				//printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
+			
+				k = j  		+ ( matrixSize * (i+1)	);
+				//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+				glVertex3f(terX[k], terY[k], terZ[k]);
+				//printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
+
+				k = j + 1  	+ ( matrixSize * i 	);
+				//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+				glVertex3f(terX[k], terY[k], terZ[k]);
+				//printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
+
+			
+				// Second triangle
+				glColor3f(0.0, 1.0, 1.0);
+				k = j + 1	+ ( matrixSize * (i+1)	);
+				//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+				glVertex3f(terX[k], terY[k], terZ[k]);
+
+				k = j + 1  	+ ( matrixSize * i 	);
+				//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+				glVertex3f(terX[k], terY[k], terZ[k]);
+
+				k = j  		+ ( matrixSize * (i+1)	);
+				//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+				glVertex3f(terX[k], terY[k], terZ[k]);
+			}
+		}
+		glEnd();
+		//glDisable(GL_TEXTURE_2D);
+
+		free(terX);
+		free(terY);
+		free(terZ);
+		free(TexCoordX);
+		free(TexCoordY);
+
+	
 	}
-	glEnd();
-	glDisable(GL_TEXTURE_2D);
-
-
-	return 0;
+	return 1;
 }
 
 //---------------------------------------------------------------------------------------//
 
 float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void *inRefcon){
-	struct	TileObj tile;
+	struct	TileObj *tile, *p;
 	XPLMProbeInfo_t outInfo;  
 
 	double 	planeX,		planeY, 	planeZ;
@@ -400,16 +410,18 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	double	Heading,	Altitude;
 
 
-
+	int		i;
 	int		size = 0;
 	unsigned char	*image = NULL;
 	char		fileout[255];
+	char		tmp[255];
 	FILE		*file;
 
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1.0;
-		
+	
+	
 	/* Fetch the plane's location at this instant in OGL coordinates. */	
 	planeX 		= XPLMGetDataf(gPlaneX);
 	planeY 		= XPLMGetDataf(gPlaneY);
@@ -425,27 +437,35 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 	Altitude = (int)(outAltitude - terAltitude );
 
+	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
 
-	fillTileInfo(&tile, outLatitude, outLongitude, Altitude );
+	fillTileInfo(tile, outLatitude, outLongitude, Altitude );
 
 
-	if ( ( currentPosition[0] == tile.x ) && ( currentPosition[1] == tile.y ) && ( currentPosition[2] == tile.z ) ) return 1.0;
+	if ( ( currentPosition[0] == tile->x ) && ( currentPosition[1] == tile->y ) && ( currentPosition[2] == tile->z ) ) { free(tile); return 1.0; }
 
-	currentPosition[0] = tile.x;
-	currentPosition[1] = tile.y;
-	currentPosition[2] = tile.z;
+	if ( TileList != NULL ){
+		for(p = TileList, i = 0; p->next != NULL; p = p->next) { i++; };
+		p->next = tile;
+	}else{
+		TileList = tile;
+	}
 
-	writeConsole(tile.url);
-	DrawTile(&tile);
+	currentPosition[0] = tile->x;
+	currentPosition[1] = tile->y;
+	currentPosition[2] = tile->z;
+
+	sprintf(tmp, "X: %f Y: %f z: %f\n", tile->x, tile->y, tile->z);
+	writeConsole(tmp);
 
 	return 1.0;
 
-	if ( ( size = downloadItem(curl_handle, tile.url, &image)) == 0 ){
+	if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
 		fprintf(stderr, "Error: download problem\n");
 		return 1;
 	}
 
-	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile.x, (int)tile.y, (int)tile.z);
+	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
 	printf("%s\n", fileout);
 
 	file = fopen(fileout, "w"); 
