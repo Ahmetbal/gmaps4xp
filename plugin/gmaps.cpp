@@ -5,7 +5,7 @@
 CURL    *curl_handle;
 
 
-int fillTileInfo(struct  TileObj *tile, double lat, double lng, double outAltitude, double alt){
+int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 
 
 	double	x = 0.0;
@@ -133,11 +133,8 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double outAltitu
 	XPLMWorldToLocal( (double)coord[5], (double)coord[4], outAltitude, &tileX_UR,	&tileY_UR,	&tileZ_UR 	);
 	*/
 
-	XPLMWorldToLocal( tile->minLon, tile->minLat, outAltitude, &(tile->X_LL), &(tile->Y_LL), &(tile->Z_LL) 	);
-	XPLMWorldToLocal( tile->maxLon, tile->maxLat, outAltitude, &(tile->X_UR), &(tile->Y_UR), &(tile->Z_UR) 	);
-
-
-
+	XPLMWorldToLocal( tile->minLon, tile->minLat, 0.0, &(tile->X_LL), &(tile->Y_LL), &(tile->Z_LL) 	);
+	XPLMWorldToLocal( tile->maxLon, tile->maxLat, 0.0, &(tile->X_UR), &(tile->Y_UR), &(tile->Z_UR) 	);
 
 	return 0;
 }
@@ -271,7 +268,7 @@ int  DrawTile(struct  TileObj *tile){
 
 	int	TILE_SIZE	= 0;
 	int	MESH_SIZE	= 0;
-	int	MESH_ZOOM[20] = {
+	int	MESH_ZOOM[LAYER_NMBER + 1] = {
 			1,	// 0
 			1,	// 1
 			1,	// 2
@@ -324,7 +321,6 @@ int  DrawTile(struct  TileObj *tile){
 			terX[k] 	= outInfo.locationX;
 			terY[k] 	= outInfo.locationY;
 			terZ[k] 	= outInfo.locationZ;
-			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
 
 			TexCoordX[k] 	=	(double)i / (double)(matrixSize - 1);
 			TexCoordY[k] 	= 1.0f -(double)j / (double)(matrixSize - 1);
@@ -353,18 +349,21 @@ int  DrawTile(struct  TileObj *tile){
 			// First triangle		
 			glColor3f(1.0, 0.0, 0.0);
 			k = j 		+ ( matrixSize * i 	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
 			glVertex3f(terX[k], terY[k], terZ[k]);
+			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
 			
 			k = j  		+ ( matrixSize * (i+1)	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
 			glVertex3f(terX[k], terY[k], terZ[k]);
+			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
 
 			k = j + 1  	+ ( matrixSize * i 	);
-			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
+			//glTexCoord2f(TexCoordX[k], TexCoordY[k]);
 			glVertex3f(terX[k], terY[k], terZ[k]);
+			printf("%f %f %f\n", terX[k], terY[k], terZ[k]);
 
-
+			/*
 			// Second triangle
 			glColor3f(0.0, 1.0, 1.0);
 			k = j + 1	+ ( matrixSize * (i+1)	);
@@ -378,7 +377,7 @@ int  DrawTile(struct  TileObj *tile){
 			k = j  		+ ( matrixSize * (i+1)	);
 			glTexCoord2f(TexCoordX[k], TexCoordY[k]);
 			glVertex3f(terX[k], terY[k], terZ[k]);
-
+			*/
 
 		}
 	}
@@ -427,7 +426,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	Altitude = (int)(outAltitude - terAltitude );
 
 
-	fillTileInfo(&tile, outLatitude, outLongitude,  outAltitude, Altitude );
+	fillTileInfo(&tile, outLatitude, outLongitude, Altitude );
 
 
 	if ( ( currentPosition[0] == tile.x ) && ( currentPosition[1] == tile.y ) && ( currentPosition[2] == tile.z ) ) return 1.0;
