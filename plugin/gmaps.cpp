@@ -118,13 +118,14 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	sprintf(tile->Galileo, "%s", Galileo);
 
 
+	/*
 	a = tile->x;
 	b = tile->y;
 
 	tile->lng = (a - tile->bitmapOrigo[0][c]) / tile->pixelsPerLonDegree[c];
 	e	  = (b - tile->bitmapOrigo[1][c]) / (-1.0 * tile->pixelsPerLonRadian[c]);
 	tile->lat = (2.0 * atan(exp(e)) - M_PI / 2.0) / tile->Wa;
-
+	*/
 
 	for( d = 0;  d < 1024; d++) url[d] = '\0';
 	sprintf(url,"http://%s/kh/v=%d&x=%d&y=%d&z=%d&s=%s", GMapServers[GMapsServerIndex], (int)GMAPS_VERION, (int)tile->x, (int)tile->y, (int)tile->z, tile->Galileo);
@@ -147,16 +148,20 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	maxy	= tile->originShift - ((tile->y+1.0) * tile->tileSize)	* tile->Resolution;
 
 
-	tile->minLon = ( minx / tile->originShift ) * 180.0;
+	tile->minLng = ( minx / tile->originShift ) * 180.0;
 	tile->minLat = ( miny / tile->originShift ) * 180.0;
 	tile->minLat = 180.0 / M_PI * (2.0 * atan( exp( tile->minLat * M_PI / 180.0)) - M_PI / 2.0);
 
-	tile->maxLon = ( maxx / tile->originShift ) * 180.0;
+	tile->maxLng = ( maxx / tile->originShift ) * 180.0;
 	tile->maxLat = ( maxy / tile->originShift ) * 180.0;
 	tile->maxLat = 180.0 / M_PI * (2.0 * atan( exp( tile->maxLat * M_PI / 180.0)) - M_PI / 2.0);
 
-	XPLMWorldToLocal( tile->minLat, tile->minLon, 0.0, &(tile->X_LL), &(tile->Y_LL), &(tile->Z_LL) 	);
-	XPLMWorldToLocal( tile->maxLat, tile->maxLon, 0.0, &(tile->X_UR), &(tile->Y_UR), &(tile->Z_UR) 	);
+	XPLMWorldToLocal( tile->minLat, tile->minLng, 0.0, &(tile->X_LL), &(tile->Y_LL), &(tile->Z_LL) 	);
+	XPLMWorldToLocal( tile->maxLat, tile->maxLng, 0.0, &(tile->X_UR), &(tile->Y_UR), &(tile->Z_UR) 	);
+
+
+	tile->lng = (tile->maxLng + tile->minLng ) / 2.0;
+	tile->lat = (tile->maxLat + tile->minLat ) / 2.0;
 
 
 	//---------------------------------------------//
@@ -203,6 +208,56 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 
 	return 0;
 }
+
+//---------------------------------------------------------------------------------------//
+
+
+int fromXYZtoLatLon(double x, double y, double z, double *lat, double *lng){
+	double minLng		= 0.0;
+	double minLat		= 0.0;
+	double maxLng		= 0.0;
+	double maxLat		= 0.0;
+	double minx		= 0.0;
+	double miny		= 0.0;
+	double maxx		= 0.0;
+	double maxy		= 0.0;
+	double Resolution 	= 0.0;
+	double tileSize		= 256.0;
+	double originShift	= 0.0;
+
+
+
+
+	Resolution	= 2.0 * M_PI * 6378137 / tileSize / pow(2, z);
+	originShift	= 2.0 * M_PI * 6378137 / 2.0;
+
+
+	minx	= (x * tileSize)	* Resolution - originShift;
+	maxx	= ((x+1.0) * tileSize)	* Resolution - originShift;
+
+	miny	= originShift - (y * tileSize )		* Resolution;
+	maxy	= originShift - ((y+1.0) * tileSize)	* Resolution;
+
+
+	minLng = ( minx / originShift ) * 180.0;
+	minLat = ( miny / originShift ) * 180.0;
+	minLat = 180.0 / M_PI * (2.0 * atan( exp( minLat * M_PI / 180.0)) - M_PI / 2.0);
+
+	maxLng = ( maxx / originShift ) * 180.0;
+	maxLat = ( maxy / originShift ) * 180.0;
+	maxLat = 180.0 / M_PI * (2.0 * atan( exp( maxLat * M_PI / 180.0)) - M_PI / 2.0);
+
+
+	*lng = (maxLng + minLng ) / 2.0;
+	*lat = (maxLat + minLat ) / 2.0;
+
+
+
+	return 0;
+}
+
+
+
 //---------------------------------------------------------------------------------------//
 
 int destroyTile(struct  TileObj *tile){
@@ -475,8 +530,9 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[0] = tile->x;
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
+	fromXYZtoLatLon(tile->x, tile->y, tile->z, &outLatitude, &outLongitude);
 
-	sprintf(tmp, "X: %f Y: %f z: %f\n", tile->x, tile->y, tile->z);
+	sprintf(tmp, "X: %f Y: %f z: %f Lat: %f Lng: %f - %f %f\n", tile->x, tile->y, tile->z, tile->lat, tile->lng, outLatitude, outLongitude);
 	writeConsole(tmp);
 
 	return 1.0;
