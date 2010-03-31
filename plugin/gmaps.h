@@ -71,33 +71,31 @@ struct	consoleBuffer *consoleOutput = NULL;
 
 
 struct TileObj{
-	double	x;
-	double	y;
-	double	z;
-	double	lat;
-	double	lng;
-	double	minLat;
-	double	minLon;
-	double	maxLat;
-	double	maxLon;
-	double	X_LL;
-	double	Y_LL;
-	double	Z_LL;
-	double	X_UR;
-	double	Y_UR;
-	double	Z_UR;
+	double	x,		y,		z;
+	double	lat,		lng;
+	double	minLat,		minLon,		maxLat,		maxLon;
+	double	X_LL,		Y_LL,		Z_LL;
+	double	X_UR,		Y_UR,		Z_UR;
+	double **terX,		**terY,		**terZ;
+	double **TexCoordX,	**TexCoordY;
+
+	double 	*pixelsPerLonDegree;
+	double	*pixelsPerLonRadian;
+
+	double	matrixSize;
 	double	tileSize;
 	double	originShift;
 	double	c;
 	double	Resolution;	
-	double 	*pixelsPerLonDegree;
-	double	*pixelsPerLonRadian;
 	double	*numTiles;
 	double	*bitmapOrigo[2];
 	double	bc;
 	double	Wa;
 	char	*Galileo;
 	char	*url;
+
+
+
 	struct	TileObj *next;
 	struct	TileObj *prev;
 
