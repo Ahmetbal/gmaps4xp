@@ -63,7 +63,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 
 	// If i use a negative altitude is directly the zoom level
 	if ( zoom < 0 )	zoom = abs((int)alt);
-	else		zoom = LAYER_NMBER - (int)( alt / 10 );
+	else		zoom = LAYER_NMBER - (int)( alt / 100 );
 	if (zoom < 0 )	zoom = 0;
 
 
@@ -251,6 +251,7 @@ int fromXYZtoLatLon(double x, double y, double z, double *lat, double *lng){
 	*lng = (maxLng + minLng ) / 2.0;
 	*lat = (maxLat + minLat ) / 2.0;
 
+	printf("%f %f\n", minLat, maxLat);
 
 
 	return 0;
@@ -484,11 +485,12 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	double	outLatitude,	outLongitude,	outAltitude;
 	double	terLatitude,	terLongitude,	terAltitude;
 	double	Heading,	Altitude;
+	double	x,		y;
 
 
 	int		i;
-	int		size = 0;
-	unsigned char	*image = NULL;
+	int		size	= 0;
+	unsigned char	*image	= NULL;
 	char		fileout[255];
 	char		tmp[255];
 	FILE		*file;
@@ -513,27 +515,54 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 	Altitude = (int)(outAltitude - terAltitude );
 
-	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
 
+	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
 	fillTileInfo(tile, outLatitude, outLongitude, Altitude );
 
 
 	if ( ( currentPosition[0] == tile->x ) && ( currentPosition[1] == tile->y ) && ( currentPosition[2] == tile->z ) ) { destroyTile(tile); return 1.0; }
 
-	if ( TileList != NULL ){
-		for(p = TileList, i = 0; p->next != NULL; p = p->next) { i++; };
-		p->next = tile;
-	}else{
-		TileList = tile;
-	}
-
 	currentPosition[0] = tile->x;
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
-	fromXYZtoLatLon(tile->x, tile->y, tile->z, &outLatitude, &outLongitude);
 
-	sprintf(tmp, "X: %f Y: %f z: %f Lat: %f Lng: %f - %f %f\n", tile->x, tile->y, tile->z, tile->lat, tile->lng, outLatitude, outLongitude);
-	writeConsole(tmp);
+	double m	= 0.0;
+	double alpha	= 0.0;
+	double xstart	= 0.0;
+	double ystart	= 0.0;
+
+	if	( Heading <= 90.0  )	alpha = ( 90.0	  - Heading	);		
+	else if ( Heading <= 270.0 )	alpha = ( Heading - 90.0 	) * -1.0;
+	else				alpha = ( 450.0	  - Heading	);
+
+	m 	= tan( alpha *  M_PI /  180.0 );
+	xstart	= tile->x;
+	ystart 	= tile->y;
+
+        if ( TileList != NULL ){
+                for(p = TileList, i = 0; p->next != NULL; p = p->next) { i++; };
+                p->next = tile;
+        }else{
+                TileList = tile;
+        }
+
+	for ( x = 1.0 ; x < 10.0 ; x += 1.0 ){
+		y = floor( m * x );
+
+		fromXYZtoLatLon( x+xstart, y+ystart, tile->z, &outLatitude, &outLongitude );
+		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
+		fillTileInfo( p, outLatitude, outLongitude, Altitude );
+
+
+		sprintf(tmp, "X: %f Y: %f z: %f Lat: %f Lon: %f\n", p->x, p->y, p->z, p->lat, p->lng);
+		writeConsole(tmp);
+
+		tile->next = p;
+		tile = tile->next;
+	}
+
+
+
 
 	return 1.0;
 
