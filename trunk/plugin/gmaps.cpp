@@ -251,8 +251,6 @@ int fromXYZtoLatLon(double x, double y, double z, double *lat, double *lng){
 	*lng = (maxLng + minLng ) / 2.0;
 	*lat = (maxLat + minLat ) / 2.0;
 
-	printf("%f %f\n", minLat, maxLat);
-
 
 	return 0;
 }
@@ -531,13 +529,11 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	double xstart	= 0.0;
 	double ystart	= 0.0;
 
+	/*
 	if	( Heading <= 90.0  )	alpha = ( 90.0	  - Heading	);		
 	else if ( Heading <= 270.0 )	alpha = ( Heading - 90.0 	) * -1.0;
 	else				alpha = ( 450.0	  - Heading	);
-
-	m 	= tan( alpha *  M_PI /  180.0 );
-	xstart	= tile->x;
-	ystart 	= tile->y;
+	*/
 
         if ( TileList != NULL ){
                 for(p = TileList, i = 0; p->next != NULL; p = p->next) { i++; };
@@ -546,22 +542,33 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
                 TileList = tile;
         }
 
-	for ( x = 1.0 ; x < 10.0 ; x += 1.0 ){
-		y = floor( m * x );
 
-		fromXYZtoLatLon( x+xstart, y+ystart, tile->z, &outLatitude, &outLongitude );
-		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-		fillTileInfo( p, outLatitude, outLongitude, Altitude );
+	xstart	= tile->x;
+	ystart 	= tile->y;
 
 
-		sprintf(tmp, "X: %f Y: %f z: %f Lat: %f Lon: %f\n", p->x, p->y, p->z, p->lat, p->lng);
-		writeConsole(tmp);
+	for( alpha = (Heading-90.0) ; alpha < (Heading+90.0) ; alpha += 1.0){
 
-		tile->next = p;
-		tile = tile->next;
+		m = tan( (alpha+90) *  M_PI /  180.0 );
+
+		for ( x = 1.0 ; x < 10.0 ; x += 1.0 ){
+			y = floor( m * x );
+
+			if ( Heading < 180 )	fromXYZtoLatLon( x+xstart, y+ystart, tile->z, &outLatitude, &outLongitude );
+			else			fromXYZtoLatLon( xstart-x, ystart-y, tile->z, &outLatitude, &outLongitude );
+
+			p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
+			fillTileInfo( p, outLatitude, outLongitude, Altitude );
+
+
+			sprintf(tmp, "X: %f Y: %f z: %f m: %f alpha: %f Heading: %f\n", p->x, p->y, p->z, m, alpha, Heading);
+			writeConsole(tmp);
+
+			tile->next = p;
+			tile = tile->next;
+		}
+
 	}
-
-
 
 
 	return 1.0;
