@@ -4,6 +4,23 @@
 
 CURL    *curl_handle;
 
+double distAprox(double lat1, double lon1, double lat2, double lon2) {
+        double  R       = 6372.795477598;
+        double  dLat    = 0.0;
+        double  dLon    = 0.0;
+        double  a       = 0.0;
+        double  c       = 0.0;
+
+        dLat = (lat2-lat1) * ( M_PI / 180.0 );
+        dLon = (lon2-lon1) * ( M_PI / 180.0 );
+
+        a       = sin(dLat/2.0) * sin(dLat/2.0) + cos(lat1 * ( M_PI / 180.0 )) * cos(lat2 * ( M_PI / 180.0 )) * sin(dLon/2.0) * sin(dLon/2.0);
+        c       = 2.0 * atan2(sqrt(a), sqrt(1-a));
+
+        return( R * c  * 1000.0);
+}
+
+
 
 int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	int	i, j;
@@ -205,6 +222,27 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	tile->prev = NULL;
 
 
+
+	return 0;
+}
+
+//---------------------------------------------------------------------------------------//
+
+
+int divedeCircle(double start, int parts, double view, double *steps){
+	int i, k;
+	double token	= 0.0;
+	if (( parts % 2 ) != 1 ) return 1;
+
+	token =  view / parts;
+	for ( i = ( parts / 2 ) * -1, k = 0; i < ( parts / 2  ) + 1; i++, k++){
+
+		steps[k] = start + (token * (double)i);
+		if ( steps[k] > 180 )  steps[k] -= 360.0;
+		if ( steps[k] < -180 ) steps[k] += 360.0;
+
+
+	}
 
 	return 0;
 }
@@ -476,7 +514,7 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 //---------------------------------------------------------------------------------------//
 
 float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void *inRefcon){
-	struct	TileObj *tile, *p;
+	struct	TileObj *tile, *p, *q;
 	XPLMProbeInfo_t outInfo;  
 
 	double 	planeX,		planeY, 	planeZ;
@@ -524,50 +562,94 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-	double m	= 0.0;
-	double alpha	= 0.0;
-	double xstart	= 0.0;
-	double ystart	= 0.0;
 
-	/*
+	double	m		= 0.0;
+	double	msin		= 0.0;
+	double	mcos		= 0.0;
+	double	alpha		= 0.0;
+	double	xstart		= 0.0;
+	double	ystart		= 0.0;
+	double	latstart	= 0.0;
+	double	lngstart	= 0.0;
+	double	dist		= 0.0;
+	double	lat		= 0.0;
+	double	lng		= 0.0;
+	double	Visibility 	= 100.0;
+	int	DENSITY		= 51;
+	double	VIEW_ANGLE	= 180;
+	double	*circle		= NULL;
+
+
+	xstart		= tile->x;
+	ystart 		= tile->y;
+	latstart	= tile->lat;
+	lngstart	= tile->lng;
+
+	
 	if	( Heading <= 90.0  )	alpha = ( 90.0	  - Heading	);		
 	else if ( Heading <= 270.0 )	alpha = ( Heading - 90.0 	) * -1.0;
 	else				alpha = ( 450.0	  - Heading	);
-	*/
+	
 
         if ( TileList != NULL ){
-                for(p = TileList, i = 0; p->next != NULL; p = p->next) { i++; };
-                p->next = tile;
+                for(p = TileList, i = 0; p->next != NULL; p = p->next) {
+			dist = distAprox(latstart, lngstart, p->lat, p->lng);
+			if ( dist > Visibility ){
+				q = p;				 			// Save pointer
+				if	( p->prev != NULL ) p->prev->next = p->next;	// Link before to next
+				if	( p->next != NULL ) p->next->prev = p->prev;	// Link next to before
+				if	( p->prev != NULL ) p = p->prev;		// Move cursot to previus
+				else if	( p->next != NULL ) p = p->next;		// or to next
+				else	continue;
+				destroyTile(q);						// Destroy element
+				if ( p == NULL ) break;
+			}
+			
+		};
+                if ( p != NULL ) p->next  = tile;
+		else		 TileList = tile;
         }else{
                 TileList = tile;
         }
 
+	circle = (double *)malloc(sizeof(double) * DENSITY);
 
-	xstart	= tile->x;
-	ystart 	= tile->y;
+	if ( divedeCircle(alpha, DENSITY, VIEW_ANGLE,  circle) ) return 1.0;
+
+	//printf("%s\n", tmp);
+	//writeConsole(tmp);
 
 
-	for( alpha = (Heading-90.0) ; alpha < (Heading+90.0) ; alpha += 1.0){
 
-		m = tan( (alpha+90) *  M_PI /  180.0 );
+	for( i = 0 ; i < DENSITY ; i++ ){
+		msin =  sin( circle[i] *  M_PI /  180.0 );
+		mcos =  cos( circle[i] *  M_PI /  180.0 );
 
-		for ( x = 1.0 ; x < 10.0 ; x += 1.0 ){
-			y = floor( m * x );
+		if	(  abs(circle[i]) == 90.0 )	m = 0.0;
+		else					m = tan( circle[i] *  M_PI /  180.0 );
+		if ( m < 0 ) m *= -1.0;
 
-			if ( Heading < 180 )	fromXYZtoLatLon( x+xstart, y+ystart, tile->z, &outLatitude, &outLongitude );
-			else			fromXYZtoLatLon( xstart-x, ystart-y, tile->z, &outLatitude, &outLongitude );
+
+		for ( x = 1.0, dist = 0; dist < Visibility ; x += 1.0 ){
+			y = (double)((int)( m * x ));
+
+			if 	(  circle[i] == 90.0 )	fromXYZtoLatLon( xstart, ystart + x, tile->z, &lat, &lng );
+			else if (  circle[i] == -90.0 )	fromXYZtoLatLon( xstart, ystart - x, tile->z, &lat, &lng );
+			else {
+				if 	(( mcos > 0.0  ) && ( mcos < 1.0 ) && ( msin > 0.0  ) && ( msin < 1.0 ))	fromXYZtoLatLon( xstart + x, ystart + y, tile->z, &lat, &lng );
+				else if (( mcos > -1.0 ) && ( mcos < 0.0 ) && ( msin > 0.0  ) && ( msin < 1.0 ))	fromXYZtoLatLon( xstart - x, ystart + y, tile->z, &lat, &lng );
+				else if (( mcos > -1.0 ) && ( mcos < 0.0 ) && ( msin > -1.0 ) && ( msin < 0.0 ))	fromXYZtoLatLon( xstart - x, ystart - y, tile->z, &lat, &lng );
+				else											fromXYZtoLatLon( xstart + x, ystart - y, tile->z, &lat, &lng );
+			}
 
 			p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-			fillTileInfo( p, outLatitude, outLongitude, Altitude );
+			fillTileInfo( p, lat, lng, Altitude );
 
-
-			sprintf(tmp, "X: %f Y: %f z: %f m: %f alpha: %f Heading: %f\n", p->x, p->y, p->z, m, alpha, Heading);
-			writeConsole(tmp);
-
-			tile->next = p;
-			tile = tile->next;
+			dist = distAprox(latstart, lngstart, lat, lng);
+			tile->next 	= p;
+			p->prev		= tile;
+			tile 		= tile->next;
 		}
-
 	}
 
 
