@@ -209,7 +209,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 			XPLMProbeTerrainXYZ( inProbe, pntX, 0.0, pntZ, &outInfo);    
 			tile->terX[i][j] 	= outInfo.locationX;
 			tile->terY[i][j] 	= outInfo.locationY;
-			tile->terZ[i][j] 	= outInfo.locationZ;
+			tile->terZ[i][j] 	= outInfo.locationZ + 0.01;
 			tile->TexCoordX[i][j] 	=	(double)i / (double)(tile->matrixSize - 1);
 			tile->TexCoordY[i][j] 	= 1.0f -(double)j / (double)(tile->matrixSize - 1);
 		}
@@ -592,12 +592,14 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	
 
         if ( TileList != NULL ){
-                for(p = TileList, i = 0; p->next != NULL; p = p->next) {
+                for(p = TileList, i = 0; p->next != NULL; p = p->next, i++) {
 			dist = distAprox(latstart, lngstart, p->lat, p->lng);
 			if ( dist > Visibility ){
+				printf("%d\n", i);
 				q = p;				 			// Save pointer
 				if	( p->prev != NULL ) p->prev->next = p->next;	// Link before to next
 				if	( p->next != NULL ) p->next->prev = p->prev;	// Link next to before
+
 				if	( p->prev != NULL ) p = p->prev;		// Move cursot to previus
 				else if	( p->next != NULL ) p = p->next;		// or to next
 				else	continue;
@@ -605,7 +607,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 				if ( p == NULL ) break;
 			}
 			
-		};
+		}
                 if ( p != NULL ) p->next  = tile;
 		else		 TileList = tile;
         }else{
