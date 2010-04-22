@@ -574,9 +574,9 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	double	dist		= 0.0;
 	double	lat		= 0.0;
 	double	lng		= 0.0;
-	double	Visibility 	= 50.0;
-	int	DENSITY		= 51;
-	double	VIEW_ANGLE	= 180;
+	double	Visibility 	= 150.0;	// Meters
+	int	DENSITY		= 181;	 
+	double	VIEW_ANGLE	= 180;		// Degrees 
 	double	*circle		= NULL;
 
 
@@ -593,30 +593,23 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
         if ( TileList != NULL ){
 		int num;
-                for(p = TileList, num = 0; p->next != NULL; p = p->next) { num++; }
-		printf("Before %d\n", num);
 
-                for(p = TileList, i = 0; p->next != NULL;  i++) {
+                for(p = TileList->next, i = 0; p != NULL;  p = p->next, i++) {
 			dist = distAprox(latstart, lngstart, p->lat, p->lng);
-			printf("%f %f\n", dist, Visibility);
-
-			if ( dist > 0 ){ //Visibility ){
-				printf(" removed\n");
-				q = p;				 			// Save pointer
+			if ( dist > Visibility ){
+				q = p;							// Save pointer
 				if	( p->prev != NULL ) p->prev->next = p->next;	// Link before to next
 				if	( p->next != NULL ) p->next->prev = p->prev;	// Link next to before
-
-				
-				if	( p->next != NULL ) p = p->next;		// Move cursot to previus
-				else	break;
+				if	( p->prev != NULL ) p = p->prev;		// Move cursot to previus				
 				destroyTile(q);						// Destroy element
 				
-			} else	p = p->next;
-			
+			} else { 
+				if ( p->next == NULL )	break;
+				else			p = p->next;
+			}
+				
 		}
 
-                for(p = TileList, num = 0; p->next != NULL; p = p->next) { num++; }
-		printf("After %d\n", num);
 
 
 
@@ -627,12 +620,12 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
                 TileList = tile;
         }
 
+
+
 	circle = (double *)malloc(sizeof(double) * DENSITY);
 
 	if ( divedeCircle(alpha, DENSITY, VIEW_ANGLE,  circle) ) return 1.0;
 
-	//printf("%s\n", tmp);
-	//writeConsole(tmp);
 
 
 
@@ -648,7 +641,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 		for ( x = 1.0, dist = 0; dist < Visibility ; x += 1.0 ){
 			y = (double)((int)( m * x ));
 
-			if 	(  circle[i] == 90.0 )	fromXYZtoLatLon( xstart, ystart + x, tile->z, &lat, &lng );
+			if 	(  circle[i] == 90.0  )	fromXYZtoLatLon( xstart, ystart + x, tile->z, &lat, &lng );
 			else if (  circle[i] == -90.0 )	fromXYZtoLatLon( xstart, ystart - x, tile->z, &lat, &lng );
 			else {
 				if 	(( mcos > 0.0  ) && ( mcos < 1.0 ) && ( msin > 0.0  ) && ( msin < 1.0 ))	fromXYZtoLatLon( xstart + x, ystart + y, tile->z, &lat, &lng );
