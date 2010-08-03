@@ -19,6 +19,8 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+
+
 // SDK X-Plane include
 #include "XPLMDisplay.h"
 #include "XPLMDataAccess.h"
@@ -40,6 +42,8 @@
 #define	CACHE_DIR		"./GMapsCache"
 #define USER_AGENT		"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
 #define	TOKEN_STRING		"mSatelliteToken"
+#define	ENABLE			1
+#define	DISABLE			0
 
 
 
@@ -94,6 +98,9 @@ struct TileObj{
 	char	*Galileo;
 	char	*url;
 
+
+	GLuint  	texId;
+        unsigned char   *texture;
 
 
 	struct	TileObj *next;
