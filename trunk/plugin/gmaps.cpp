@@ -218,6 +218,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	tile->matrixSize--;
 
 	tile->texture	= NULL;
+	tile->loaded	= FALSE;
 	tile->next	= NULL;
 	tile->prev	= NULL;
 
@@ -296,28 +297,18 @@ int fromXYZtoLatLon(double x, double y, double z, double *lat, double *lng){
 //---------------------------------------------------------------------------------------//
 
 int addTextureToTile(struct  TileObj *tile, unsigned char *image, FILE *fp, int size){
-	int	imageWidth	= 0;
-	int	imageHeight	= 0;
-	
-
 	if (image != NULL){	
-		if ( loadJpeg(image, 	NULL, 	size,	&tile->texture, &imageWidth, &imageHeight) ){
+		if ( loadJpeg(image, 	NULL, 	size,	&tile->texture, &tile->imageWidth, &tile->imageHeight) ){
 			fprintf(stderr, "Error: loadJpeg from Ram\n");
 			return 1;
 		}
 	}else{
-		if ( loadJpeg(NULL, 	fp, 	0, 	&tile->texture, &imageWidth, &imageHeight) ){
+		if ( loadJpeg(NULL, 	fp, 	0, 	&tile->texture, &tile->imageWidth, &tile->imageHeight) ){
 			fprintf(stderr, "Error: loadJpeg from File\n");
 			return 1;
 		}
 	}
 
-		
-	glGenTextures(1, &(tile->texId) );
-	glBindTexture(GL_TEXTURE_2D, tile->texId);
- 	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, imageWidth, imageHeight, GL_RGB, GL_UNSIGNED_BYTE, tile->texture );
-
-	//glTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, imageWidth, imageHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, tile->texture);
 	
 	return 0;
 }
@@ -438,9 +429,15 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 	// Create directory cache
 	mkdir(CACHE_DIR,  S_IRWXU);
 
+	// Init curl handler
 	curl_global_init(CURL_GLOBAL_ALL);
 	curl_handle = curl_easy_init();
 	initCurlHandle(curl_handle);
+
+	// init threads
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_mutex_init(&mutex, NULL);
 
 	return 1;
 }
@@ -501,6 +498,14 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
 	for( tile = TileList; tile != NULL; tile = tile->next){
 
+		if ( tile->loaded != TRUE ){
+			glGenTextures(1, &tile->texId );
+			glBindTexture(GL_TEXTURE_2D, tile->texId);
+		 	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, tile->imageWidth, tile->imageHeight, GL_RGB, GL_UNSIGNED_BYTE, tile->texture );
+			tile->loaded = TRUE;
+		}
+
+
 		glEnable(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, tile->texId);
 		glBegin(GL_TRIANGLES);
@@ -544,14 +549,17 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
 void *LoadTile( void *ptr ){
 
-	struct	TileObj *tile;
-	char		fileout[255];
-	FILE		*file		= NULL;
-	int		size		= 0;
-	unsigned char	*image		= NULL;
+	struct thread_data	*data;
+	struct TileObj		*tile, *p;
+	char			fileout[1024];
+	FILE			*file		= NULL;
+	int			size		= 0;
+	unsigned char		*image		= NULL;
 
-	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-	memcpy(tile, ptr, sizeof(struct  TileObj));
+
+
+	data = (struct thread_data *)ptr;
+	tile = data->tile;
 
 	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
 
@@ -560,24 +568,32 @@ void *LoadTile( void *ptr ){
 	if(file == NULL) {
 		if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
 			fprintf(stderr, "Error: download problem\n");
-			return NULL;
+			pthread_exit((void*) 1);
 		}
 		file = fopen(fileout, "wb"); 
 		if(file == NULL) {
 			fprintf(stderr, "Error: can't create file.\n");
-			return NULL;
+			pthread_exit((void*) 1);
 		}
 		fwrite(image, 1, size, file);	
 		addTextureToTile(tile,	image,	NULL,	size);
 		fclose(file);
 	}else{
-		printf("Load file %s\n", fileout);
 		addTextureToTile(tile,	NULL,	file,	0);
 		fclose(file);
 	}
 
+	pthread_mutex_lock(&mutex);
 
-	return 0;
+	if ( TileList == NULL ) TileList = tile; 
+	else {
+		for (p = TileList; p->next != NULL; p = p->next);
+		p->next = tile;
+	}
+
+	pthread_mutex_unlock(&mutex);
+
+	pthread_exit((void*) 0);
 }
 
 //---------------------------------------------------------------------------------------//
@@ -616,8 +632,8 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	Altitude = (int)(outAltitude - terAltitude );
 
 
-	newTilePosition = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-	fillTileInfo(newTilePosition, outLatitude, outLongitude, Altitude );
+	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
+	fillTileInfo(tile, outLatitude, outLongitude, Altitude );
 
 
 	if ( ( currentPosition[0] == tile->x ) && ( currentPosition[1] == tile->y ) && ( currentPosition[2] == tile->z ) ) { destroyTile(tile); return 1.0; }
@@ -626,8 +642,12 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-	pthread_create( &tile->thread, NULL, LoadTile, (void *)tile);
 
+	thread_data_array[thread_index].tile		= tile;
+	thread_data_array[thread_index].thread_id	= thread_index;
+
+	pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]);
+	thread_index = (thread_index + 1 ) % MAX_THREAD_NUMBER;
 
 	return 1.0;
 }
