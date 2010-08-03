@@ -45,7 +45,7 @@
 #define	TOKEN_STRING		"mSatelliteToken"
 #define	ENABLE			1
 #define	DISABLE			0
-
+#define	MAX_THREAD_NUMBER	100
 
 
 XPLMWindowID    gConsole		= NULL;
@@ -72,7 +72,6 @@ struct consoleBuffer{
 
 } consoleBuffer;
 struct	consoleBuffer *consoleOutput = NULL;
-
 
 
 struct TileObj{
@@ -102,9 +101,10 @@ struct TileObj{
 
 	GLuint  	texId;
         unsigned char   *texture;
+	int		imageWidth;
+	int		imageHeight;
+	int		loaded;
 
-
-	pthread_t 	thread;
 	struct	TileObj *next;
 	struct	TileObj *prev;
 
@@ -112,7 +112,21 @@ struct TileObj{
 
 // Pointer to head of tile list
 struct TileObj *TileList	= NULL;
-struct TileObj *newTilePosition	= NULL;
+
+
+// Struct to pass data to thread
+struct thread_data {
+	int		thread_id;
+	struct TileObj	*tile;
+};
+
+struct thread_data	thread_data_array[MAX_THREAD_NUMBER];
+pthread_t		thread_id[MAX_THREAD_NUMBER];
+int			thread_index = 0;
+
+pthread_mutex_t		mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_attr_t		attr;
+
 
 
 void	GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon);
