@@ -37,7 +37,6 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	char	Galileo[8]	= "Galileo";
 	int	iGal		= 0;
 	char	url[1024]	= {};
-	double	bounds[4]	= { 0.0, 0.0, 0.0, 0.0 };
 	double	minx		= 0.0;
 	double	miny		= 0.0;
 	double	maxx		= 0.0;
@@ -394,7 +393,6 @@ int writeConsole(const char *msg){
 //---------------------------------------------------------------------------------------//
 
 PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
-	int i;
 
 	// Plugin description
 	strcpy(outName, "GMaps For X-Plane");
@@ -544,24 +542,59 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
 //---------------------------------------------------------------------------------------//
 
+void *LoadTile( void *ptr ){
+
+	struct	TileObj *tile;
+	char		fileout[255];
+	FILE		*file		= NULL;
+	int		size		= 0;
+	unsigned char	*image		= NULL;
+
+	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
+	memcpy(tile, ptr, sizeof(struct  TileObj));
+
+	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
+
+
+	file = fopen(fileout, "rb"); 
+	if(file == NULL) {
+		if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
+			fprintf(stderr, "Error: download problem\n");
+			return NULL;
+		}
+		file = fopen(fileout, "wb"); 
+		if(file == NULL) {
+			fprintf(stderr, "Error: can't create file.\n");
+			return NULL;
+		}
+		fwrite(image, 1, size, file);	
+		addTextureToTile(tile,	image,	NULL,	size);
+		fclose(file);
+	}else{
+		printf("Load file %s\n", fileout);
+		addTextureToTile(tile,	NULL,	file,	0);
+		fclose(file);
+	}
+
+
+	return 0;
+}
+
+//---------------------------------------------------------------------------------------//
+
+
+
 float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void *inRefcon){
-	struct	TileObj *tile, *p, *q;
 	XPLMProbeInfo_t outInfo;  
 
 	double 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	double	terLatitude,	terLongitude,	terAltitude;
 	double	Heading,	Altitude;
-	double	x,		y;
 
 
 	int		i;
-	int		size		= 0;
-	unsigned char	*image		= NULL;
-	char		fileout[255];
-	char		tmp[255];
-	FILE		*file		= NULL;
-
+	struct  TileObj *tile = NULL;
 
 	/* If any data refs are missing, do not draw. */
 	if (!gPlaneX || !gPlaneY || !gPlaneZ)	return 1.0;
@@ -583,8 +616,8 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	Altitude = (int)(outAltitude - terAltitude );
 
 
-	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-	fillTileInfo(tile, outLatitude, outLongitude, Altitude );
+	newTilePosition = (struct  TileObj *)malloc(sizeof(struct  TileObj));
+	fillTileInfo(newTilePosition, outLatitude, outLongitude, Altitude );
 
 
 	if ( ( currentPosition[0] == tile->x ) && ( currentPosition[1] == tile->y ) && ( currentPosition[2] == tile->z ) ) { destroyTile(tile); return 1.0; }
@@ -593,32 +626,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-
-	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
-
-	file = fopen(fileout, "rb"); 
-	if(file == NULL) {
-		printf("Download file %s...\n", fileout);
-		if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
-			fprintf(stderr, "Error: download problem\n");
-			return 1.0;
-		}
-		file = fopen(fileout, "wb"); 
-		if(file == NULL) {
-			fprintf(stderr, "Error: can't create file.\n");
-			return 1.0;
-		}
-		fwrite(image, 1, size, file);	
-		fclose(file);
-		addTextureToTile(tile, image, NULL, size);
-	}else{
-		printf("Load %s fron cache...\n", fileout);
-		addTextureToTile(tile, NULL, file, 0);
-		fclose(file);
-	}
-
-
-	TileList = tile;
+	pthread_create( &tile->thread, NULL, LoadTile, (void *)tile);
 
 
 	return 1.0;

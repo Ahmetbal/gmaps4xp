@@ -63,17 +63,17 @@ int initCurlHandle(CURL    *curl_handle){
 
 
 	// Search satellite key	
-	for (i = 0 ; i < chunk.size; i++){
+	for (i = 0 ; i < (int)chunk.size; i++){
 		if ( chunk.memory[i] != key[0] ) continue;
 		offset = i;
-		for (j = 1, i++ ; j < strlen(key) ; j++, i++){
+		for (j = 1, i++ ; j < (int)strlen(key) ; j++, i++){
 			if ( chunk.memory[i] != key[j] ) break;
 		}
-		if ( j == strlen(key) ) break;
+		if ( j == (int)strlen(key) ) break;
 	}
 
 	// if not found iterator is equal to size
-	if ( i == chunk.size ) return 1;
+	if ( i == (int)chunk.size ) return 1;
 
 	for ( token = strtok(chunk.memory+offset, "\""), i = 0; token != NULL; token = strtok(NULL, "\""), i++ ){
 		if ( i == 1 ){ // First after the variable name
