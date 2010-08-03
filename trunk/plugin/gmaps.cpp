@@ -1,6 +1,6 @@
 #include "gmaps.h"
 #include "download.h"
-
+#include "loadjpeg.h"
 
 CURL    *curl_handle;
 
@@ -209,17 +209,18 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 			XPLMProbeTerrainXYZ( inProbe, pntX, 0.0, pntZ, &outInfo);    
 			tile->terX[i][j] 	= outInfo.locationX;
 			tile->terY[i][j] 	= outInfo.locationY;
-			tile->terZ[i][j] 	= outInfo.locationZ + 0.01;
-			tile->TexCoordX[i][j] 	=	(double)i / (double)(tile->matrixSize - 1);
-			tile->TexCoordY[i][j] 	= 1.0f -(double)j / (double)(tile->matrixSize - 1);
+			tile->terZ[i][j] 	= outInfo.locationZ;// + 0.01;
+			tile->TexCoordX[i][j] 	= 	(double)i / (double)(tile->matrixSize - 1);
+			tile->TexCoordY[i][j] 	= 	(double)j / (double)(tile->matrixSize - 1);
+
 		}
 	}
 
 	tile->matrixSize--;
 
-
-	tile->next = NULL;
-	tile->prev = NULL;
+	tile->texture	= NULL;
+	tile->next	= NULL;
+	tile->prev	= NULL;
 
 
 
@@ -293,9 +294,39 @@ int fromXYZtoLatLon(double x, double y, double z, double *lat, double *lng){
 	return 0;
 }
 
+//---------------------------------------------------------------------------------------//
+
+int addTextureToTile(struct  TileObj *tile, unsigned char *image, FILE *fp, int size){
+	int	imageWidth	= 0;
+	int	imageHeight	= 0;
+	
+
+	if (image != NULL){	
+		if ( loadJpeg(image, 	NULL, 	size,	&tile->texture, &imageWidth, &imageHeight) ){
+			fprintf(stderr, "Error: loadJpeg from Ram\n");
+			return 1;
+		}
+	}else{
+		if ( loadJpeg(NULL, 	fp, 	0, 	&tile->texture, &imageWidth, &imageHeight) ){
+			fprintf(stderr, "Error: loadJpeg from File\n");
+			return 1;
+		}
+	}
+
+		
+	glGenTextures(1, &(tile->texId) );
+	glBindTexture(GL_TEXTURE_2D, tile->texId);
+ 	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, imageWidth, imageHeight, GL_RGB, GL_UNSIGNED_BYTE, tile->texture );
+
+	//glTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, imageWidth, imageHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, tile->texture);
+	
+	return 0;
+}
 
 
 //---------------------------------------------------------------------------------------//
+
+
 
 int destroyTile(struct  TileObj *tile){
 	int i;
@@ -316,6 +347,7 @@ int destroyTile(struct  TileObj *tile){
 	free(tile->bitmapOrigo[0]);	free(tile->bitmapOrigo[1]);
 	free(tile->Galileo);
 	free(tile->url);
+	if ( tile->texture != NULL ) free(tile->texture);
 
 	// Remove allocate structure.
 	free(tile);
@@ -452,60 +484,59 @@ void GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon){
 
 int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon){
 	int	i, j;
-	GLuint  texId;
 	struct	TileObj *tile;
 
 	if ( TileList == NULL ) return 1; // Nothing to draw
 
 	
 	XPLMSetGraphicsState(
-			1, 	// inEnableFog,    
-			1, 	// inNumberTexUnits,    
-			1, 	// inEnableLighting,    
-			1, 	// inEnableAlphaTesting,    
-			1, 	// inEnableAlphaBlending,    
-			0, 	// inEnableDepthTesting,    
-			1);  	// inEnableDepthWriting
+			ENABLE, 	// inEnableFog,    
+			DISABLE,	// inNumberTexUnits,    
+			ENABLE, 	// inEnableLighting,    
+			ENABLE, 	// inEnableAlphaTesting,    
+			ENABLE, 	// inEnableAlphaBlending,    
+			DISABLE, 	// inEnableDepthTesting,    
+			ENABLE);  	// inEnableDepthWriting
 
 
 		    
 
 	for( tile = TileList; tile != NULL; tile = tile->next){
 
-		//glEnable(GL_TEXTURE_2D);
-		//glBindTexture(GL_TEXTURE_2D, texId);
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, tile->texId);
 		glBegin(GL_TRIANGLES);
 		for( i = 0 ; i < tile->matrixSize; i++){
 			for( j = 0 ; j < tile->matrixSize; j++){
 
 
                               	// First triangle               
-                                glColor3f(1.0, 0.0, 0.0);
-                                //glTexCoord2f(	tile->TexCoordX[i][j], 		tile->TexCoordY[i][j]);
+                                //glColor3f(1.0, 0.0, 0.0);
+                                glTexCoord2f(	tile->TexCoordX[i][j], 		tile->TexCoordY[i][j]);
                                 glVertex3f(	tile->terX[i][j],		tile->terY[i][j],	tile->terZ[i][j]);
                         
-                                //glTexCoord2f(	tile->TexCoordX[i+1][j], 	tile->TexCoordY[i+1][j]);
+                                glTexCoord2f(	tile->TexCoordX[i+1][j], 	tile->TexCoordY[i+1][j]);
                                 glVertex3f(	tile->terX[i+1][j],		tile->terY[i+1][j],	tile->terZ[i+1][j]);
 
-                                //glTexCoord2f(	tile->TexCoordX[i][j+1], 	tile->TexCoordY[i][j+1]);
+                                glTexCoord2f(	tile->TexCoordX[i][j+1], 	tile->TexCoordY[i][j+1]);
                                 glVertex3f(	tile->terX[i][j+1],		tile->terY[i][j+1],	tile->terZ[i][j+1]);
 
                         
                                 // Second triangle
-                                glColor3f(0.0, 1.0, 1.0);
-                                //glTexCoord2f(	tile->TexCoordX[i+1][j+1], 	tile->TexCoordY[i+1][j+1]);
+                                //glColor3f(0.0, 1.0, 1.0);
+                                glTexCoord2f(	tile->TexCoordX[i+1][j+1], 	tile->TexCoordY[i+1][j+1]);
                                 glVertex3f(	tile->terX[i+1][j+1],		tile->terY[i+1][j+1],	tile->terZ[i+1][j+1]);
 
-                                //glTexCoord2f(	tile->TexCoordXi][j+1], 	tile->TexCoordYi][j+1]);
+                                glTexCoord2f(	tile->TexCoordX[i][j+1], 	tile->TexCoordY[i][j+1]);
                                 glVertex3f(	tile->terX[i][j+1],		tile->terY[i][j+1],	tile->terZ[i][j+1]);
 
-                                //glTexCoord2f(	tile->TexCoordX[i+1][j], 	tile->TexCoordY[i+1][j]);
+                                glTexCoord2f(	tile->TexCoordX[i+1][j], 	tile->TexCoordY[i+1][j]);
                                 glVertex3f(	tile->terX[i+1][j],		tile->terY[i+1][j],	tile->terZ[i+1][j]);
 	
 			}
 		}
 		glEnd();
-		//glDisable(GL_TEXTURE_2D);
+		glDisable(GL_TEXTURE_2D);
 	
 	}
 	return 1;
@@ -525,11 +556,11 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 
 	int		i;
-	int		size	= 0;
-	unsigned char	*image	= NULL;
+	int		size		= 0;
+	unsigned char	*image		= NULL;
 	char		fileout[255];
 	char		tmp[255];
-	FILE		*file;
+	FILE		*file		= NULL;
 
 
 	/* If any data refs are missing, do not draw. */
@@ -563,121 +594,31 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[2] = tile->z;
 
 
-	double	m		= 0.0;
-	double	msin		= 0.0;
-	double	mcos		= 0.0;
-	double	alpha		= 0.0;
-	double	xstart		= 0.0;
-	double	ystart		= 0.0;
-	double	latstart	= 0.0;
-	double	lngstart	= 0.0;
-	double	dist		= 0.0;
-	double	lat		= 0.0;
-	double	lng		= 0.0;
-	double	Visibility 	= 150.0;	// Meters
-	int	DENSITY		= 181;	 
-	double	VIEW_ANGLE	= 180;		// Degrees 
-	double	*circle		= NULL;
-
-
-	xstart		= tile->x;
-	ystart 		= tile->y;
-	latstart	= tile->lat;
-	lngstart	= tile->lng;
-
-	
-	if	( Heading <= 90.0  )	alpha = ( 90.0	  - Heading	);		
-	else if ( Heading <= 270.0 )	alpha = ( Heading - 90.0 	) * -1.0;
-	else				alpha = ( 450.0	  - Heading	);
-	
-
-        if ( TileList != NULL ){
-		int num;
-
-                for(p = TileList->next, i = 0; p != NULL;  p = p->next, i++) {
-			dist = distAprox(latstart, lngstart, p->lat, p->lng);
-			if ( dist > Visibility ){
-				q = p;							// Save pointer
-				if	( p->prev != NULL ) p->prev->next = p->next;	// Link before to next
-				if	( p->next != NULL ) p->next->prev = p->prev;	// Link next to before
-				if	( p->prev != NULL ) p = p->prev;		// Move cursot to previus				
-				destroyTile(q);						// Destroy element
-				
-			} else { 
-				if ( p->next == NULL )	break;
-				else			p = p->next;
-			}
-				
-		}
-
-
-
-
-                if ( p != NULL ) { p->next  = tile; tile->prev = p; }
-		else		 TileList = tile;
-
-        }else{
-                TileList = tile;
-        }
-
-
-
-	circle = (double *)malloc(sizeof(double) * DENSITY);
-
-	if ( divedeCircle(alpha, DENSITY, VIEW_ANGLE,  circle) ) return 1.0;
-
-
-
-
-	for( i = 0 ; i < DENSITY ; i++ ){
-		msin =  sin( circle[i] *  M_PI /  180.0 );
-		mcos =  cos( circle[i] *  M_PI /  180.0 );
-
-		if	(  abs(circle[i]) == 90.0 )	m = 0.0;
-		else					m = tan( circle[i] *  M_PI /  180.0 );
-		if ( m < 0 ) m *= -1.0;
-
-
-		for ( x = 1.0, dist = 0; dist < Visibility ; x += 1.0 ){
-			y = (double)((int)( m * x ));
-
-			if 	(  circle[i] == 90.0  )	fromXYZtoLatLon( xstart, ystart + x, tile->z, &lat, &lng );
-			else if (  circle[i] == -90.0 )	fromXYZtoLatLon( xstart, ystart - x, tile->z, &lat, &lng );
-			else {
-				if 	(( mcos > 0.0  ) && ( mcos < 1.0 ) && ( msin > 0.0  ) && ( msin < 1.0 ))	fromXYZtoLatLon( xstart + x, ystart + y, tile->z, &lat, &lng );
-				else if (( mcos > -1.0 ) && ( mcos < 0.0 ) && ( msin > 0.0  ) && ( msin < 1.0 ))	fromXYZtoLatLon( xstart - x, ystart + y, tile->z, &lat, &lng );
-				else if (( mcos > -1.0 ) && ( mcos < 0.0 ) && ( msin > -1.0 ) && ( msin < 0.0 ))	fromXYZtoLatLon( xstart - x, ystart - y, tile->z, &lat, &lng );
-				else											fromXYZtoLatLon( xstart + x, ystart - y, tile->z, &lat, &lng );
-			}
-
-			p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-			fillTileInfo( p, lat, lng, Altitude );
-
-			dist = distAprox(latstart, lngstart, lat, lng);
-			tile->next 	= p;
-			p->prev		= tile;
-			tile 		= tile->next;
-		}
-	}
-
-
-	return 1.0;
-
-	if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
-		fprintf(stderr, "Error: download problem\n");
-		return 1;
-	}
-
 	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
-	printf("%s\n", fileout);
 
-	file = fopen(fileout, "w"); 
+	file = fopen(fileout, "rb"); 
 	if(file == NULL) {
-		fprintf(stderr, "Error: can't create file.\n");
-		return 1;
+		printf("Download file %s...\n", fileout);
+		if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
+			fprintf(stderr, "Error: download problem\n");
+			return 1.0;
+		}
+		file = fopen(fileout, "wb"); 
+		if(file == NULL) {
+			fprintf(stderr, "Error: can't create file.\n");
+			return 1.0;
+		}
+		fwrite(image, 1, size, file);	
+		fclose(file);
+		addTextureToTile(tile, image, NULL, size);
+	}else{
+		printf("Load %s fron cache...\n", fileout);
+		addTextureToTile(tile, NULL, file, 0);
+		fclose(file);
 	}
-	fwrite(image, 1, size, file);	
-	fclose(file);
+
+
+	TileList = tile;
 
 
 	return 1.0;

@@ -130,8 +130,8 @@ size_t downloadItem(CURL *curl_handle, const char *url, unsigned char **itemData
 		fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
 		return 0;
 	}
-	size 	  = buffer.size;
-	(*itemData) = (unsigned char *)malloc(size);
+	size 	 	= buffer.size;
+	(*itemData)	= (unsigned char *)malloc(size);
 
 	memcpy((*itemData), buffer.memory, size);
 	if(buffer.memory)  free(buffer.memory);
