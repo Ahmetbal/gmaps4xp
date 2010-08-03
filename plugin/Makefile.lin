@@ -26,12 +26,11 @@ DBG=-g
 CFLAGS_gmaps+=-O0 -x c++ -ansi
 
 clean_gmaps:
-	rm -fv *.o *.d 
+	rm -fv *.o *.d gmaps.xpl
 
 gmaps:
 	$(MAKE) gmaps.xpl TARGET=gmaps.xpl\
- CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lGL -lGLU -lcurl -ljpeg"
-# CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lGL -lGLU -ljpeg -lcurl -lpthread"
+ CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lGL -lGLU -lcurl -ljpeg -lpthread"
 
 gmaps.xpl: ${OBJS_gmaps}
 	${CC} -shared ${LDFLAGS} -o gmaps.xpl ${OBJS_gmaps} ${LIBS}
@@ -40,7 +39,7 @@ gmaps.xpl: ${OBJS_gmaps}
 ifeq (${TARGET}, gmaps.xpl)
 
 %.cpp.o: %.cpp
-	gcc -c -fPIC ${CFLAGS_gmaps} $< -o $@ -MMD
+	gcc -Wall -c -fPIC ${CFLAGS_gmaps} $< -o $@ -MMD
 include $(cpp_SRC_gmaps:.cpp=.d)
 
 %.d: %.cpp
