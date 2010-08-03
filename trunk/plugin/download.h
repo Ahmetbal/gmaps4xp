@@ -27,7 +27,7 @@ struct MemoryStruct {
 
 
 
-static void	*myrealloc(void *ptr, size_t size);
+//static void	*myrealloc(void *ptr, size_t size);
 int		initCurlHandle(CURL *curl_handle);
 size_t		downloadItem(CURL *curl_handle, const char *url, unsigned char **itemData);
 

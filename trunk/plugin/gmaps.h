@@ -19,7 +19,8 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
-
+// POSIX Threads 
+#include <pthread.h>    
 
 // SDK X-Plane include
 #include "XPLMDisplay.h"
@@ -103,13 +104,16 @@ struct TileObj{
         unsigned char   *texture;
 
 
+	pthread_t 	thread;
 	struct	TileObj *next;
 	struct	TileObj *prev;
 
 } TileObj;
 
 // Pointer to head of tile list
-struct TileObj *TileList = NULL;
+struct TileObj *TileList	= NULL;
+struct TileObj *newTilePosition	= NULL;
+
 
 void	GMapsDrawWindowCallback( XPLMWindowID inWindowID, void *inRefcon);
 int     GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon);
