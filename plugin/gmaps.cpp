@@ -87,6 +87,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	c 		= zoom;
 	tile->lat	= lat;
 	tile->lng	= lng;
+	tile->alt	= alt;
 	tile->z		= zoom;
 	tile->tileSize	= 256;
 	tile->c		= 256;
@@ -178,7 +179,6 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 
 	tile->lng = (tile->maxLng + tile->minLng ) / 2.0;
 	tile->lat = (tile->maxLat + tile->minLat ) / 2.0;
-
 
 	//---------------------------------------------//
 
@@ -588,12 +588,116 @@ void *LoadTile( void *ptr ){
 	if ( TileList == NULL ) TileList = tile; 
 	else {
 		for (p = TileList; p->next != NULL; p = p->next);
-		p->next = tile;
+		p->next		= tile;
+		tile->prev	= p;
 	}
 
 	pthread_mutex_unlock(&mutex);
 
 	pthread_exit((void*) 0);
+}
+
+//---------------------------------------------------------------------------------------//
+
+int frameCreator(struct  TileObj *tile, int level){
+	int	i		= 0;
+	double 	x, y;
+	double	x_start		= 0.0;
+	double	y_start		= 0.0;
+	double	x_end		= 0.0;
+	double	y_end		= 0.0;
+	double	lat		= 0.0;
+	double	lng		= 0.0;
+	double	*x_frame	= NULL;
+	double	*y_frame	= NULL;
+	int	*frame		= NULL;
+	int	frame_lenght 	= 0;
+
+
+	struct TileObj *p, *q;
+
+
+	frame_lenght	= ( level != 0 ) ? (level * 8) : 1;
+	x_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
+	y_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
+	frame		= (int *)	malloc( frame_lenght * sizeof(int)	);
+
+
+	printf("Center: %f %f\n", tile->x, tile->y);
+	if ( frame_lenght > 1 ){
+		x_start		= tile->x - (double)level;
+		y_start		= tile->y - (double)level;
+		x_end		= tile->x + (double)level;
+		y_end		= tile->y + (double)level;
+
+	
+		for (x = x_start;	x < x_end; 		x+= 1.0, i++){	x_frame[i] = x;			y_frame[i] = y_start;		frame[i] = TRUE;	}
+		for (y = y_start + 1.0; y < (y_end - 1.0); 	y+= 1.0, i++){	x_frame[i] = x_start;		y_frame[i] = y; 		frame[i] = TRUE;	i++;
+										x_frame[i] = x_end - 1.0;	y_frame[i] = y;			frame[i] = TRUE;	}
+		for (x = x_start; 	x < x_end; 		x+= 1.0, i++){	x_frame[i] = x;			y_frame[i] = y_start - 1.0;	frame[i] = TRUE;	}
+	}else{
+		x_frame[i]	= tile->x;
+		y_frame[i]	= tile->y;
+		frame[i]	= TRUE;
+
+	}
+
+	if ( TileList != NULL ){	
+		p = TileList;
+		do{
+
+			q = p; // Save this position
+			for ( i = 0; i < frame_lenght; i++){
+				if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; continue; }
+
+				q = p->next; // Object to remove, so I save the next position
+
+				
+				if ( p->prev == NULL ){ TileList	= p->next;	p->prev = NULL;	destroyTile(p); p = NULL; break; } // Remove to from head
+				if ( p->next == NULL ){ p->prev->next   = NULL;				destroyTile(p); p = NULL; break; } // Remove to from tail
+				
+				p->prev->next = p->next; // Remove to center		
+				destroyTile(p);
+				p = NULL;
+				break;
+			}
+
+			if ( q == NULL )	break;
+			if ( p == NULL )	p = q;
+			else			p = p->next;		
+			if ( p == NULL )	break;
+
+
+		} while ( p->next != NULL );
+	}
+
+
+	for (i = 0; i < frame_lenght; i++){
+		if ( frame[i] != TRUE ) continue;
+
+
+
+		fromXYZtoLatLon(x_frame[i], y_frame[i], tile->z, &lat, &lng);
+	
+	
+
+		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
+		fillTileInfo(p, lat, lng, tile->alt );
+
+
+
+		thread_data_array[thread_index].tile		= p;
+		thread_data_array[thread_index].thread_id	= thread_index;
+
+		pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]);
+		thread_index = (thread_index + 1 ) % MAX_THREAD_NUMBER;
+
+	}
+
+
+	destroyTile(tile);
+
+	return 0;
 }
 
 //---------------------------------------------------------------------------------------//
@@ -609,7 +713,6 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	double	Heading,	Altitude;
 
 
-	int		i;
 	struct  TileObj *tile = NULL;
 
 	/* If any data refs are missing, do not draw. */
@@ -642,14 +745,11 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-
-	thread_data_array[thread_index].tile		= tile;
-	thread_data_array[thread_index].thread_id	= thread_index;
-
-	pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]);
-	thread_index = (thread_index + 1 ) % MAX_THREAD_NUMBER;
-
+//	frameCreator(tile, 0);
+	frameCreator(tile, 1);
 	return 1.0;
+
+
 }
 
 

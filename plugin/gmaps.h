@@ -76,7 +76,7 @@ struct	consoleBuffer *consoleOutput = NULL;
 
 struct TileObj{
 	double	x,		y,		z;
-	double	lat,		lng;
+	double	lat,		lng,		alt;
 	double	minLat,		minLng,		maxLat,		maxLng;
 	double	X_LL,		Y_LL,		Z_LL;
 	double	X_UR,		Y_UR,		Z_UR;
