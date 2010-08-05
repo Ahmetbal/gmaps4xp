@@ -337,7 +337,9 @@ int destroyTile(struct  TileObj *tile){
 	free(tile->bitmapOrigo[0]);	free(tile->bitmapOrigo[1]);
 	free(tile->Galileo);
 	free(tile->url);
-	if ( tile->texture != NULL ) free(tile->texture);
+
+	if ( tile->loaded == TRUE )	glDeleteTextures(1,&tile->texId);
+	if ( tile->texture != NULL ) 	free(tile->texture);
 
 	// Remove allocate structure.
 	free(tile);
@@ -494,10 +496,8 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 			ENABLE);  	// inEnableDepthWriting
 
 
-		    
 
 	for( tile = TileList; tile != NULL; tile = tile->next){
-
 		if ( tile->loaded != TRUE ){
 			glGenTextures(1, &tile->texId );
 			glBindTexture(GL_TEXTURE_2D, tile->texId);
@@ -555,7 +555,7 @@ void *LoadTile( void *ptr ){
 	FILE			*file		= NULL;
 	int			size		= 0;
 	unsigned char		*image		= NULL;
-
+	CURL 			*handle		= NULL;
 
 
 	data = (struct thread_data *)ptr;
@@ -566,13 +566,18 @@ void *LoadTile( void *ptr ){
 
 	file = fopen(fileout, "rb"); 
 	if(file == NULL) {
-		if ( ( size = downloadItem(curl_handle, tile->url, &image)) == 0 ){
-			fprintf(stderr, "Error: download problem\n");
+		if ( ( handle = curl_easy_duphandle(curl_handle) ) == NULL ){
+			fprintf(stderr, "Error: Unable to copy handle for %s\n", tile->url);
+			pthread_exit((void*) 1);
+		}
+
+		if ( ( size = downloadItem(handle, tile->url, &image)) == 0 ){
+			fprintf(stderr, "Error: download problem %s\n", tile->url);
 			pthread_exit((void*) 1);
 		}
 		file = fopen(fileout, "wb"); 
 		if(file == NULL) {
-			fprintf(stderr, "Error: can't create file.\n");
+			fprintf(stderr, "Error: can't create file %s\n", fileout);
 			pthread_exit((void*) 1);
 		}
 		fwrite(image, 1, size, file);	
@@ -601,6 +606,7 @@ void *LoadTile( void *ptr ){
 
 int frameCreator(struct  TileObj *tile, int level){
 	int	i		= 0;
+	int	j		= 0;
 	double 	x, y;
 	double	x_start		= 0.0;
 	double	y_start		= 0.0;
@@ -623,18 +629,44 @@ int frameCreator(struct  TileObj *tile, int level){
 	frame		= (int *)	malloc( frame_lenght * sizeof(int)	);
 
 
-	printf("Center: %f %f\n", tile->x, tile->y);
+	// Create a frame of tile around the plane
+	// 
+	//	x	x	x
+	//
+	//	x	T	x
+	//
+	//	x	x	x
+
 	if ( frame_lenght > 1 ){
 		x_start		= tile->x - (double)level;
 		y_start		= tile->y - (double)level;
-		x_end		= tile->x + (double)level;
+		x_end		= tile->x + (double)level + 1.0;
 		y_end		= tile->y + (double)level;
 
-	
-		for (x = x_start;	x < x_end; 		x+= 1.0, i++){	x_frame[i] = x;			y_frame[i] = y_start;		frame[i] = TRUE;	}
-		for (y = y_start + 1.0; y < (y_end - 1.0); 	y+= 1.0, i++){	x_frame[i] = x_start;		y_frame[i] = y; 		frame[i] = TRUE;	i++;
-										x_frame[i] = x_end - 1.0;	y_frame[i] = y;			frame[i] = TRUE;	}
-		for (x = x_start; 	x < x_end; 		x+= 1.0, i++){	x_frame[i] = x;			y_frame[i] = y_start - 1.0;	frame[i] = TRUE;	}
+		for (x = x_start;	x < x_end; 	x+= 1.0, i++){
+			x_frame[i]	= x;
+			y_frame[i]	= y_start;
+			frame[i]	= TRUE;	
+
+		}
+
+		for (y = y_start + 1.0; y < y_end; 	y+= 1.0, i++){
+			x_frame[i]	= x_start;
+			y_frame[i]	= y;
+			frame[i]	= TRUE;
+
+			i++;
+
+			x_frame[i]	= x_end - 1;
+			y_frame[i]	= y;
+			frame[i]	= TRUE;
+		}
+
+		for (x = x_start; 	x < x_end;	x+= 1.0, i++){
+			x_frame[i]	= x;
+			y_frame[i]	= y_end;
+			frame[i]	= TRUE;
+		}
 	}else{
 		x_frame[i]	= tile->x;
 		y_frame[i]	= tile->y;
@@ -642,21 +674,39 @@ int frameCreator(struct  TileObj *tile, int level){
 
 	}
 
+
+
+	// Remove from the list of loaded tile not used 
 	if ( TileList != NULL ){	
 		p = TileList;
 		do{
-
 			q = p; // Save this position
 			for ( i = 0; i < frame_lenght; i++){
 				if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; continue; }
 
 				q = p->next; // Object to remove, so I save the next position
+				// Remove from head
+				if ( p->prev == NULL ){
+					if (p->next == NULL ) TileList = NULL;
+					else {
+						TileList	= p->next;
+						TileList->prev	= NULL;
+					}
+					destroyTile(p);
+					p		= NULL; 
+					break; 
+				} 
 
+ 				// Remove from tail
+				if ( p->next == NULL ){
+					p->prev->next	= NULL;
+					destroyTile(p);
+					p 		= NULL;
+					break;
+				}
 				
-				if ( p->prev == NULL ){ TileList	= p->next;	p->prev = NULL;	destroyTile(p); p = NULL; break; } // Remove to from head
-				if ( p->next == NULL ){ p->prev->next   = NULL;				destroyTile(p); p = NULL; break; } // Remove to from tail
-				
-				p->prev->next = p->next; // Remove to center		
+				// Remove from center
+				p->prev->next = p->next; 
 				destroyTile(p);
 				p = NULL;
 				break;
@@ -667,29 +717,27 @@ int frameCreator(struct  TileObj *tile, int level){
 			else			p = p->next;		
 			if ( p == NULL )	break;
 
+			j++;
 
 		} while ( p->next != NULL );
 	}
 
 
+	// load image...
 	for (i = 0; i < frame_lenght; i++){
 		if ( frame[i] != TRUE ) continue;
 
-
-
 		fromXYZtoLatLon(x_frame[i], y_frame[i], tile->z, &lat, &lng);
-	
-	
 
 		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
 		fillTileInfo(p, lat, lng, tile->alt );
 
-
-
 		thread_data_array[thread_index].tile		= p;
 		thread_data_array[thread_index].thread_id	= thread_index;
 
+		// multithread
 		pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]);
+		printf("%d\n", thread_index);
 		thread_index = (thread_index + 1 ) % MAX_THREAD_NUMBER;
 
 	}
@@ -745,8 +793,8 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-//	frameCreator(tile, 0);
-	frameCreator(tile, 1);
+	//frameCreator(tile, 0);
+	frameCreator(tile, 2);
 	return 1.0;
 
 
