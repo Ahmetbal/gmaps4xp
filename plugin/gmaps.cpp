@@ -589,13 +589,14 @@ void *LoadTile( void *ptr ){
 	}
 
 	pthread_mutex_lock(&mutex);
-
-	if ( TileList == NULL ) TileList = tile; 
+	int i = 0;
+	if ( TileList == NULL ) { TileList = tile; i++; }
 	else {
-		for (p = TileList; p->next != NULL; p = p->next);
+		for (p = TileList; p->next != NULL; p = p->next, i++);
 		p->next		= tile;
 		tile->prev	= p;
 	}
+	printf("%d\n", i);
 
 	pthread_mutex_unlock(&mutex);
 
@@ -737,7 +738,6 @@ int frameCreator(struct  TileObj *tile, int level){
 
 		// multithread
 		pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]);
-		printf("%d\n", thread_index);
 		thread_index = (thread_index + 1 ) % MAX_THREAD_NUMBER;
 
 	}
