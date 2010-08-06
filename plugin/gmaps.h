@@ -43,6 +43,11 @@
 #define	CACHE_DIR		"./GMapsCache"
 #define USER_AGENT		"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
 #define	TOKEN_STRING		"mSatelliteToken"
+
+#define NOLOADED		0
+#define WAIT			1
+#define LOADED			2
+
 #define	ENABLE			1
 #define	DISABLE			0
 #define	MAX_THREAD_NUMBER	100
