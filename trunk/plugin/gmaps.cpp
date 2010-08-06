@@ -218,7 +218,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	tile->matrixSize--;
 
 	tile->texture	= NULL;
-	tile->loaded	= FALSE;
+	tile->loaded	= NOLOADED;
 	tile->next	= NULL;
 	tile->prev	= NULL;
 
@@ -309,6 +309,8 @@ int addTextureToTile(struct  TileObj *tile, unsigned char *image, FILE *fp, int 
 		}
 	}
 
+        // Image is ready, wating loading
+        tile->loaded = WAIT; 
 	
 	return 0;
 }
@@ -319,14 +321,9 @@ int addTextureToTile(struct  TileObj *tile, unsigned char *image, FILE *fp, int 
 
 
 int destroyTile(struct  TileObj *tile){
-	int i;
+	if (tile == NULL) return 0;
 
 	// Free coordinates for openGL
-	for( i = 0; i < tile->matrixSize+1 ; i++){
-		free(tile->terX[i]);		free(tile->terY[i]);		free(tile->terZ[i]);
-		free(tile->TexCoordX[i]);	free(tile->TexCoordY[i]);
-	}
-
 	free(tile->terX);	free(tile->terY);	free(tile->terZ);
 	free(tile->TexCoordX);	free(tile->TexCoordY);
 
@@ -338,12 +335,14 @@ int destroyTile(struct  TileObj *tile){
 	free(tile->Galileo);
 	free(tile->url);
 
-	if ( tile->loaded == TRUE )	glDeleteTextures(1,&tile->texId);
-	if ( tile->texture != NULL ) 	free(tile->texture);
+	
+	if ( tile->loaded == LOADED )	glDeleteTextures(1,&tile->texId);
+	if ( tile->texture != NULL  ) 	free(tile->texture);
 
 	// Remove allocate structure.
 	free(tile);
 	tile = NULL;
+
 	return 0;
 }
 
@@ -483,6 +482,8 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 	int	i, j;
 	struct	TileObj *tile;
 
+	
+	return 1;
 	if ( TileList == NULL ) return 1; // Nothing to draw
 
 	
@@ -496,13 +497,17 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 			ENABLE);  	// inEnableDepthWriting
 
 
-
+	pthread_mutex_lock(&mutex);
 	for( tile = TileList; tile != NULL; tile = tile->next){
-		if ( tile->loaded != TRUE ){
+		// Skip tile is image is not ready
+		if ( tile->loaded == NOLOADED ) continue;
+
+		// Load tile if needed
+		if ( tile->loaded == WAIT ){
 			glGenTextures(1, &tile->texId );
 			glBindTexture(GL_TEXTURE_2D, tile->texId);
 		 	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, tile->imageWidth, tile->imageHeight, GL_RGB, GL_UNSIGNED_BYTE, tile->texture );
-			tile->loaded = TRUE;
+			tile->loaded = LOADED;
 		}
 
 
@@ -542,6 +547,8 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 		glDisable(GL_TEXTURE_2D);
 	
 	}
+	pthread_mutex_unlock(&mutex);
+
 	return 1;
 }
 
@@ -561,24 +568,24 @@ void *LoadTile( void *ptr ){
 	data = (struct thread_data *)ptr;
 	tile = data->tile;
 
-	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
 
+	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
 
 	file = fopen(fileout, "rb"); 
 	if(file == NULL) {
 		if ( ( handle = curl_easy_duphandle(curl_handle) ) == NULL ){
 			fprintf(stderr, "Error: Unable to copy handle for %s\n", tile->url);
-			pthread_exit((void*) 1);
+			pthread_exit(NULL);
 		}
 
 		if ( ( size = downloadItem(handle, tile->url, &image)) == 0 ){
 			fprintf(stderr, "Error: download problem %s\n", tile->url);
-			pthread_exit((void*) 1);
+			pthread_exit(NULL);
 		}
 		file = fopen(fileout, "wb"); 
 		if(file == NULL) {
 			fprintf(stderr, "Error: can't create file %s\n", fileout);
-			pthread_exit((void*) 1);
+			pthread_exit(NULL);
 		}
 		fwrite(image, 1, size, file);	
 		addTextureToTile(tile,	image,	NULL,	size);
@@ -588,26 +595,25 @@ void *LoadTile( void *ptr ){
 		fclose(file);
 	}
 
+	
 	pthread_mutex_lock(&mutex);
-	int i = 0;
-	if ( TileList == NULL ) { TileList = tile; i++; }
+	if ( TileList == NULL ) TileList = tile; 
 	else {
-		for (p = TileList; p->next != NULL; p = p->next, i++);
+		for (p = TileList; p->next != NULL; p = p->next);
 		p->next		= tile;
 		tile->prev	= p;
+		
 	}
-	printf("%d\n", i);
-
 	pthread_mutex_unlock(&mutex);
-
-	pthread_exit((void*) 0);
+	
+	pthread_exit(NULL);
 }
 
 //---------------------------------------------------------------------------------------//
 
 int frameCreator(struct  TileObj *tile, int level){
 	int	i		= 0;
-	int	j		= 0;
+	int	rc		= 0;
 	double 	x, y;
 	double	x_start		= 0.0;
 	double	y_start		= 0.0;
@@ -676,60 +682,65 @@ int frameCreator(struct  TileObj *tile, int level){
 	}
 
 
-
 	// Remove from the list of loaded tile not used 
-	if ( TileList != NULL ){	
-		p = TileList;
-		do{
-			q = p; // Save this position
-			for ( i = 0; i < frame_lenght; i++){
-				if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; continue; }
+		
+        pthread_mutex_lock(&mutex);
+	if ( TileList != NULL ){
+		printf("Start Cleanning...\n");
+		for( p = TileList; p != NULL; p = ( p != NULL ) ? p->next : NULL ){
 
-				q = p->next; // Object to remove, so I save the next position
-				// Remove from head
-				if ( p->prev == NULL ){
-					if (p->next == NULL ) TileList = NULL;
-					else {
-						TileList	= p->next;
-						TileList->prev	= NULL;
-					}
-					destroyTile(p);
-					p		= NULL; 
-					break; 
-				} 
+			// Search tile in the frame
+			for ( i = 0; i < frame_lenght; i++) if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; break; }
 
- 				// Remove from tail
-				if ( p->next == NULL ){
-					p->prev->next	= NULL;
-					destroyTile(p);
-					p 		= NULL;
-					break;
+
+			// tile not found in the frame, so I have to remove it
+			if ( i == frame_lenght ){	
+
+				q = p;
+				if ( ( p->prev == NULL ) && ( p->next == NULL ) )	printf("One tile\n");
+				if ( ( p->prev == NULL ) && ( p->next != NULL ) )	printf("Head tile\n");
+				if ( ( p->prev != NULL ) && ( p->next == NULL ) )	printf("Tail tile\n");
+				if ( ( p->prev != NULL ) && ( p->next != NULL ) )	printf("Center tile\n");
+
+
+				if ( p->prev == NULL ){		// Remove from head
+
+					printf("Remove from head...\n");
+					TileList = ( p->next != NULL ) ? p->next : NULL;
+					
+					if ( TileList != NULL )	TileList->prev	= NULL;
+
+				}else if ( p->next == NULL ){ 	// Remove from tail
+
+					printf("Remove from tail...\n");
+					p	= p->prev;
+					p->next	= NULL;
+
+				} else { 			// Remove from center
+
+					printf("Remove from center...\n");
+					p->prev->next = p->next;
+					p->next->prev = p->prev; 
+
 				}
-				
-				// Remove from center
-				p->prev->next = p->next; 
-				destroyTile(p);
-				p = NULL;
-				break;
+				destroyTile(q);
 			}
 
-			if ( q == NULL )	break;
-			if ( p == NULL )	p = q;
-			else			p = p->next;		
-			if ( p == NULL )	break;
-
-			j++;
-
-		} while ( p->next != NULL );
+		} 
+		printf("End Cleanning...\n");
 	}
-
+        pthread_mutex_unlock(&mutex);
+	
 
 	// load image...
+
+	printf("Start Image request...\n");
 	for (i = 0; i < frame_lenght; i++){
 		if ( frame[i] != TRUE ) continue;
 
 		fromXYZtoLatLon(x_frame[i], y_frame[i], tile->z, &lat, &lng);
 
+		p = NULL;
 		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
 		fillTileInfo(p, lat, lng, tile->alt );
 
@@ -737,13 +748,16 @@ int frameCreator(struct  TileObj *tile, int level){
 		thread_data_array[thread_index].thread_id	= thread_index;
 
 		// multithread
-		pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]);
+		if ( ( rc = pthread_create( &thread_id[thread_index], &attr, LoadTile, (void *)&thread_data_array[thread_index]) ) ){
+			fprintf(stderr, "Error: return code from pthread_create() is %d\n", rc);
+			break;			
+      		}
 		thread_index = (thread_index + 1 ) % MAX_THREAD_NUMBER;
 
 	}
 
+	printf("End Image request...\n");
 
-	destroyTile(tile);
 
 	return 0;
 }
@@ -795,6 +809,8 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 	//frameCreator(tile, 0);
 	frameCreator(tile, 2);
+
+	destroyTile(tile);
 	return 1.0;
 
 

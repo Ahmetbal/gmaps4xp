@@ -44,7 +44,6 @@ int loadJpeg(unsigned char *ram, FILE *fd, int len,  unsigned char **image, int 
 	jpeg_finish_decompress(&cinfo);
 	jpeg_destroy_decompress(&cinfo);
 
-
 	return 0;
 }
 
