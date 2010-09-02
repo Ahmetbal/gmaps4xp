@@ -437,7 +437,8 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 
 	// init threads
 	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	pthread_mutex_init(&mutex, NULL);
 
 	return 1;
@@ -482,8 +483,6 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 	int	i, j;
 	struct	TileObj *tile;
 
-	
-	return 1;
 	if ( TileList == NULL ) return 1; // Nothing to draw
 
 	
@@ -501,6 +500,7 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 	for( tile = TileList; tile != NULL; tile = tile->next){
 		// Skip tile is image is not ready
 		if ( tile->loaded == NOLOADED ) continue;
+
 
 		// Load tile if needed
 		if ( tile->loaded == WAIT ){
@@ -605,7 +605,6 @@ void *LoadTile( void *ptr ){
 		
 	}
 	pthread_mutex_unlock(&mutex);
-	
 	pthread_exit(NULL);
 }
 
@@ -737,7 +736,6 @@ int frameCreator(struct  TileObj *tile, int level){
 	printf("Start Image request...\n");
 	for (i = 0; i < frame_lenght; i++){
 		if ( frame[i] != TRUE ) continue;
-
 		fromXYZtoLatLon(x_frame[i], y_frame[i], tile->z, &lat, &lng);
 
 		p = NULL;
@@ -807,8 +805,8 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-	//frameCreator(tile, 0);
-	frameCreator(tile, 2);
+	frameCreator(tile, 1);
+	//frameCreator(tile, 2);
 
 	destroyTile(tile);
 	return 1.0;
