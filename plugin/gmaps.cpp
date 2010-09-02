@@ -393,13 +393,14 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 
 
 	// Console windows creation
+	/*
 	gConsole = XPLMCreateWindow(
 			50, 600, 600, 200,               
 			1,                               
 			GMapsDrawWindowCallback, GMapsHandleKeyCallback, GMapsHandleMouseClickCallback,
 			NULL);    
 
-
+	*/
 	// Register function to draw 3d obj
         XPLMRegisterDrawCallback(
 			GMapsDrawCallback, 
@@ -610,7 +611,7 @@ void *LoadTile( void *ptr ){
 
 //---------------------------------------------------------------------------------------//
 
-int frameCreator(struct  TileObj *tile, int level){
+int frameCreator(struct  TileObj *tile, int level, int odd){
 	int	i		= 0;
 	int	rc		= 0;
 	double 	x, y;
@@ -646,8 +647,14 @@ int frameCreator(struct  TileObj *tile, int level){
 	if ( frame_lenght > 1 ){
 		x_start		= tile->x - (double)level;
 		y_start		= tile->y - (double)level;
-		x_end		= tile->x + (double)level + 1.0;
-		y_end		= tile->y + (double)level;
+
+		if ( odd != TRUE ){
+			x_end		= tile->x + (double)level;
+			y_end		= tile->y + (double)level - 1.0;
+		}else{
+			x_end		= tile->x + (double)level + 1.0;
+			y_end		= tile->y + (double)level;
+		}
 
 		for (x = x_start;	x < x_end; 	x+= 1.0, i++){
 			x_frame[i]	= x;
@@ -805,8 +812,18 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	currentPosition[1] = tile->y;
 	currentPosition[2] = tile->z;
 
-	frameCreator(tile, 1);
-	//frameCreator(tile, 2);
+
+
+	frameCreator(tile, 0, FALSE);
+	frameCreator(tile, 1, FALSE);
+
+
+	fillTileInfo(tile, outLatitude, outLongitude, Altitude + 100.0);
+	frameCreator(tile, 1, TRUE);
+
+	fillTileInfo(tile, outLatitude, outLongitude, Altitude + 200.0);
+	frameCreator(tile, 1, TRUE);
+
 
 	destroyTile(tile);
 	return 1.0;
