@@ -644,18 +644,26 @@ int sceneCreator(struct  TileObj *tile){
 	int		j		= 0;
 	int		rc		= 0;
 	long int 	x, y, z;
-	long int	x_start		= 0.0;
-	long int	y_start		= 0.0;
+
+	long int	*x_start	= NULL;
+	long int	*y_start	= NULL;
+	long int	*z_start	= NULL;
+
 	long int	x_end		= 0.0;
 	long int	y_end		= 0.0;
-	long int	x_plane		= 0.0;
-	long int	y_plane		= 0.0;
-	long int	z_plane		= 0.0;
-	double		lat		= 0.0;
-	double		lng		= 0.0;
+
+	long int	*x_plane	= NULL;
+	long int	*y_plane	= NULL;
+	long int	*z_plane	= NULL;
+
 	double		*x_frame	= NULL;
 	double		*y_frame	= NULL;
 	double		*z_frame	= NULL;
+
+
+
+	double		lat		= 0.0;
+	double		lng		= 0.0;
 	int		*frame		= NULL;
 	int		frame_lenght 	= 0;
 	int		far_zoom	= 0;
@@ -663,76 +671,57 @@ int sceneCreator(struct  TileObj *tile){
 
 	struct TileObj *p, *q;
 
-	far_zoom	= 2;
+	far_zoom	= 5;
 
-	frame_lenght	= 	( 4 * 4 ) + ( ( 4 * 4 ) - 1 ) * far_zoom;	
+	frame_lenght	= ( ( 4 * 4 ) - 1 ) * far_zoom;
 
-	x_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
-	y_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
-	z_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
-	frame		= (int *)	malloc( frame_lenght * sizeof(int)	);
+	x_frame		= (double *)	malloc( frame_lenght	* sizeof(double)	);
+	y_frame		= (double *)	malloc( frame_lenght	* sizeof(double)	);
+	z_frame		= (double *)	malloc( frame_lenght	* sizeof(double)	);
+	frame		= (int *)	malloc( frame_lenght	* sizeof(int)		);
 
-	x_plane = (long int)tile->x;
-	y_plane = (long int)tile->y;
-	z_plane	= (long int)tile->z;
+	x_plane		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
+	y_plane		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
+	z_plane		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
+
+	x_start		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
+	y_start		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
+	z_start		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
 
 
-	// Close to airplane
-	x_start = (double)( (long int)x_plane / 2 / 2) * 2.0 * 2.0;
-	y_start = (double)( (long int)y_plane / 2 / 2) * 2.0 * 2.0;
-	x_end	= x_start + 4;
-	y_end	= y_start + 4;
-	for ( y = y_start; y < y_end; y++ ){
-		for ( x = x_start; x < x_end; x++){
-			x_frame[i]	= (double)x;
-			y_frame[i]	= (double) y;
-			z_frame[i]	= (double)z_plane;
-			frame[i]	= TRUE;
-			i++;
-		}
+
+	x_plane[0] = x_start[0] = (long int)tile->x;
+	y_plane[0] = y_start[0] = (long int)tile->y;
+	z_plane[0] = z_start[0] = (long int)tile->z;
+
+	for (j = 1; j < far_zoom; j++) {
+		x_start[j] = x_start[j-1] / 2;
+		y_start[j] = y_start[j-1] / 2;
+		z_start[j] = z_start[j-1] - 1;
+		x_plane[j] = x_start[j] + 2; 
+		y_plane[j] = x_start[j] + 2;
+
 	}
 
 
-	x_plane = x_start / 2 / 2;
-	y_plane = y_start / 2 / 2;
-	z_plane = z_plane - 2;
+	for (j = 1; j < far_zoom; j++) {
+		//x_start[j]	-= 2;
+		//y_start[j]	-= 2;
+		x_end	 	= x_start[j] + 4;
+		y_end	 	= y_start[j] + 4;
 
-
-	x_start = x_start / 2 / 2 / 2 * 2;
-	y_start = y_start / 2 / 2 / 2 * 2;
-
-	// Drow everything else...
-
-	for(j = 0; j < far_zoom; j++){
-
-		//x_start = ( x_plane / 2 ) * 2;
-		//y_start = ( y_plane / 2 ) * 2;
-
-		x_end	= x_start + 4;
-		y_end	= y_start + 4;
-	
-		for ( y = y_start; y < y_end; y += 1.0){
-			for ( x = x_start; x < x_end; x += 1.0){
-				if (( x == x_plane ) && ( y == y_plane ) ) continue;
-				x_frame[i]	= x;
-				y_frame[i]	= y;
-				z_frame[i]	= z_plane;
+		for ( y = y_start[j]; y < y_end; y++){
+			for ( x = x_start[j]; x < x_end; x++){
+				if ( ( x == x_plane[j] ) && ( y == y_plane[j] ) ) continue;
+				x_frame[i]	= (double)x;
+				y_frame[i]	= (double)y;
+				z_frame[i]	= (double)z_start[j];
 				frame[i]	= TRUE;
 				i++;
 			}
 		}
-
-		x_plane = x_start / 2 / 2;
-		y_plane = y_start / 2 / 2;
-		z_plane = z_plane - 2;
-
-
-		x_start = x_start / 2 / 2 / 2 * 2;
-		y_start = y_start / 2 / 2 / 2 * 2;
-
-
-
 	}
+
 
 	// Remove from the list of loaded tile not used 
 		
