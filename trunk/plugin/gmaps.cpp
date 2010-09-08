@@ -22,7 +22,7 @@ double distAprox(double lat1, double lon1, double lat2, double lon2) {
 
 
 
-int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
+int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt, int zoom){
 	int	i, j;
 
 	double	x = 0.0;
@@ -33,7 +33,6 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	int	c		= 0;
 	int	d 		= 0;
 	double	e 		= 0.0;
-	int	zoom		= 0;
 	char	Galileo[8]	= "Galileo";
 	int	iGal		= 0;
 	char	url[1024]	= {};
@@ -48,6 +47,7 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 	double	stepMesh	= 0.0;	
 	double	TILE_SIZE	= 0.0;
 	double	MESH_SIZE	= 0.0;
+	/*
 	int	MESH_ZOOM[LAYER_NMBER + 1] = {
 			1,	// 0
 			1,	// 1
@@ -71,17 +71,43 @@ int fillTileInfo(struct  TileObj *tile, double lat, double lng, double alt){
 			2,	// 19
 			1,	// 20
 		};
+	*/
+	int	MESH_ZOOM[LAYER_NMBER + 1] = {
+			1,	// 0
+			1,	// 1
+			1,	// 2
+			1,	// 3
+			1,	// 4
+			1,	// 5
+			1,	// 6
+			1,	// 7
+			1,	// 8
+			1,	// 9
+			1,	// 10
+			1,	// 11
+			1,	// 12
+			1,	// 13
+			1,	// 14
+			1,	// 15
+			1,	// 16
+			1,	// 17
+			1,	// 18
+			1,	// 19
+			1,	// 20
+		};
+
 
 
 	XPLMProbeInfo_t outInfo;
 	outInfo.structSize = sizeof(outInfo);
 
 
+	/*
 	// If i use a negative altitude is directly the zoom level
 	if ( zoom < 0 )	zoom = abs((int)alt);
 	else		zoom = LAYER_NMBER - (int)( alt / 100 );
 	if (zoom < 0 )	zoom = 0;
-
+	*/
 
 
 	c 		= zoom;
@@ -422,6 +448,9 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 	gPlaneZ 	= XPLMFindDataRef("sim/flightmodel/position/local_z");
 
 	gPlaneHeading	= XPLMFindDataRef("sim/flightmodel/position/psi");
+        gPlanePhi	= XPLMFindDataRef("sim/flightmodel/position/phi");
+        gPlaneTheta	= XPLMFindDataRef("sim/flightmodel/position/theta");
+
 	gPlaneLat	= XPLMFindDataRef("sim/flightmodel/position/latitude");
 	gPlaneLon	= XPLMFindDataRef("sim/flightmodel/position/longitude");
 	gPlaneAlt	= XPLMFindDataRef("sim/flightmodel/position/elevation");	
@@ -438,7 +467,6 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 
 	// init threads
 	pthread_attr_init(&attr);
-	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	pthread_mutex_init(&mutex, NULL);
 
@@ -520,7 +548,7 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
 
                               	// First triangle               
-                                //glColor3f(1.0, 0.0, 0.0);
+                                glColor3f(1.0, 0.0, 0.0);
                                 glTexCoord2f(	tile->TexCoordX[i][j], 		tile->TexCoordY[i][j]);
                                 glVertex3f(	tile->terX[i][j],		tile->terY[i][j],	tile->terZ[i][j]);
                         
@@ -532,7 +560,7 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
                         
                                 // Second triangle
-                                //glColor3f(0.0, 1.0, 1.0);
+                                glColor3f(0.0, 1.0, 1.0);
                                 glTexCoord2f(	tile->TexCoordX[i+1][j+1], 	tile->TexCoordY[i+1][j+1]);
                                 glVertex3f(	tile->terX[i+1][j+1],		tile->terY[i+1][j+1],	tile->terZ[i+1][j+1]);
 
@@ -611,82 +639,100 @@ void *LoadTile( void *ptr ){
 
 //---------------------------------------------------------------------------------------//
 
-int frameCreator(struct  TileObj *tile, int level, int odd){
-	int	i		= 0;
-	int	rc		= 0;
-	double 	x, y;
-	double	x_start		= 0.0;
-	double	y_start		= 0.0;
-	double	x_end		= 0.0;
-	double	y_end		= 0.0;
-	double	lat		= 0.0;
-	double	lng		= 0.0;
-	double	*x_frame	= NULL;
-	double	*y_frame	= NULL;
-	int	*frame		= NULL;
-	int	frame_lenght 	= 0;
+int sceneCreator(struct  TileObj *tile){
+	int		i		= 0;
+	int		j		= 0;
+	int		rc		= 0;
+	long int 	x, y, z;
+	long int	x_start		= 0.0;
+	long int	y_start		= 0.0;
+	long int	x_end		= 0.0;
+	long int	y_end		= 0.0;
+	long int	x_plane		= 0.0;
+	long int	y_plane		= 0.0;
+	long int	z_plane		= 0.0;
+	double		lat		= 0.0;
+	double		lng		= 0.0;
+	double		*x_frame	= NULL;
+	double		*y_frame	= NULL;
+	double		*z_frame	= NULL;
+	int		*frame		= NULL;
+	int		frame_lenght 	= 0;
+	int		far_zoom	= 0;
 
 
 	struct TileObj *p, *q;
 
+	far_zoom	= 2;
 
-	frame_lenght	= ( level != 0 ) ? (level * 8) : 1;
+	frame_lenght	= 	( 4 * 4 ) + ( ( 4 * 4 ) - 1 ) * far_zoom;	
+
 	x_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
 	y_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
+	z_frame		= (double *)	malloc( frame_lenght * sizeof(double)	);
 	frame		= (int *)	malloc( frame_lenght * sizeof(int)	);
 
+	x_plane = (long int)tile->x;
+	y_plane = (long int)tile->y;
+	z_plane	= (long int)tile->z;
 
-	// Create a frame of tile around the plane
-	// 
-	//	x	x	x
-	//
-	//	x	T	x
-	//
-	//	x	x	x
 
-	if ( frame_lenght > 1 ){
-		x_start		= tile->x - (double)level;
-		y_start		= tile->y - (double)level;
-
-		if ( odd != TRUE ){
-			x_end		= tile->x + (double)level;
-			y_end		= tile->y + (double)level - 1.0;
-		}else{
-			x_end		= tile->x + (double)level + 1.0;
-			y_end		= tile->y + (double)level;
-		}
-
-		for (x = x_start;	x < x_end; 	x+= 1.0, i++){
-			x_frame[i]	= x;
-			y_frame[i]	= y_start;
-			frame[i]	= TRUE;	
-
-		}
-
-		for (y = y_start + 1.0; y < y_end; 	y+= 1.0, i++){
-			x_frame[i]	= x_start;
-			y_frame[i]	= y;
+	// Close to airplane
+	x_start = (double)( (long int)x_plane / 2 / 2) * 2.0 * 2.0;
+	y_start = (double)( (long int)y_plane / 2 / 2) * 2.0 * 2.0;
+	x_end	= x_start + 4;
+	y_end	= y_start + 4;
+	for ( y = y_start; y < y_end; y++ ){
+		for ( x = x_start; x < x_end; x++){
+			x_frame[i]	= (double)x;
+			y_frame[i]	= (double) y;
+			z_frame[i]	= (double)z_plane;
 			frame[i]	= TRUE;
-
 			i++;
-
-			x_frame[i]	= x_end - 1;
-			y_frame[i]	= y;
-			frame[i]	= TRUE;
 		}
-
-		for (x = x_start; 	x < x_end;	x+= 1.0, i++){
-			x_frame[i]	= x;
-			y_frame[i]	= y_end;
-			frame[i]	= TRUE;
-		}
-	}else{
-		x_frame[i]	= tile->x;
-		y_frame[i]	= tile->y;
-		frame[i]	= TRUE;
-
 	}
 
+
+	x_plane = x_start / 2 / 2;
+	y_plane = y_start / 2 / 2;
+	z_plane = z_plane - 2;
+
+
+	x_start = x_start / 2 / 2 / 2 * 2;
+	y_start = y_start / 2 / 2 / 2 * 2;
+
+	// Drow everything else...
+
+	for(j = 0; j < far_zoom; j++){
+
+		//x_start = ( x_plane / 2 ) * 2;
+		//y_start = ( y_plane / 2 ) * 2;
+
+		x_end	= x_start + 4;
+		y_end	= y_start + 4;
+	
+		for ( y = y_start; y < y_end; y += 1.0){
+			for ( x = x_start; x < x_end; x += 1.0){
+				if (( x == x_plane ) && ( y == y_plane ) ) continue;
+				x_frame[i]	= x;
+				y_frame[i]	= y;
+				z_frame[i]	= z_plane;
+				frame[i]	= TRUE;
+				i++;
+			}
+		}
+
+		x_plane = x_start / 2 / 2;
+		y_plane = y_start / 2 / 2;
+		z_plane = z_plane - 2;
+
+
+		x_start = x_start / 2 / 2 / 2 * 2;
+		y_start = y_start / 2 / 2 / 2 * 2;
+
+
+
+	}
 
 	// Remove from the list of loaded tile not used 
 		
@@ -703,28 +749,29 @@ int frameCreator(struct  TileObj *tile, int level, int odd){
 			if ( i == frame_lenght ){	
 
 				q = p;
+				/*
 				if ( ( p->prev == NULL ) && ( p->next == NULL ) )	printf("One tile\n");
 				if ( ( p->prev == NULL ) && ( p->next != NULL ) )	printf("Head tile\n");
 				if ( ( p->prev != NULL ) && ( p->next == NULL ) )	printf("Tail tile\n");
 				if ( ( p->prev != NULL ) && ( p->next != NULL ) )	printf("Center tile\n");
-
+				*/
 
 				if ( p->prev == NULL ){		// Remove from head
 
-					printf("Remove from head...\n");
+					//printf("Remove from head...\n");
 					TileList = ( p->next != NULL ) ? p->next : NULL;
 					
 					if ( TileList != NULL )	TileList->prev	= NULL;
 
 				}else if ( p->next == NULL ){ 	// Remove from tail
 
-					printf("Remove from tail...\n");
+					//printf("Remove from tail...\n");
 					p	= p->prev;
 					p->next	= NULL;
 
 				} else { 			// Remove from center
 
-					printf("Remove from center...\n");
+					//printf("Remove from center...\n");
 					p->prev->next = p->next;
 					p->next->prev = p->prev; 
 
@@ -743,11 +790,11 @@ int frameCreator(struct  TileObj *tile, int level, int odd){
 	printf("Start Image request...\n");
 	for (i = 0; i < frame_lenght; i++){
 		if ( frame[i] != TRUE ) continue;
-		fromXYZtoLatLon(x_frame[i], y_frame[i], tile->z, &lat, &lng);
+		fromXYZtoLatLon(x_frame[i], y_frame[i], z_frame[i], &lat, &lng);
 
 		p = NULL;
 		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-		fillTileInfo(p, lat, lng, tile->alt );
+		fillTileInfo(p, lat, lng, tile->alt, z_frame[i]);
 
 		thread_data_array[thread_index].tile		= p;
 		thread_data_array[thread_index].thread_id	= thread_index;
@@ -803,7 +850,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 
 	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-	fillTileInfo(tile, outLatitude, outLongitude, Altitude );
+	fillTileInfo(tile, outLatitude, outLongitude, Altitude, 20 );
 
 
 	if ( ( currentPosition[0] == tile->x ) && ( currentPosition[1] == tile->y ) && ( currentPosition[2] == tile->z ) ) { destroyTile(tile); return 1.0; }
@@ -814,17 +861,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 
 
-	frameCreator(tile, 0, FALSE);
-	frameCreator(tile, 1, FALSE);
-
-
-	fillTileInfo(tile, outLatitude, outLongitude, Altitude + 100.0);
-	frameCreator(tile, 1, TRUE);
-
-	fillTileInfo(tile, outLatitude, outLongitude, Altitude + 200.0);
-	frameCreator(tile, 1, TRUE);
-
-
+	sceneCreator(tile);
 	destroyTile(tile);
 	return 1.0;
 

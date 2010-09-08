@@ -68,6 +68,8 @@ XPLMDataRef		gPlaneHeading;
 XPLMDataRef		gPlaneLat;
 XPLMDataRef		gPlaneLon;
 XPLMDataRef		gPlaneAlt;
+XPLMDataRef		gPlanePhi;
+XPLMDataRef		gPlaneTheta;
 
 XPLMProbeRef		inProbe;
 
