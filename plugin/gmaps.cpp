@@ -592,6 +592,7 @@ void *LoadTile( void *ptr ){
 	int			size		= 0;
 	unsigned char		*image		= NULL;
 	CURL 			*handle		= NULL;
+	struct stat 		fileinfo;
 
 
 	data = (struct thread_data *)ptr;
@@ -601,7 +602,15 @@ void *LoadTile( void *ptr ){
 	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
 
 	file = fopen(fileout, "rb"); 
-	if(file == NULL) {
+    	if (file != NULL){
+		fstat((int)file, &fileinfo);
+		if ( fileinfo.st_size <= 0 ){
+			fclose(file);
+			file = NULL;
+		}
+	}
+
+	if(file == NULL){
 		if ( ( handle = curl_easy_duphandle(curl_handle) ) == NULL ){
 			fprintf(stderr, "Error: Unable to copy handle for %s\n", tile->url);
 			pthread_exit(NULL);
@@ -639,89 +648,95 @@ void *LoadTile( void *ptr ){
 
 //---------------------------------------------------------------------------------------//
 
+int isInTile(double x, double y, double z, double x_tile, double y_tile, double z_tile){
+	if ( z <= z_tile ) return FALSE;
+
+	for (; z_tile < z; z_tile++){
+		x = (double)((long int)x / 2 / 2 * 2 );
+		y = (double)((long int)y / 2 / 2 * 2 );
+	}
+
+	if ( x != x_tile ) return FALSE;
+	if ( y != y_tile ) return FALSE;
+	return TRUE;
+}
+
+
+//---------------------------------------------------------------------------------------//
+
 int sceneCreator(struct  TileObj *tile){
 	int		i		= 0;
 	int		j		= 0;
 	int		rc		= 0;
 	long int 	x, y, z;
 
-	long int	*x_start	= NULL;
-	long int	*y_start	= NULL;
-	long int	*z_start	= NULL;
-
-	long int	x_end		= 0.0;
-	long int	y_end		= 0.0;
-
-	long int	*x_plane	= NULL;
-	long int	*y_plane	= NULL;
-	long int	*z_plane	= NULL;
-
 	double		*x_frame	= NULL;
 	double		*y_frame	= NULL;
 	double		*z_frame	= NULL;
-
+	int		*frame		= NULL;
 
 
 	double		lat		= 0.0;
 	double		lng		= 0.0;
-	int		*frame		= NULL;
 	int		frame_lenght 	= 0;
-	int		far_zoom	= 0;
 
+
+
+	int		deep_layers	= 5;
+	int		xsize_layers	= 4;
+	int		ysize_layers	= 4;
 
 	struct TileObj *p, *q;
 
-	far_zoom	= 5;
 
-	frame_lenght	= ( ( 4 * 4 ) - 1 ) * far_zoom;
+	long int **x_layer	= NULL;
+	long int **y_layer	= NULL;
+	long int **z_layer	= NULL;
 
-	x_frame		= (double *)	malloc( frame_lenght	* sizeof(double)	);
-	y_frame		= (double *)	malloc( frame_lenght	* sizeof(double)	);
-	z_frame		= (double *)	malloc( frame_lenght	* sizeof(double)	);
-	frame		= (int *)	malloc( frame_lenght	* sizeof(int)		);
-
-	x_plane		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
-	y_plane		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
-	z_plane		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
-
-	x_start		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
-	y_start		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
-	z_start		= (long int *)	malloc( far_zoom	* sizeof(long int)	);
+	long int x_start 	= 0;
+	long int y_start	= 0;
+	long int z_start	= 0;
+	long int x_end		= 0;
+	long int y_end		= 0;
 
 
-
-	x_plane[0] = x_start[0] = (long int)tile->x;
-	y_plane[0] = y_start[0] = (long int)tile->y;
-	z_plane[0] = z_start[0] = (long int)tile->z;
-
-	for (j = 1; j < far_zoom; j++) {
-		x_start[j] = x_start[j-1] / 2;
-		y_start[j] = y_start[j-1] / 2;
-		z_start[j] = z_start[j-1] - 1;
-		x_plane[j] = x_start[j] + 2; 
-		y_plane[j] = x_start[j] + 2;
-
-	}
+	x_layer = (long int **)malloc(sizeof(long int) * deep_layers);
+	y_layer = (long int **)malloc(sizeof(long int) * deep_layers);
+	z_layer = (long int **)malloc(sizeof(long int) * deep_layers);
 
 
-	for (j = 1; j < far_zoom; j++) {
-		//x_start[j]	-= 2;
-		//y_start[j]	-= 2;
-		x_end	 	= x_start[j] + 4;
-		y_end	 	= y_start[j] + 4;
+	x_start = (long int)tile->x - (xsize_layers / 2 );
+	x_end	= x_start + xsize_layers;
 
-		for ( y = y_start[j]; y < y_end; y++){
-			for ( x = x_start[j]; x < x_end; x++){
-				if ( ( x == x_plane[j] ) && ( y == y_plane[j] ) ) continue;
-				x_frame[i]	= (double)x;
-				y_frame[i]	= (double)y;
-				z_frame[i]	= (double)z_start[j];
-				frame[i]	= TRUE;
-				i++;
+	y_start = (long int)tile->y - (ysize_layers / 2 );
+	y_end	= y_start + ysize_layers;
+
+	z_start = (long int)tile->z;
+
+	for (j = 0 ; j < deep_layers ; j++){
+		x_layer[j] = (long int *)malloc(sizeof(long int) * xsize_layers * ysize_layers); 
+		y_layer[j] = (long int *)malloc(sizeof(long int) * xsize_layers * ysize_layers);
+		z_layer[j] = (long int *)malloc(sizeof(long int) * xsize_layers * ysize_layers);
+
+		for (i = 0, y = y_start; y < y_end; y++){
+			for (x = x_start; x < x_end; x++, i++){
+				x_layer[j][i] = x;
+				y_layer[j][i] = y;
+				z_layer[j][i] = z_start;
+				printf("%ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
 			}
 		}
+		x_start = ( x_start / 2 / 2 * 2 ) - (xsize_layers / 2 );
+		x_end   = x_start + xsize_layers;
+		y_start = ( x_start / 2 / 2 * 2 ) - (ysize_layers / 2 );
+		y_end   = y_start + ysize_layers;
+		z_start = z_start - 1;
 	}
 
+	
+
+
+	return 0;
 
 	// Remove from the list of loaded tile not used 
 		
@@ -779,6 +794,9 @@ int sceneCreator(struct  TileObj *tile){
 	printf("Start Image request...\n");
 	for (i = 0; i < frame_lenght; i++){
 		if ( frame[i] != TRUE ) continue;
+
+		printf("%d\t %f %f %f\n", i, x_frame[i], y_frame[i], z_frame[i]);
+
 		fromXYZtoLatLon(x_frame[i], y_frame[i], z_frame[i], &lat, &lng);
 
 		p = NULL;
