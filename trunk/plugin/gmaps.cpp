@@ -667,6 +667,8 @@ int isInTile(double x, double y, double z, double x_tile, double y_tile, double 
 int sceneCreator(struct  TileObj *tile){
 	int		i		= 0;
 	int		j		= 0;
+	int		k		= 0;
+	int		t		= 0;
 	int		rc		= 0;
 	long int 	x, y, z;
 
@@ -678,9 +680,10 @@ int sceneCreator(struct  TileObj *tile){
 
 	double		lat		= 0.0;
 	double		lng		= 0.0;
-	int		frame_lenght 	= 0;
 
 
+	int		lenght_layer 	= 0;
+	int		size_layers 	= 0;
 
 	int		deep_layers	= 5;
 	int		xsize_layers	= 4;
@@ -698,45 +701,84 @@ int sceneCreator(struct  TileObj *tile){
 	long int z_start	= 0;
 	long int x_end		= 0;
 	long int y_end		= 0;
+	
+	long int plane_xpos	= 0;
+	long int plane_ypos	= 0;
 
+	lenght_layer	= xsize_layers * ysize_layers;
+	size_layers	= lenght_layer * deep_layers;
 
-	x_layer = (long int **)malloc(sizeof(long int) * deep_layers);
-	y_layer = (long int **)malloc(sizeof(long int) * deep_layers);
-	z_layer = (long int **)malloc(sizeof(long int) * deep_layers);
+	x_layer = (long int **)malloc(sizeof(long int *) * deep_layers);
+	y_layer = (long int **)malloc(sizeof(long int *) * deep_layers);
+	z_layer = (long int **)malloc(sizeof(long int *) * deep_layers);
 
-
-	x_start = (long int)tile->x - (xsize_layers / 2 );
-	x_end	= x_start + xsize_layers;
-
-	y_start = (long int)tile->y - (ysize_layers / 2 );
-	y_end	= y_start + ysize_layers;
-
-	z_start = (long int)tile->z;
+	plane_xpos	= (long int)tile->x;
+	plane_ypos	= (long int)tile->y;
+	x_start		= plane_xpos - 2;
+	x_end		= x_start + xsize_layers;
+	y_start 	= plane_ypos - 2;
+	y_end		= y_start + ysize_layers;
+	z_start 	= (long int)tile->z;
 
 	for (j = 0 ; j < deep_layers ; j++){
-		x_layer[j] = (long int *)malloc(sizeof(long int) * xsize_layers * ysize_layers); 
-		y_layer[j] = (long int *)malloc(sizeof(long int) * xsize_layers * ysize_layers);
-		z_layer[j] = (long int *)malloc(sizeof(long int) * xsize_layers * ysize_layers);
+		x_layer[j] = (long int *)malloc(sizeof(long int) * lenght_layer ); 
+		y_layer[j] = (long int *)malloc(sizeof(long int) * lenght_layer );
+		z_layer[j] = (long int *)malloc(sizeof(long int) * lenght_layer );
 
 		for (i = 0, y = y_start; y < y_end; y++){
 			for (x = x_start; x < x_end; x++, i++){
 				x_layer[j][i] = x;
 				y_layer[j][i] = y;
 				z_layer[j][i] = z_start;
-				printf("%ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
 			}
 		}
-		x_start = ( x_start / 2 / 2 * 2 ) - (xsize_layers / 2 );
-		x_end   = x_start + xsize_layers;
-		y_start = ( x_start / 2 / 2 * 2 ) - (ysize_layers / 2 );
-		y_end   = y_start + ysize_layers;
-		z_start = z_start - 1;
+
+		plane_xpos	= plane_xpos / 2;
+		plane_ypos	= plane_ypos / 2;
+		x_start		= plane_xpos - 2;
+		x_end		= x_start + xsize_layers;
+		y_start 	= plane_ypos - 2;
+		y_end		= y_start + ysize_layers;
+		z_start 	= z_start - 1;
 	}
 
 	
+	x_frame = (double *)malloc(sizeof(double) * size_layers );
+	y_frame = (double *)malloc(sizeof(double) * size_layers );
+	z_frame = (double *)malloc(sizeof(double) * size_layers );
+	frame	= (int	  *)malloc(sizeof(int)	  * size_layers );
 
 
-	return 0;
+	for ( t = 0, j = deep_layers - 1; j != 0; j--){
+		printf("cacca\n");
+		if ( j == 0 ){
+			for (i = 0; i < lenght_layer; i++, t++){
+				x_frame[t] 	= (double)x_layer[j][i];
+				y_frame[t] 	= (double)y_layer[j][i];
+				z_frame[t] 	= (double)z_layer[j][i];
+				frame[t]	= TRUE;
+				printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
+			}
+			break;
+		}
+
+		for (i = 0; i < lenght_layer ; i++, t++){
+			x_frame[t] 	= (double)x_layer[j][i];
+			y_frame[t] 	= (double)y_layer[j][i];
+			z_frame[t] 	= (double)z_layer[j][i];
+
+			for (k = 0; k < lenght_layer ; k++){ if ( isInTile((double)x_layer[j-1][k], (double)y_layer[k-1][k], (double)z_layer[j-1][i], x_frame[t], y_frame[t], z_frame[t]) == TRUE ) break; }
+
+			if ( k == lenght_layer )	frame[t] = FALSE;
+			else				frame[t] = TRUE;
+
+
+
+			if ( frame[t] == FALSE )	printf("FALSE %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
+			else				printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
+		}
+		printf("------------------\n");
+	}
 
 	// Remove from the list of loaded tile not used 
 		
@@ -746,11 +788,13 @@ int sceneCreator(struct  TileObj *tile){
 		for( p = TileList; p != NULL; p = ( p != NULL ) ? p->next : NULL ){
 
 			// Search tile in the frame
-			for ( i = 0; i < frame_lenght; i++) if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; break; }
+			for ( i = 0; i < size_layers ; i++){
+				if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; break; } 
+			}
 
 
 			// tile not found in the frame, so I have to remove it
-			if ( i == frame_lenght ){	
+			if ( i == size_layers ){	
 
 				q = p;
 				/*
@@ -792,16 +836,16 @@ int sceneCreator(struct  TileObj *tile){
 	// load image...
 
 	printf("Start Image request...\n");
-	for (i = 0; i < frame_lenght; i++){
+	for (i = 0; i < size_layers ; i++){
 		if ( frame[i] != TRUE ) continue;
 
-		printf("%d\t %f %f %f\n", i, x_frame[i], y_frame[i], z_frame[i]);
 
 		fromXYZtoLatLon(x_frame[i], y_frame[i], z_frame[i], &lat, &lng);
 
 		p = NULL;
 		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));
 		fillTileInfo(p, lat, lng, tile->alt, z_frame[i]);
+		//printf("%d\t %f %f %f - %s\n", i, x_frame[i], y_frame[i], z_frame[i], p->url);
 
 		thread_data_array[thread_index].tile		= p;
 		thread_data_array[thread_index].thread_id	= thread_index;
