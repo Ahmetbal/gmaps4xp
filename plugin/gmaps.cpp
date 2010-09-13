@@ -652,8 +652,8 @@ int isInTile(double x, double y, double z, double x_tile, double y_tile, double 
 	if ( z <= z_tile ) return FALSE;
 
 	for (; z_tile < z; z_tile++){
-		x = (double)((long int)x / 2 / 2 * 2 );
-		y = (double)((long int)y / 2 / 2 * 2 );
+		x = (double)((long int)x / 2 ); /// 2 * 2 );
+		y = (double)((long int)y / 2 ); /// 2 * 2 );
 	}
 
 	if ( x != x_tile ) return FALSE;
@@ -676,7 +676,8 @@ int sceneCreator(struct  TileObj *tile){
 	double		*y_frame	= NULL;
 	double		*z_frame	= NULL;
 	int		*frame		= NULL;
-
+	double		*tmp_double	= NULL;
+	int		*tmp_integer	= NULL;
 
 	double		lat		= 0.0;
 	double		lng		= 0.0;
@@ -686,8 +687,10 @@ int sceneCreator(struct  TileObj *tile){
 	int		size_layers 	= 0;
 
 	int		deep_layers	= 5;
-	int		xsize_layers	= 4;
-	int		ysize_layers	= 4;
+	int		xsize_layers	= 5;
+	int		ysize_layers	= 5;
+	int		number_removed	= 0;
+	int		number_to_add	= 0;
 
 	struct TileObj *p, *q;
 
@@ -705,12 +708,15 @@ int sceneCreator(struct  TileObj *tile){
 	long int plane_xpos	= 0;
 	long int plane_ypos	= 0;
 
+	
+
+
 	lenght_layer	= xsize_layers * ysize_layers;
 	size_layers	= lenght_layer * deep_layers;
 
-	x_layer = (long int **)malloc(sizeof(long int *) * deep_layers);
-	y_layer = (long int **)malloc(sizeof(long int *) * deep_layers);
-	z_layer = (long int **)malloc(sizeof(long int *) * deep_layers);
+	x_layer = (long int **)malloc(sizeof(long int *) * deep_layers + 1); // Last layer is where I put filler layer
+	y_layer = (long int **)malloc(sizeof(long int *) * deep_layers + 1);
+	z_layer = (long int **)malloc(sizeof(long int *) * deep_layers + 1);
 
 	plane_xpos	= (long int)tile->x;
 	plane_ypos	= (long int)tile->y;
@@ -749,15 +755,15 @@ int sceneCreator(struct  TileObj *tile){
 	frame	= (int	  *)malloc(sizeof(int)	  * size_layers );
 
 
-	for ( t = 0, j = deep_layers - 1; j != 0; j--){
-		printf("cacca\n");
+	for ( t = 0, j = deep_layers - 1; j != -1; j--){
+
 		if ( j == 0 ){
 			for (i = 0; i < lenght_layer; i++, t++){
 				x_frame[t] 	= (double)x_layer[j][i];
 				y_frame[t] 	= (double)y_layer[j][i];
 				z_frame[t] 	= (double)z_layer[j][i];
 				frame[t]	= TRUE;
-				printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
+				//printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
 			}
 			break;
 		}
@@ -767,19 +773,79 @@ int sceneCreator(struct  TileObj *tile){
 			y_frame[t] 	= (double)y_layer[j][i];
 			z_frame[t] 	= (double)z_layer[j][i];
 
-			for (k = 0; k < lenght_layer ; k++){ if ( isInTile((double)x_layer[j-1][k], (double)y_layer[k-1][k], (double)z_layer[j-1][i], x_frame[t], y_frame[t], z_frame[t]) == TRUE ) break; }
+			for (k = 0; k < lenght_layer ; k++){ if ( isInTile((double)x_layer[j-1][k], (double)y_layer[j-1][k], (double)z_layer[j-1][k], x_frame[t], y_frame[t], z_frame[t]) == TRUE ) break; }
 
-			if ( k == lenght_layer )	frame[t] = FALSE;
-			else				frame[t] = TRUE;
+			
+			if ( k == lenght_layer )	frame[t] = TRUE;
+			else				{ frame[t] = FALSE; number_removed++; }
+	
 
 
-
-			if ( frame[t] == FALSE )	printf("FALSE %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
-			else				printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
+			//if ( frame[t] == FALSE )	printf("FALSE %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
+			//else				printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
 		}
-		printf("------------------\n");
 	}
 
+	x_layer[deep_layers] = (long int *)malloc(sizeof(long int) * number_removed * 4 ); 
+	y_layer[deep_layers] = (long int *)malloc(sizeof(long int) * number_removed * 4 );
+	z_layer[deep_layers] = (long int *)malloc(sizeof(long int) * number_removed * 4 );
+
+	tmp_double = (double *)malloc(sizeof(double) * ( size_layers + number_removed * 4 ));
+	memcpy(tmp_double, x_frame, sizeof(double) * size_layers);
+	x_frame	= tmp_double;
+
+	tmp_double = (double *)malloc(sizeof(double) * ( size_layers + number_removed * 4 ));
+	memcpy(tmp_double, y_frame, sizeof(double) * size_layers);
+	y_frame	= tmp_double;
+
+	tmp_double = (double *)malloc(sizeof(double) * ( size_layers + number_removed * 4 ));
+	memcpy(tmp_double, z_frame, sizeof(double) * size_layers);
+	z_frame	= tmp_double;
+
+	tmp_integer = (int	*)malloc(sizeof(int) * ( size_layers + number_removed * 4 ));
+	memcpy(tmp_integer, frame, sizeof(int) * size_layers);
+	frame	= tmp_integer;
+
+
+	for(i = 0, t = size_layers ; i < size_layers; i++){
+		if ( frame[i] != FALSE ) continue;
+
+		j = (int)( tile->z - z_frame[i] - 1);
+
+		x_start = (long int)x_frame[i] * 2;
+		y_start = (long int)y_frame[i] * 2;
+		z_start = (long int)z_frame[i] + 1;
+		x_end	= x_start + 2;		
+		y_end	= y_start + 2;		
+
+		for (y = y_start; y < y_end; y++){
+			for (x = x_start; x < x_end; x++, t++){
+				
+				x_frame[t] 	= -1.0; 
+				y_frame[t] 	= -1.0;
+				z_frame[t] 	= -1.0;
+
+				for (k = 0; k < lenght_layer ; k++){ if ( ( x_layer[j][k] == x ) && ( y_layer[j][k] == y ) ) break; 	}
+				if ( k != lenght_layer ) continue;
+
+				x_frame[t] 	= (double)x;
+				y_frame[t] 	= (double)y;
+				z_frame[t] 	= (double)z_start;
+				frame[t]	= TRUE;
+	
+			
+			}
+		}
+	}
+
+	size_layers = size_layers + ( number_removed * 4 );
+
+	/*
+	for (i = 0; i < size_layers ; i++){
+		printf("%f %f %f\n",  x_frame[i], y_frame[i], z_frame[i]);
+	
+	}
+	*/
 	// Remove from the list of loaded tile not used 
 		
         pthread_mutex_lock(&mutex);
@@ -789,7 +855,7 @@ int sceneCreator(struct  TileObj *tile){
 
 			// Search tile in the frame
 			for ( i = 0; i < size_layers ; i++){
-				if ( ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; break; } 
+				if ( ( frame[i] == TRUE ) && ( p->x == x_frame[i] ) && ( p->y == y_frame[i] ) ){ frame[i] = FALSE; break; } 
 			}
 
 
