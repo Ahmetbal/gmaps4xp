@@ -548,7 +548,7 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
 
                               	// First triangle               
-                                glColor3f(1.0, 0.0, 0.0);
+                                // glColor3f(1.0, 0.0, 0.0);
                                 glTexCoord2f(	tile->TexCoordX[i][j], 		tile->TexCoordY[i][j]);
                                 glVertex3f(	tile->terX[i][j],		tile->terY[i][j],	tile->terZ[i][j]);
                         
@@ -560,7 +560,7 @@ int  GMapsDrawCallback( XPLMDrawingPhase inPhase, int inIsBefore, void *inRefcon
 
                         
                                 // Second triangle
-                                glColor3f(0.0, 1.0, 1.0);
+                                // glColor3f(0.0, 1.0, 1.0);
                                 glTexCoord2f(	tile->TexCoordX[i+1][j+1], 	tile->TexCoordY[i+1][j+1]);
                                 glVertex3f(	tile->terX[i+1][j+1],		tile->terY[i+1][j+1],	tile->terZ[i+1][j+1]);
 
