@@ -34,11 +34,10 @@
 #include "XPLMProcessing.h"
 
 
-
 #define BUFFER_CONSOL_COL	80
 #define BUFFER_CONSOL_LIN	35
 #define SERVERS_NUMBER		4
-#define GMAPS_VERION 		58
+#define GMAPS_VERION 		69
 #define LAYER_NMBER		20 
 #define	CACHE_DIR		"./GMapsCache"
 #define USER_AGENT		"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
@@ -53,11 +52,24 @@
 #define	MAX_THREAD_NUMBER	100
 
 
+/*
+Name:	khm.l.google.com
+Address: 209.85.229.91
+Name:	khm.l.google.com
+Address: 209.85.229.93
+Name:	khm.l.google.com
+Address: 209.85.229.190
+Name:	khm.l.google.com
+Address: 209.85.229.136
+char 	GMapServers[SERVERS_NUMBER][16]	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
+*/
+
+char 	GMapServers[SERVERS_NUMBER][16]	= { "209.85.229.91", "209.85.229.93", "209.85.229.190", "209.85.229.136" };
+
 XPLMWindowID    gConsole		= NULL;
 XPLMKeyFlags	gFlags			= 0;
 char		gVirtualKey		= 0;
 char		gChar			= 0;
-char 	GMapServers[SERVERS_NUMBER][16]	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
 int		GMapsServerIndex	= 0;
 double		currentPosition[3]	= {-1.0, -1.0, -1.0};
 
