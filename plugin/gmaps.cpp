@@ -412,6 +412,10 @@ int writeConsole(const char *msg){
 //---------------------------------------------------------------------------------------//
 
 PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
+	DIR 		*dp	= NULL;
+      	struct dirent	*ep	= NULL;
+	char		tmp[255];
+        struct stat	fileinfo;
 
 	// Plugin description
 	strcpy(outName, "GMaps For X-Plane");
@@ -460,6 +464,19 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 
 	// Create directory cache
 	mkdir(CACHE_DIR,  S_IRWXU);
+
+
+     
+	dp = opendir (CACHE_DIR);
+	if (dp != NULL){
+		while ( (ep = readdir(dp)) ){
+			sprintf(tmp, "%s/%s", CACHE_DIR, ep->d_name);
+			if ( stat(tmp, &fileinfo) ) continue;
+			if ( fileinfo.st_size <= 0 ) unlink(tmp);
+		}
+		closedir(dp);
+	}
+
 
 	// Init curl handler
 	curl_global_init(CURL_GLOBAL_ALL);
@@ -601,10 +618,10 @@ void *LoadTile( void *ptr ){
 
 
 	sprintf(fileout, "%s/tile-%d-%d-%d.jpg",  CACHE_DIR, (int)tile->x, (int)tile->y, (int)tile->z);
-
+		
 	file = fopen(fileout, "rb"); 
     	if (file != NULL){
-		fstat((int)file, &fileinfo);
+		stat(fileout, &fileinfo);
 		if ( fileinfo.st_size <= 0 ){
 			fclose(file);
 			file = NULL;
@@ -627,10 +644,10 @@ void *LoadTile( void *ptr ){
 			pthread_exit(NULL);
 		}
 		fwrite(image, 1, size, file);	
-		addTextureToTile(tile,	image,	NULL,	size);
+		if ( addTextureToTile(tile,	image,	NULL,	size) ) { fclose(file); unlink(fileout); pthread_exit(NULL); } 
 		fclose(file);
 	}else{
-		addTextureToTile(tile,	NULL,	file,	0);
+		if ( addTextureToTile(tile,	NULL,	file,	0) )	{ fclose(file); unlink(fileout); pthread_exit(NULL); }
 		fclose(file);
 	}
 
@@ -671,7 +688,7 @@ int sceneCreator(struct  TileObj *tile){
 	int		k		= 0;
 	int		t		= 0;
 	int		rc		= 0;
-	long int 	x, y, z;
+	long int 	x, y;
 
 	double		*x_frame	= NULL;
 	double		*y_frame	= NULL;
@@ -691,7 +708,6 @@ int sceneCreator(struct  TileObj *tile){
 	int		xsize_layers	= 5;
 	int		ysize_layers	= 5;
 	int		number_removed	= 0;
-	int		number_to_add	= 0;
 
 	struct TileObj *p, *q;
 
