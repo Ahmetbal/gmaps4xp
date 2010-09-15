@@ -290,6 +290,7 @@ int fromXYZtoLatLon(double x, double y, double z, double *lat, double *lng){
 	double tileSize		= 256.0;
 	double originShift	= 0.0;
 
+	if ( z < 0 ) return 1;
 
 
 
@@ -714,9 +715,9 @@ int sceneCreator(struct  TileObj *tile){
 	lenght_layer	= xsize_layers * ysize_layers;
 	size_layers	= lenght_layer * deep_layers;
 
-	x_layer = (long int **)malloc(sizeof(long int *) * deep_layers + 1); // Last layer is where I put filler layer
-	y_layer = (long int **)malloc(sizeof(long int *) * deep_layers + 1);
-	z_layer = (long int **)malloc(sizeof(long int *) * deep_layers + 1);
+	x_layer = (long int **)malloc(sizeof(long int *) * deep_layers ); // Last layer is where I put filler layer
+	y_layer = (long int **)malloc(sizeof(long int *) * deep_layers );
+	z_layer = (long int **)malloc(sizeof(long int *) * deep_layers );
 
 	plane_xpos	= (long int)tile->x;
 	plane_ypos	= (long int)tile->y;
@@ -726,6 +727,7 @@ int sceneCreator(struct  TileObj *tile){
 	y_end		= y_start + ysize_layers;
 	z_start 	= (long int)tile->z;
 
+	//printf("Creating layer...\n");
 	for (j = 0 ; j < deep_layers ; j++){
 		x_layer[j] = (long int *)malloc(sizeof(long int) * lenght_layer ); 
 		y_layer[j] = (long int *)malloc(sizeof(long int) * lenght_layer );
@@ -755,6 +757,7 @@ int sceneCreator(struct  TileObj *tile){
 	frame	= (int	  *)malloc(sizeof(int)	  * size_layers );
 
 
+	//printf("Remove extra tiles...\n");
 	for ( t = 0, j = deep_layers - 1; j != -1; j--){
 
 		if ( j == 0 ){
@@ -776,8 +779,10 @@ int sceneCreator(struct  TileObj *tile){
 			for (k = 0; k < lenght_layer ; k++){ if ( isInTile((double)x_layer[j-1][k], (double)y_layer[j-1][k], (double)z_layer[j-1][k], x_frame[t], y_frame[t], z_frame[t]) == TRUE ) break; }
 
 			
-			if ( k == lenght_layer )	frame[t] = TRUE;
-			else				{ frame[t] = FALSE; number_removed++; }
+			if ( k == lenght_layer ) { frame[t] = TRUE; continue; }
+
+			frame[t] = FALSE;
+			number_removed++;
 	
 
 
@@ -785,11 +790,11 @@ int sceneCreator(struct  TileObj *tile){
 			//else				printf("TRUE  %ld %ld %ld\n", x_layer[j][i], y_layer[j][i], z_layer[j][i]);
 		}
 	}
-
+	/*
 	x_layer[deep_layers] = (long int *)malloc(sizeof(long int) * number_removed * 4 ); 
 	y_layer[deep_layers] = (long int *)malloc(sizeof(long int) * number_removed * 4 );
 	z_layer[deep_layers] = (long int *)malloc(sizeof(long int) * number_removed * 4 );
-
+	*/
 	tmp_double = (double *)malloc(sizeof(double) * ( size_layers + number_removed * 4 ));
 	memcpy(tmp_double, x_frame, sizeof(double) * size_layers);
 	x_frame	= tmp_double;
@@ -807,6 +812,7 @@ int sceneCreator(struct  TileObj *tile){
 	frame	= tmp_integer;
 
 
+	//printf("Adding filling tiles...\n");
 	for(i = 0, t = size_layers ; i < size_layers; i++){
 		if ( frame[i] != FALSE ) continue;
 
@@ -824,6 +830,7 @@ int sceneCreator(struct  TileObj *tile){
 				x_frame[t] 	= -1.0; 
 				y_frame[t] 	= -1.0;
 				z_frame[t] 	= -1.0;
+				frame[t]	= FALSE;
 
 				for (k = 0; k < lenght_layer ; k++){ if ( ( x_layer[j][k] == x ) && ( y_layer[j][k] == y ) ) break; 	}
 				if ( k != lenght_layer ) continue;
@@ -846,11 +853,12 @@ int sceneCreator(struct  TileObj *tile){
 	
 	}
 	*/
+	
 	// Remove from the list of loaded tile not used 
 		
         pthread_mutex_lock(&mutex);
 	if ( TileList != NULL ){
-		printf("Start Cleanning...\n");
+		//printf("Start Cleanning...\n");
 		for( p = TileList; p != NULL; p = ( p != NULL ) ? p->next : NULL ){
 
 			// Search tile in the frame
@@ -894,7 +902,7 @@ int sceneCreator(struct  TileObj *tile){
 			}
 
 		} 
-		printf("End Cleanning...\n");
+		//printf("End Cleanning...\n");
 	}
         pthread_mutex_unlock(&mutex);
 	
@@ -906,7 +914,7 @@ int sceneCreator(struct  TileObj *tile){
 		if ( frame[i] != TRUE ) continue;
 
 
-		fromXYZtoLatLon(x_frame[i], y_frame[i], z_frame[i], &lat, &lng);
+		if ( fromXYZtoLatLon(x_frame[i], y_frame[i], z_frame[i], &lat, &lng) ) continue;
 
 		p = NULL;
 		p = (struct  TileObj *)malloc(sizeof(struct  TileObj));

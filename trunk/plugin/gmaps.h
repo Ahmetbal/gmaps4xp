@@ -61,10 +61,10 @@ Name:	khm.l.google.com
 Address: 209.85.229.190
 Name:	khm.l.google.com
 Address: 209.85.229.136
-char 	GMapServers[SERVERS_NUMBER][16]	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
 */
 
-char 	GMapServers[SERVERS_NUMBER][16]	= { "209.85.229.91", "209.85.229.93", "209.85.229.190", "209.85.229.136" };
+//char 	GMapServers[SERVERS_NUMBER][16]	= { "209.85.229.91", "209.85.229.93", "209.85.229.190", "209.85.229.136" };
+char 	GMapServers[SERVERS_NUMBER][16]	= { "khm0.google.com", "khm1.google.com", "khm2.google.com", "khm3.google.com" };
 
 XPLMWindowID    gConsole		= NULL;
 XPLMKeyFlags	gFlags			= 0;
