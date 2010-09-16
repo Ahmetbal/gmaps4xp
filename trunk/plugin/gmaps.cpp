@@ -451,6 +451,7 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc ){
 	gPlaneX 	= XPLMFindDataRef("sim/flightmodel/position/local_x");
 	gPlaneY 	= XPLMFindDataRef("sim/flightmodel/position/local_y");
 	gPlaneZ 	= XPLMFindDataRef("sim/flightmodel/position/local_z");
+	gGroundSpeed	= XPLMFindDataRef("sim/flightmodel/position/groundspeed");
 
 	gPlaneHeading	= XPLMFindDataRef("sim/flightmodel/position/psi");
         gPlanePhi	= XPLMFindDataRef("sim/flightmodel/position/phi");
@@ -635,7 +636,7 @@ void *LoadTile( void *ptr ){
 		}
 
 		if ( ( size = downloadItem(handle, tile->url, &image)) == 0 ){
-			fprintf(stderr, "Error: download problem %s\n", tile->url);
+			fprintf(stderr, "Error: download problem %s, %f\n", tile->url, tile->alt);
 			pthread_exit(NULL);
 		}
 		file = fopen(fileout, "wb"); 
@@ -960,12 +961,14 @@ int sceneCreator(struct  TileObj *tile){
 
 
 float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void *inRefcon){
+	int	zoom	= 20;
+
 	XPLMProbeInfo_t outInfo;  
 
 	double 	planeX,		planeY, 	planeZ;
 	double	outLatitude,	outLongitude,	outAltitude;
 	double	terLatitude,	terLongitude,	terAltitude;
-	double	Heading,	Altitude;
+	double	Heading,	Altitude,	Speed;
 
 
 	struct  TileObj *tile = NULL;
@@ -982,6 +985,7 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 	outLongitude	= XPLMGetDataf(gPlaneLon);
 	outAltitude	= XPLMGetDataf(gPlaneAlt);
 	Heading		= XPLMGetDataf(gPlaneHeading);
+	Speed		= XPLMGetDataf(gGroundSpeed);
 
 	outInfo.structSize = sizeof(outInfo);
 	XPLMProbeTerrainXYZ( inProbe, planeX, planeY, planeZ, &outInfo);
@@ -991,10 +995,16 @@ float GMapsMainFunction( float inElapsedSinceLastCall, float inElapsedTimeSinceL
 
 
 	tile = (struct  TileObj *)malloc(sizeof(struct  TileObj));
-	fillTileInfo(tile, outLatitude, outLongitude, Altitude, 20 );
 
+	if ( Altitude 	>= 10.0 ) zoom--;
+
+	if ( Speed	>= 10.0 ) zoom--;
+
+	fillTileInfo(tile, outLatitude, outLongitude, Altitude, zoom );
+	
 
 	if ( ( currentPosition[0] == tile->x ) && ( currentPosition[1] == tile->y ) && ( currentPosition[2] == tile->z ) ) { destroyTile(tile); return 1.0; }
+
 
 	currentPosition[0] = tile->x;
 	currentPosition[1] = tile->y;

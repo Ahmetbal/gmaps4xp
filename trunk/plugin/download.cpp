@@ -50,8 +50,7 @@ int initCurlHandle(CURL    *curl_handle){
 	curl_easy_setopt(curl_handle, CURLOPT_COOKIELIST,	"ALL");  			// Clean cookie list
 	curl_easy_setopt(curl_handle, CURLOPT_COOKIEFILE, 	"");				// Set where store cookie 
 	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER,	headers);			// Modifed header like firefox 3.6
-
-
+	curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT,		TIMEOUT_CONNECTION); 		// set timeout connection
 	res = curl_easy_perform(curl_handle);
 	if (res != CURLE_OK) {
 		fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));

@@ -15,9 +15,10 @@
 #include <curl/types.h>
 #include <curl/easy.h>
 
+#define USER_AGENT              "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
+#define TOKEN_STRING            "mSatelliteToken"
+#define TIMEOUT_CONNECTION      30
 
-#define USER_AGENT		"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
-#define	TOKEN_STRING		"mSatelliteToken"
 
 
 struct MemoryStruct {

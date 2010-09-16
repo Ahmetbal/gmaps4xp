@@ -42,8 +42,6 @@
 #define GMAPS_VERION 		69
 #define LAYER_NMBER		20 
 #define	CACHE_DIR		"./GMapsCache"
-#define USER_AGENT		"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2 GTB7.0"
-#define	TOKEN_STRING		"mSatelliteToken"
 
 #define NOLOADED		0
 #define WAIT			1
@@ -51,7 +49,7 @@
 
 #define	ENABLE			1
 #define	DISABLE			0
-#define	MAX_THREAD_NUMBER	100
+#define	MAX_THREAD_NUMBER	500
 
 
 /*
@@ -78,6 +76,7 @@ double		currentPosition[3]	= {-1.0, -1.0, -1.0};
 XPLMDataRef		gPlaneX;
 XPLMDataRef		gPlaneY;
 XPLMDataRef		gPlaneZ;
+XPLMDataRef		gGroundSpeed;
 XPLMDataRef		gPlaneHeading;
 XPLMDataRef		gPlaneLat;
 XPLMDataRef		gPlaneLon;
