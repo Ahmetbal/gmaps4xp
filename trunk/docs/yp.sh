@@ -1,5 +1,44 @@
 #!/bin/bash
 
+
+GetPagineGialleAddress(){
+        lon="$1"
+        lat="$2"
+
+	z="32768"
+
+	echo "$lat $lon"
+
+	# 0 0 is lat 64 and lon -14
+
+	
+
+
+	cnt="0"
+	while [ "$z" != "1" ] ; do
+		x="$( echo "scale = 6; 32.0 / $lon" | bc | awk -F. {'print $1'} )"
+		y="$( echo "scale = 6; 90.0 / $lat" | bc | awk -F. {'print $1'} )"
+
+		echo "$x $y $z"
+		z="$[ $z / 2 ]"
+		cnt="$[ $cnt + 1 ]"
+	done
+
+}
+
+
+
+GetPagineGialleAddress  11.742726 44.807262
+
+exit 
+
+for y in $( seq  0 3 ) ; do
+	for x in $( seq  0 3 ) ; do
+		wget "http://visualimages4.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=${x}&y=${y}&z=32768&extra=2&ts=256&q=85&rdr=0&sito=visual" -O tile-${x}-${y}.jpg
+	done
+done
+
+
 MercatorToNormal(){                                                                                                                                                                                                                          
         y="$1"
 # Start BC 
@@ -65,43 +104,6 @@ qrst2xyz(){
 
         echo "x=$x&y=$y&zoom=$z"
 }
-
-GetPagineGialleAddress(){
-        lon="$1"
-        lat="$2"
-
-	z="32768"
-
-	echo "$lat $lon"
-
-
-	# From 30 to 69		
-	lat_dim="90"
-	lat_offset="15"
-
-	# From -10 to 35
-	lon_offset="-10"
-	lon_dim="45"
-
-	lat="$( echo "scale = 6; $lat - $lat_offset" | bc )"
-	lon="$( echo "scale = 6; $lon - $lon_offset" | bc )"
-	
-	echo "$lat $lon"
-
-
-	cnt="1"
-	while [ "$z" != "1" ] ; do
-		x="$( echo "scale = 6; ($lon * ($cnt*4) / $lon_dim )" | bc | awk -F. {'print $1'} )"
-		y="$( echo "scale = 6; ($lat * ($cnt*4) / $lat_dim )" | bc | awk -F. {'print $1'} )"
-
-		echo "$x $y $z"
-		z="$[ $z / 2 ]"
-		cnt="$[ $cnt + 1 ]"
-	done
-
-}
-
-
 
 
 

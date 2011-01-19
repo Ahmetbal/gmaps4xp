@@ -41,7 +41,7 @@ MESH_LEVEL="2"
 output_index="0"
 TMPFILE="tmp$$"
 output=()
-
+USER_AGENT="Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13 GTB7.1"
 
 
 point_lat="$1"
@@ -356,9 +356,13 @@ ewget(){
 	fi
 	
 	if [ ! -z "$COOKIES_FILE" ] ; then
-		wget -q --user-agent=Firefox --load-cookies="$COOKIES_FILE" -O "$out" "$url"
+		result="$( wget --user-agent="$USER_AGENT" --load-cookies="$COOKIES_FILE" -O "$out" "$url" 2>&1 )"
 	else
-		wget -q --user-agent=Firefox  -O "$out" "$url"
+		result="$( wget --user-agent="$USER_AGENT"  -O "$out" "$url" 2>&1 )"
+	fi
+	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
+		echo "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
+		exit 2
 	fi
 }
 
@@ -1114,7 +1118,9 @@ upDateServer(){
 	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
 	#server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
 	#server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
+	#server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=76&" "http://${servers_maps[$server_index]}/vt/lyrs=m@142&" )
+	
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
@@ -1511,7 +1517,7 @@ for c2 in ${good_tile[@]} ; do
 	fi
 	if [ ! -f "$tiles_dir/tile-$c2.png" ] ; then
 		upDateServer
-		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$c2" )"  &> /dev/null
+		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$c2" )" 
 		if [ ! -f "$tiles_dir/${TMPFILE}.jpg" ] ; then
 			echo "Elaboration problem!!"
 			exit 6
@@ -1531,7 +1537,7 @@ for c2 in ${good_tile[@]} ; do
 				echo "Try to zoom out one step..."
 				subc2="$( echo "$subc2" | rev | cut -c 2- | rev )"
 
-				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$subc2" )" &> /dev/null
+				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$subc2" )"
 
 				if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
 					blank="$( convert  "$tiles_dir/${TMPFILE}.jpg"   -crop 1x255+0+0 txt:- | grep -v "^#" | grep -i "$SHIT_COLOR"  | wc -l )"
@@ -1549,6 +1555,7 @@ for c2 in ${good_tile[@]} ; do
 				done
 				echo
 				rm -f "$tiles_dir/${TMPFILE}.jpg"
+				upDateServer
 			done
 			if [ -f "$tiles_dir/${TMPFILE}.jpg" ] ; then
 				if  [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
@@ -1563,10 +1570,10 @@ for c2 in ${good_tile[@]} ; do
 					echo "Found tile with less zoom..."
 					convert "$tiles_dir/tile-$subc2-ori.png" -channel RGB -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
 				else
-					echo "Not found file with same zoom... Hole in scenery for tile ${server[0]}$c2 !"
+					echo "Not found file with same zoom... Hole in scenery for tile ${server[0]}$( qrst2xyz "$c2") !"
 				fi
 			else
-				echo "Could dot find file with the same zoom... Hole in scenery for tile ${server[0]}$c2 !"
+				echo "Could dot find file with the same zoom... Hole in scenery for tile ${server[0]}$( qrst2xyz "$c2") !"
 			fi
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
