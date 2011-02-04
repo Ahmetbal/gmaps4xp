@@ -53,7 +53,7 @@ void send_headers(FILE *f, int status, const char *title, const char *extra, con
 
 	now = time(NULL);
 	strftime(timebuf, sizeof(timebuf), RFC1123FMT, gmtime(&now));
-
+	
 			fprintf(f, "%s %d %sr\n",		PROTOCOL, status, title);
 			fprintf(f, "Date: %s\r\n",		timebuf);
 			fprintf(f, "Server: %s\r\n",		SERVER);
@@ -63,6 +63,7 @@ void send_headers(FILE *f, int status, const char *title, const char *extra, con
 	if (length >= 0)fprintf(f, "Content-Length: %d\r\n", 	length);
 	if (extra)	fprintf(f, "%s\r\n", 			extra);
 			fprintf(f, "\r\n");
+	
 
 }
 
@@ -94,7 +95,7 @@ void send_file(FILE *f, char *path){
         Heading		= XPLMGetDataf(gPlaneHeading);
         Speed           = XPLMGetDataf(gGroundSpeed);
 
-	sprintf(data,"<info><plane latitude='%f' longitude='%f' altitude='%'f heading='%f' speed='%f' /></info>\n", Latitude, Longitude, Altitude, Heading, Speed);
+	sprintf(data,"<infos><plane latitude=\"%f\" longitude=\"%f\" altitude=\"%f\" heading=\"%f\" speed=\"%f\" /></infos>", Latitude, Longitude, Altitude, Heading, Speed);
 
 
 	length = strlen(data);
@@ -114,6 +115,7 @@ int process(FILE *f){
 		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	return -1;
 		bzero(buf[i], 4095);
 		if ( !fgets(buf[i], 4096, f) )	return -1;
+		printf("%s", buf[i]);
 		if (( buf[i][0] == '\r' ) && ( buf[i][1] == '\n' )) break; 
 		i++;
 	}
