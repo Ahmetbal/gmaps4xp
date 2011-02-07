@@ -54,7 +54,7 @@ void send_headers(FILE *f, int status, const char *title, const char *extra, con
 	now = time(NULL);
 	strftime(timebuf, sizeof(timebuf), RFC1123FMT, gmtime(&now));
 	
-			fprintf(f, "%s %d %sr\n",		PROTOCOL, status, title);
+			fprintf(f, "%s %d %s\n",		PROTOCOL, status, title);
 			fprintf(f, "Date: %s\r\n",		timebuf);
 			fprintf(f, "Server: %s\r\n",		SERVER);
 			fprintf(f, "Keep-Alive: timeout=15, max=100\r\n");
@@ -84,7 +84,7 @@ void send_file(FILE *f, char *path){
 	double	Altitude	= 0.0;
 	double	Heading		= 0.0;
 	double	Speed		= 0.0;
-	int	length 		= 0;
+	size_t	length 		= 0;
 
 	
 	bzero(data, 4095);
@@ -96,11 +96,10 @@ void send_file(FILE *f, char *path){
         Speed           = XPLMGetDataf(gGroundSpeed);
 
 	sprintf(data,"<infos><plane latitude=\"%f\" longitude=\"%f\" altitude=\"%f\" heading=\"%f\" speed=\"%f\" /></infos>", Latitude, Longitude, Altitude, Heading, Speed);
-
-
 	length = strlen(data);
+
 	send_headers(f, 200, "OK", NULL, "text/xml", length);
-	fwrite(data, 1, length, f);
+	fwrite(data, length, 1, f);
 
 }
 
@@ -115,21 +114,23 @@ int process(FILE *f){
 		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	return -1;
 		bzero(buf[i], 4095);
 		if ( !fgets(buf[i], 4096, f) )	return -1;
-		printf("%s", buf[i]);
-		if (( buf[i][0] == '\r' ) && ( buf[i][1] == '\n' )) break; 
+		if (( buf[i][0] == '\r' ) && ( buf[i][1] == '\n' )) break;
 		i++;
 	}
 	
 	method		= strtok(buf[0], 	" ");
 	path		= strtok(NULL, 		" ");
-	protocol	= strtok(NULL, 		"\n");
+	protocol	= strtok(NULL, 		" ");
 
 
 	if (!method || !path || !protocol) return -1;
+	for (i = 0; i < (int)strlen(protocol); i++ ) protocol[i] = ( ( (int)protocol[i] == 13 ) || ( (int)protocol[i] == 10 ) || ( (int)protocol[i] == 32 ) ) ? '\0' : protocol[i];
 
 	fseek(f, 0, SEEK_CUR); 
 
-	if 	(strcmp(method, "GET") != 0)		send_error(f, 501, "Not supported",  NULL, "Method is not supported.");
+
+	if 	(strcmp(method,  "GET") 	!= 0)	send_error(f, 501, "Not supported",  	NULL, "Method is not supported.");
+	else if (strcmp(protocol, PROTOCOL) 	!= 0)	send_error(f, 404, "Not Found",  	NULL, NULL);
 	else						send_file(f, path);
 	
 	return 0;
