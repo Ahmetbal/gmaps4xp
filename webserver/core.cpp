@@ -113,13 +113,19 @@ void send_file(FILE *f, char *path){
         Altitude	= XPLMGetDataf(gPlaneAlt);
         Heading		= XPLMGetDataf(gPlaneHeading);
         Speed           = XPLMGetDataf(gGroundSpeed);
+	#else
+        Latitude	= 44.81322; 
+        Longitude	= 11.6107;
+        Altitude	= 0.0;
+        Heading		= 0.0; 
+        Speed           = 0.0; 
 	#endif
 
 	sprintf(data,"<infos><plane latitude=\"%f\" longitude=\"%f\" altitude=\"%f\" heading=\"%f\" speed=\"%f\" /></infos>", Latitude, Longitude, Altitude, Heading, Speed);
 	length = strlen(data);
 
 	send_headers(f, 200, "OK", "text/xml", length);
-	printf("Sent: %d\n", fwrite(data, 1, length, f));
+	fwrite(data, 1, length, f);
 	fflush(f);
 
 }
@@ -141,7 +147,7 @@ int process(FILE *f){
 		i++;
 	}
 
-	printf("%s", buf[0]);
+	//printf("%s", buf[0]);
 
 	
 	method		= strtok(buf[0], 	" ");
