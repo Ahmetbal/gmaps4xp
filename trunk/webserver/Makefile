@@ -1,4 +1,4 @@
-all: webserver 
+all: webserver  
 
 clean: clean_webserver
 
@@ -28,6 +28,7 @@ clean_webserver:
 
 webserver:
 	$(MAKE) webserver.xpl TARGET=webserver.xpl CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lpthread"
+	#$(MAKE) webserver.exe TARGET=webserver.exe CC="g++"  LD="g++"  LIBS+="-lpthread"
 
 webserver.xpl: ${OBJS_webserver}
 	${CC} -shared 	${LDFLAGS}	-o webserver.xpl 	${OBJS_webserver} ${LIBS}
