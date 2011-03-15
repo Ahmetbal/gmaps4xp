@@ -1058,6 +1058,7 @@ getDirName(){
 	[ -z "$( echo "${lat%.*}" | tr -d "-" )" ] && lat="$( echo "$lat" | sed -e s/"\."/"0\."/g )"
 	[ "$( echo "$lat > 0" | bc -l )" = 1  ] && lat="+$lat"
 
+	[ "$( echo -n "$lat" | tr -d "+-" | wc -c | awk {'print $1'} )" = "1" ] && lat="$( echo "$lat" | sed -e s/"+"/"+0"/g |  sed -e s/"-"/"-0"/g )"
 
 
 	[  "$( echo "$lon < 0" | bc -l )" = 1 ] && lon="$( echo "scale = 8; $lon - 10.0" | bc -l )"
@@ -1090,6 +1091,9 @@ getDSFName(){
 
 	[ "$( echo "$lat < 0" | bc )" = 1  ] && lat="$( echo "$lat - 1" | bc )"
 	[ "$( echo "$lat > 0" | bc )" = 1  ] && lat="+$lat"
+	
+	[ "$( echo -n "$lat" | tr -d "+-" | wc -c | awk {'print $1'} )" = "1" ] && lat="$( echo "$lat" | sed -e s/"+"/"+0"/g |  sed -e s/"-"/"-0"/g )"
+
 
 	lon="$( echo "$lon" | awk -F. {'print $1'} )"
 	[ -z "$lon" ] && lon="0"
@@ -3063,6 +3067,19 @@ for cursor in ${split_tile[@]} ; do
 	fi
 	split_index=$[ $split_index + 1 ]
 done
+
+
+################################################################################################################################
+
+#
+# Uncomment from following code to enable compatibility with X-Plane 8 (Thanks to Matt)
+#
+
+#echo "Converting tiles..."
+#for i in $tile_dir/*.dds; do
+#	convert -resize 1024x1024 $i ${i/dds/png}
+#done
+
 
 
 ################################################################################################################################
