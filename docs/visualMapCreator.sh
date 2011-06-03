@@ -78,7 +78,7 @@ define latlongxy(e,a,t){
 	h * ${TILE_LEVEL[$zoom]}
 	s
 	r
-
+	
 }
 
 a = latlongxy($lon, $lat, $zone)
@@ -191,7 +191,7 @@ define main(x,y, utmz){
 	lng	= d*(1 + d*d*((-1 -2*t1 -c1)/6 + d*d*(5 - 2*c1 + 28*t1 - 3*c1*c1 +8*e0sq + 24*t1*t1)/120))/c(phi1);
 	lngd	= zcm+lng/drad;
 	lon	= (1000000*lngd)/1000000;
-	print	lat, "," , lon, " "
+	print	lon, "," , lat, " "
 }
 
 r = main($x, $y, $zone)
@@ -201,30 +201,102 @@ EOM
 	done
 }
 
+
+
+downloadTexture(){
+	xoffset="$1"
+	yoffset="$2"
+	LEVEL="$3"
+	cnt="0"
+	for y in $( seq 0  7 ) ; do
+	       yT="$[ $yoffset + $y ]"
+	       for x in $( seq 0  7 ) ; do
+	               xT="$[ $xoffset + $x ]"
+	               echo  "$cnt / 64"
+	               downloadTile "${xT}" "${yT}" "$LEVEL" "raw-${xT}-${yT}.png"
+	               convert -page +$[ 256 * $x  ]+$[ 256 * $y ] "raw-${xT}-${yT}.png" -format PNG32 "tile-${xT}-${yT}.png"
+	               imageList[$cnt]="tile-${xT}-${yT}.png"
+	               rm -f "tmp-${xT}-${yT}.png"
+	               cnt=$[ $cnt + 1 ]
+	       done
+	done
+	convert  -layers mosaic ${imageList[*]} "texture-$xoffset-$yoffset.png"
+	
+
+}
+geoRef 16540 21933 4
+
+pointsTextureLatLng(){
+	xoffset="$1"
+	yoffset="$2"
+	LEVEL="$3"
+	ZUTM="$4"
+	cnt="0"
+	echo $xoffset= $yoffset= $LEVEL= $ZUTM=
+	for y in $( seq 0  7 ) ; do
+		yT="$[ $yoffset + $y ]"
+		for x in $( seq 0  7 ) ; do
+			xT="$[ $xoffset + $x ]"
+			echo geoRef               ${xT} ${yT} $LEVEL
+			GeoTransform=(  $( geoRef       	${xT} ${yT} $LEVEL )            )
+			#UTMimageInfo=(  $( imageGeoInfo 	${GeoTransform[*]} )            )
+			#imageInfo=( 	$( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) 	)
+			#echo "${imageInfo[*]}"
+			cnt=$[ $cnt + 1 ]
+			exit 0
+		done
+	done
+	
+
+}
+
+
 #UL=( 44.854227 11.597803 )
 #LR=( 44.824209 11.636779 )
 #UL=( 44.875188 11.575790 )
 #LR=( 44.849834 11.607900 )
-UL=( 44.906861 11.609939 )
-LR=( 44.671381 11.808416 )
+#UL=( 44.906861 11.609939 )
+#LR=( 44.671381 11.808416 )
 
-
-
+UL=( 44 11 )
+LR=( 42 12 )
 LEVEL="4"
-lat="44.688468"
-lng="11.764775"
-ZUTM="$( echo "scale = 6; ( $lng  + 180   ) / 6 + 1" | bc )"
+
+
+
+
+ZUTM="$( echo "scale = 6; ( ( ${LR[1]} + ${UL[1]} ) / 2  + 180   ) / 6 + 1" | bc )"
 ZUTM="${ZUTM%.*}"
 
+ULxy=( $( getXY ${UL[*]} $LEVEL ) )
+LRxy=( $( getXY ${LR[*]} $LEVEL ) )
+xsize="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
+ysize="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
+xoffset="${ULxy[0]%.*}"
+yoffset="${ULxy[1]%.*}"
+
+# 2048x2048
+# downloadTexture		$xoffset $yoffset $LEVEL
+pointsTextureLatLng 	$xoffset $yoffset $LEVEL $ZUTM
+
+
+
+exit 0
+
+
+lat="44.688468"
+lng="11.764775"
 
 
 point=( 	$( getXY  	$lat $lng $LEVEL ) 	)
 GeoTransform=( 	$( geoRef 	${point[*]} $LEVEL ) 		)
 UTMimageInfo=( 	$( imageGeoInfo ${GeoTransform[*]} ) 		)
 
-imageInfo=( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" )
-echo 
-exit 0
+imageInfo=( $( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) )
+
+
+
+echo "${imageInfo[*]}"
 
 
 
