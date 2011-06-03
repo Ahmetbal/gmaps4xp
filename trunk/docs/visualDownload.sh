@@ -27,9 +27,8 @@ downloadTile(){
 	zcoord="$3"
 	file="$4"
 	server="$[ ( $xcoord % 4 )  + 1 ]"
-	wget -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual"	-O "$file"
-
-	# wget -q "http://visualimages${server}.paginegialle.it/xmlvisual.php/europa.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual&v=1" -O "$file"
+	# wget -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual"		-O "$file"
+	wget -q "http://visualimages${server}.paginegialle.it/xmlvisual.php/europa.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual&v=1" 	-O "$file"
 }
 
 # http://visualimages3.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=1&y=1&z=32768&extra=2&ts=256&q=65&rdr=0&sito=visual
@@ -117,11 +116,14 @@ geoRef(){
 
 #UL=( 44.854227 11.597803 )
 #LR=( 44.824209 11.636779 )
-UL=( 44.875188 11.575790 )
-LR=( 44.849834 11.607900 )
+#UL=( 44.875188 11.575790 )
+#LR=( 44.849834 11.607900 )
+UL=( 44.906861 11.609939 )
+LR=( 44.671381 11.808416 )
 
 
-LEVEL="8"
+
+LEVEL="4"
 
 ULxy=( $( getXY ${UL[*]} $LEVEL ) )
 LRxy=( $( getXY ${LR[*]} $LEVEL ) )
