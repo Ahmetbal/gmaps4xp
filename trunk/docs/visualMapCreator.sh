@@ -22,11 +22,11 @@ TILE_LEVEL[65536]="2"
 
 
 downloadTile(){
-	xcoord="$1"
-	ycoord="$2"
-	zcoord="$3"
-	file="$4"
-	server="$[ ( $xcoord % 4 )  + 1 ]"
+	local xcoord="$1"
+	local ycoord="$2"
+	local zcoord="$3"
+	local file="$4"
+	local server="$[ ( $xcoord % 4 )  + 1 ]"
 	wget -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual"		-O "$file"
 }
 
@@ -35,10 +35,10 @@ downloadTile(){
 # http://visualimages1.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=8432&y=10648&z=8&extra=2&ts=256&q=65&rdr=0&sito=visual
  
 getXY(){
-	lat="$1"
-	lon="$2"
-	zoom="$3"
-	zone="$( echo "scale = 6; ( $lon   + 180   ) / 6 + 1" | bc )"
+	local lat="$1"
+	local lon="$2"
+	local zoom="$3"
+ 	local zone="$( echo "scale = 6; ( $lon   + 180   ) / 6 + 1" | bc )"
 	zone="${zone%.*}"
 
 cat << EOM | bc -l 
@@ -89,21 +89,21 @@ EOM
 
 
 geoRef(){
-	x="$1"
-	y="$2"
-	E="$3"
-	N="$4"
+	local x="$1"
+	local y="$2"
+	local E="$3"
+	local N="$4"
 
-	zoom="$5"
+	local zoom="$5"
 
-	pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]}" | bc )"
+	local pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]}" | bc )"
 	
 
 	x="$( echo "$x" | awk -F. {'print "0."$2'} )"
 	y="$( echo "$y" | awk -F. {'print "0."$2'} )"
 
-	ULx="$( echo "scale = 6; $E - ( $pixelRes * $x )" | bc )"
-	ULy="$( echo "scale = 6; $N + ( $pixelRes * $y )" | bc )"
+	local ULx="$( echo "scale = 6; $E - ( $pixelRes * $x )" | bc )"
+	local ULy="$( echo "scale = 6; $N + ( $pixelRes * $y )" | bc )"
 	pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]} / 256" | bc )"
 
 	echo -n "$ULx, $pixelRes, 0.0, $ULy, 0.0, $pixelRes"
@@ -111,12 +111,12 @@ geoRef(){
 }
 
 imageGeoInfo(){
-	padfGeoTransform=( $( echo "$*" | tr "," " " ) )
+	local padfGeoTransform=( $( echo "$*" | tr "," " " ) )
 
-	dfPixel="128"
-	dfLine="128"
-	pdfGeoX="$( echo "scale = 6; ${padfGeoTransform[0]} + $dfPixel * ${padfGeoTransform[1]} + $dfLine * ${padfGeoTransform[2]}" | bc )"
-	pdfGeoY="$( echo "scale = 6; ${padfGeoTransform[3]} + $dfPixel * ${padfGeoTransform[4]} + $dfLine * ${padfGeoTransform[5]}" | bc )"
+	local dfPixel="128"
+	local dfLine="128"
+	local pdfGeoX="$( echo "scale = 6; ${padfGeoTransform[0]} + $dfPixel * ${padfGeoTransform[1]} + $dfLine * ${padfGeoTransform[2]}" | bc )"
+	local pdfGeoY="$( echo "scale = 6; ${padfGeoTransform[3]} + $dfPixel * ${padfGeoTransform[4]} + $dfLine * ${padfGeoTransform[5]}" | bc )"
 	echo -n "$pdfGeoX,$pdfGeoY "
 
 	dfPixel="0"
@@ -224,26 +224,31 @@ downloadTexture(){
 	
 
 }
-geoRef 16540 21933 4
 
 pointsTextureLatLng(){
-	xoffset="$1"
-	yoffset="$2"
-	LEVEL="$3"
-	ZUTM="$4"
+	local xoffset="$1"
+	local yoffset="$2"
+	local E="$3"
+	local N="$4"
+	local ZUTM="$5"
+	local LEVEL="$6"
+	local xres="$7"
+	local yres="$8"
+
 	cnt="0"
-	echo $xoffset= $yoffset= $LEVEL= $ZUTM=
 	for y in $( seq 0  7 ) ; do
 		yT="$[ $yoffset + $y ]"
 		for x in $( seq 0  7 ) ; do
 			xT="$[ $xoffset + $x ]"
-			echo geoRef               ${xT} ${yT} $LEVEL
-			GeoTransform=(  $( geoRef       	${xT} ${yT} $LEVEL )            )
-			#UTMimageInfo=(  $( imageGeoInfo 	${GeoTransform[*]} )            )
-			#imageInfo=( 	$( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) 	)
-			#echo "${imageInfo[*]}"
+
+			east="$(	echo "scale = 20; $xres * 256 * $x + $E" | bc )"
+			north="$( 	echo "scale = 20; $yres * 256 * $y + $N" | bc )"
+
+			GeoTransform=(  $( geoRef ${xT} ${yT} $east $north $LEVEL )   )
+			UTMimageInfo=(  $( imageGeoInfo 	${GeoTransform[*]} )            )
+			imageInfo=( 	$( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) 	)
+			echo "${imageInfo[*]}"
 			cnt=$[ $cnt + 1 ]
-			exit 0
 		done
 	done
 	
@@ -272,49 +277,37 @@ ULxy=( $( getXY ${UL[*]} $LEVEL ) )
 LRxy=( $( getXY ${LR[*]} $LEVEL ) )
 xsize="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
 ysize="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
-xoffset="${ULxy[0]%.*}"
-yoffset="${ULxy[1]%.*}"
+xsize="$[ ${xsize/-/} - 1 ]"
+ysize="$[ ${ysize/-/} - 1 ]"
 
-# 2048x2048
-# downloadTexture		$xoffset $yoffset $LEVEL
-pointsTextureLatLng 	$xoffset $yoffset $LEVEL $ZUTM
+xstart="${ULxy[0]%.*}"
+ystart="${ULxy[1]%.*}"
 
+
+geoStart=( 	$( getXY 	${UL[*]} 	$LEVEL ) 	)
+GeoTransform=( 	$( geoRef 	${geoStart[*]} 	$LEVEL ) 	)
+
+
+for y in $( seq 0 8 $ysize ) ; do
+	for x in $( seq 0 8 $xsize ) ; do
+		# 2048x2048
+		# downloadTexture		$xoffset $yoffset $LEVEL
+
+		xoffset="$[ $xstart + $x ]"
+		yoffset="$[ $ystart + $y ]"
+		east="$(	echo "scale = 20; ${GeoTransform[1]/,/} * 256 * $x + ${geoStart[2]}" | bc )"
+		north="$( 	echo "scale = 20; ${GeoTransform[5]/,/} * 256 * $y + ${geoStart[3]}" | bc )"
+
+		point=( $xoffset $yoffset $east $north )
+		pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransform[1]/,/} ${GeoTransform[5]/,/}
+		exit
+	done
+done
 
 
 exit 0
 
 
-lat="44.688468"
-lng="11.764775"
-
-
-point=( 	$( getXY  	$lat $lng $LEVEL ) 	)
-GeoTransform=( 	$( geoRef 	${point[*]} $LEVEL ) 		)
-UTMimageInfo=( 	$( imageGeoInfo ${GeoTransform[*]} ) 		)
-
-imageInfo=( $( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) )
-
-
-
-echo "${imageInfo[*]}"
-
-
-
-
-downloadTile ${point[0]%.*} ${point[1]%.*} "$LEVEL" "tmp.png"
-
-exit
-
-
-xoffset="${ULxy[0]%.*}"
-yoffset="${ULxy[1]%.*}"
-
- 
-yT="$[ $yoffset + $y ]"
-xT="$[ $xoffset + $x ]"
- 
- 
- 
  
 
 
