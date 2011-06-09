@@ -570,6 +570,13 @@ ZUTM="${ZUTM%.*}"
 
 ULxy=( $( getXY ${UL[*]} $LEVEL ) )
 LRxy=( $( getXY ${LR[*]} $LEVEL ) )
+
+
+# 13723.25101555891372982272 22689.35084891281885298688 255466.98059949764000542437 4765182.92750310975742263764
+# 16540.51900923035460075520 21933.44691970205869703168 660349.41053324106144621975 4873817.32804392311746190367
+
+
+
 xsize="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
 ysize="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
 xsize="$[ ${xsize/-/} - 1 ]"
@@ -585,27 +592,28 @@ dsfName="$( getDSFName ${UL[*]} )"
 dsfFileOpen ${UL[*]} ${LR[*]} 	> "$dsfPath/${dsfName}_header.txt"
 echo -n				> "$dsfPath/${dsfName}_body.txt" 
 
-geoStart=( 	$( getXY 	${UL[*]} 	$LEVEL ) 	)
-GeoTransform=( 	$( geoRef 	${geoStart[*]} 	$LEVEL ) 	)
+geoStart=( 	$( getXY 	${UL[*]}		$LEVEL ) 	)
+GeoTransform=( 	$( geoRef 	${geoStart[*]} 		$LEVEL ) 	)
 
 
 p="1"
-for y in $( seq $ysize -8 0 ) ; do
+for y in $( seq 0 8 $ysize ) ; do
 	for x in $( seq 0 8 $xsize ) ; do
 		# 2048x2048
 		xoffset="$[ $xstart + $x ]"
-		yoffset="$[ $ystart + $y ]"
+		yoffset="$[ $ystart - $y ]"
 		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
 		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
 
 
-		east="$(	echo "scale = 20; ${GeoTransform[1]/,/} * 256 * $x + ${geoStart[2]}" | bc )"
-		north="$( 	echo "scale = 20; ${GeoTransform[5]/,/} * 256 * $y + ${geoStart[3]}" | bc )"
+		east="$(	echo "scale = 20; ${geoStart[2]} + ${GeoTransform[1]/,/} * 256 * $x" | bc )"
+		north="$( 	echo "scale = 20; ${geoStart[3]} - ${GeoTransform[5]/,/} * 256 * $y" | bc )"
 		point=( $xoffset $yoffset $east $north )
+
 		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransform[1]/,/} ${GeoTransform[5]/,/} ) >> "$dsfPath/${dsfName}_body.txt"
 		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"								>> "$dsfPath/${dsfName}_header.txt"
 		p="$[ $p + 1 ]"
-
+		
 		[ "$p" -eq "2" ] && break
 	done
 	[ "$p" -eq "2" ] && break
