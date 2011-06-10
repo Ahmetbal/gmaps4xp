@@ -32,8 +32,8 @@ log(){
 #UL=( 44.906861 11.609939 )
 #LR=( 44.671381 11.808416 )
 
-UL=( 44 11 )
-LR=( 43 12 )
+UL=( 45 11 )
+LR=( 44 12 )
 LEVEL="4"
 OUTPUT_DIR="$1"
 
@@ -345,7 +345,7 @@ downloadTexture(){
 	               xT="$[ $xoffset + $x ]"
 	               log "$cnt / 64"
 	               downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png"
-	               convert -page +$[ 256 * $x  ]+$[ 256 * $y ] "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" -format PNG32 "$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
+	               convert -page +$[ 256 * $x  ]+$[ 256 * $y ] "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" -channel RGB -format PNG32 "$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
 	               imageList[$cnt]="$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
 	               rm -f "$OUTPUT_DIR/tmp/tmp-${xT}-${yT}.png"
 	               cnt=$[ $cnt + 1 ]
@@ -374,8 +374,8 @@ pointsTextureLatLng(){
 		for x in $( seq 0  7 ) ; do
 			xT="$[ $xoffset + $x ]"
 
-			east="$(	echo "scale = 20; $xres * 256 * $x + $E" | bc )"
-			north="$( 	echo "scale = 20; $yres * 256 * $y + $N" | bc )"
+			east="$(	echo "scale = 20; $E + $xres * 256 * $x" | bc )"
+			north="$( 	echo "scale = 20; $N - $yres * 256 * $y" | bc )"
 
 			GeoTransform=(  $( geoRef ${xT} ${yT} $east $north $LEVEL )   )
 			UTMimageInfo=(  $( imageGeoInfo 	${GeoTransform[*]} )            )
@@ -397,7 +397,7 @@ cat > "${file/.png/.ter}" << EOF
 A
 800
 TERRAIN
-BASE_TEX_NOWRAP ter/$name
+BASE_TEX_NOWRAP ../images/$name
 EOF
 
 }
@@ -444,10 +444,11 @@ dsfFileWrite(){
 		local ystart="${token[$y]}"
 
 		CC=( ${CC[*]} $( echo "scale = 6; $xstart + $xsize / 2" 	| bc ) $( echo "scale = 6; $ystart + $ysize / 2" 	| bc ) )
-		LL=( ${LL[*]} $( echo "scale = 6; $xstart" 			| bc ) $( echo "scale = 6; $ystart + $ysize" 		| bc ) )
-                LR=( ${LR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart + $ysize" 		| bc ) )
-                UR=( ${UR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart" 			| bc ) )
-		UL=( ${UL[*]} $( echo "scale = 6; $xstart"			| bc ) $( echo "scale = 6; $ystart" 			| bc ) )
+		LL=( ${LL[*]} $( echo "scale = 6; $xstart" 			| bc ) $( echo "scale = 6; $ystart"	 		| bc ) )
+                UR=( ${UR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart + $ysize" 		| bc ) )
+                LR=( ${LR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart"	 		| bc ) )
+		UL=( ${UL[*]} $( echo "scale = 6; $xstart"			| bc ) $( echo "scale = 6; $ystart + $ysize"		| bc ) )
+
 
 		CC=( $( checkTheDot ${CC[*]} ) )
 		LL=( $( checkTheDot ${LL[*]} ) )
@@ -455,19 +456,46 @@ dsfFileWrite(){
 		UR=( $( checkTheDot ${UR[*]} ) )
 		UL=( $( checkTheDot ${UL[*]} ) )
 
+		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
 
-		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} ${UL[3]} ${UL[4]}"
-		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} ${UR[3]} ${UR[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} ${CC[3]} ${CC[4]}"
-		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} ${UR[3]} ${UR[4]}"
-		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} ${LR[3]} ${LR[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} ${CC[3]} ${CC[4]}"
-		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} ${LR[3]} ${LR[4]}"
-		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} ${LL[3]} ${LL[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} ${CC[3]} ${CC[4]}"
-		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} ${LL[3]} ${LL[4]}"
-		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} ${UL[3]} ${UL[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+
+
+
+# PATCH_VERTEX -118.0  32.0  0    0 0     0  0
+# PATCH_VERTEX -117.75 32.25 0    0 0     1  1
+# PATCH_VERTEX -117.75 32.0  0    0 0     1  0
+# PATCH_VERTEX -118.0  32.0  0    0 0     0  0
+# PATCH_VERTEX -118.0  32.25 0    0 0     0  1
+# PATCH_VERTEX -117.75 32.25 0    0 0     1  1
+
+
+# PATCH_VERTEX 11 44      0.0 0 0 0 0
+# PATCH_VERTEX 12 45      0.0 0 0 1 1
+# PATCH_VERTEX 12 44      0.0 0 0 1 0
+# 
+# PATCH_VERTEX 11 44      0.0 0 0 0 0
+# PATCH_VERTEX 11 45      0.0 0 0 0 1
+# PATCH_VERTEX 12 45      0.0 0 0 1 1
+ 
+
+
+#		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+#		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+#		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+#		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
 	
 		i="$[ $i + 1 ]"
 	echo 
@@ -526,6 +554,7 @@ A
 800
 DSF2TEXT
 
+PROPERTY sim/creation_agent $( basename $0 )
 PROPERTY sim/west ${args[1]}
 PROPERTY sim/east ${args[3]}
 PROPERTY sim/north ${args[0]}
@@ -540,8 +569,8 @@ EOF
 
 dsfFileClose(){
 	local args=( $* )
-	file="$OUTPUT_DIR/Earth nav data/$( getDirName ${args[0]} ${args[1]} )/$( getDSFName ${args[0]} ${args[1]} )"
-	log "Merging $( getDirName ${args[0]} ${args[1]} )/$( getDSFName ${args[0]} ${args[1]} ) ..."
+	file="$OUTPUT_DIR/Earth nav data/$( getDirName ${args[2]} ${args[1]} )/$( getDSFName ${args[2]} ${args[1]} )"
+	log "Merging $( getDirName ${args[2]} ${args[1]} )/$( getDSFName ${args[2]} ${args[1]} ) ..."
 	cat "${file}_header.txt"
 cat << EOF
 
@@ -585,8 +614,8 @@ ysize="$[ ${ysize/-/} - 1 ]"
 xstart="${ULxy[0]%.*}"
 ystart="${ULxy[1]%.*}"
 
-dsfPath="$OUTPUT_DIR/Earth nav data/$( getDirName ${UL[*]} )" ; [ ! -d "$dsfPath" ] && mkdir -p "$dsfPath"
-dsfName="$( getDSFName ${UL[*]} )"
+dsfPath="$OUTPUT_DIR/Earth nav data/$( getDirName ${LR[0]} ${UL[1]} )" ; [ ! -d "$dsfPath" ] && mkdir -p "$dsfPath"
+dsfName="$( getDSFName ${LR[0]} ${UL[1]} )"
 
 
 dsfFileOpen ${UL[*]} ${LR[*]} 	> "$dsfPath/${dsfName}_header.txt"
@@ -597,8 +626,8 @@ GeoTransform=( 	$( geoRef 	${geoStart[*]} 		$LEVEL ) 	)
 
 
 p="1"
-for y in $( seq 0 8 $ysize ) ; do
-	for x in $( seq 0 8 $xsize ) ; do
+for y in 16 ; do #$( seq 0 8 $ysize ) ; do
+	for x in 16 ; do #$( seq 0 8 $xsize ) ; do
 		# 2048x2048
 		xoffset="$[ $xstart + $x ]"
 		yoffset="$[ $ystart - $y ]"
