@@ -598,15 +598,16 @@ for y in $( seq 0 8 $ysize ) ; do
 		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $x) * ${GeoTransform[1]} + (256 * $y) * ${GeoTransform[2]}" | bc )"
 		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $x) * ${GeoTransform[4]} + (256 * $y) * ${GeoTransform[5]}" | bc )"
 
+
 		point=( $xoffset $yoffset $east $north )
 
 		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransform[1]} ${GeoTransform[5]} )	>> "$dsfPath/${dsfName}_body.txt"
 		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"								>> "$dsfPath/${dsfName}_header.txt"
 		p="$[ $p + 1 ]"
 		
-		[ "$p" -eq "2" ] && break
+		[ "$p" -eq "3" ] && break
 	done
-	[ "$p" -eq "2" ] && break
+	[ "$p" -eq "3" ] && break
 done
 
 
