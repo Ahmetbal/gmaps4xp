@@ -370,12 +370,13 @@ pointsTextureLatLng(){
 	log "Generating texture vertex coordintaes for $xoffset $yoffset ..."
 	cnt="0"
 	for y in $( seq 0  7 ) ; do
-		yT="$[ $yoffset - $y ]"
+		yT="$[ $yoffset + $y ]"
 		for x in $( seq 0  7 ) ; do
 			xT="$[ $xoffset + $x ]"
 
 			east="$(	echo "scale = 20; $E + $xres * 256 * $x" | bc )"
-			north="$( 	echo "scale = 20; $N - $yres * 256 * $y" | bc )"
+			north="$( 	echo "scale = 20; $N + $yres * 256 * $y" | bc )"
+
 
 			GeoTransform=(  $( geoRef ${xT} ${yT} $east $north $LEVEL )   )
 			UTMimageInfo=(  $( imageGeoInfo 	${GeoTransform[*]} )            )
@@ -414,8 +415,8 @@ dsfFileWrite(){
 	local args=( $* )
 
 	n="8"
-	xtoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 ) )
-	ytoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 ) )
+	xtoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 		 ) )
+	ytoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 | sort -r ) )
 
 	xsize="${xtoken[1]}"
 	ysize="${xtoken[1]}"
@@ -447,10 +448,10 @@ dsfFileWrite(){
 		local ystart="${ytoken[$y]}"
 
 		CC=( ${CC[*]} $( echo "scale = 6; $xstart + $xsize / 2" 	| bc ) $( echo "scale = 6; $ystart - $ysize / 2" 	| bc ) )
-		LL=( ${LL[*]} $( echo "scale = 6; $xstart" 			| bc ) $( echo "scale = 6; $ystart"	 		| bc ) )
-                UR=( ${UR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart - $ysize" 		| bc ) )
-                LR=( ${LR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart"	 		| bc ) )
-		UL=( ${UL[*]} $( echo "scale = 6; $xstart"			| bc ) $( echo "scale = 6; $ystart - $ysize"		| bc ) )
+		LL=( ${LL[*]} $( echo "scale = 6; $xstart" 			| bc ) $( echo "scale = 6; $ystart - $ysize"		| bc ) )
+		UL=( ${UL[*]} $( echo "scale = 6; $xstart"			| bc ) $( echo "scale = 6; $ystart"			| bc ) )
+                UR=( ${UR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart"	 		| bc ) )
+                LR=( ${LR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart - $ysize" 		| bc ) )
 
 
 		CC=( $( checkTheDot ${CC[*]} ) )
@@ -459,14 +460,14 @@ dsfFileWrite(){
 		UR=( $( checkTheDot ${UR[*]} ) )
 		UL=( $( checkTheDot ${UL[*]} ) )
 
-		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-
-		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-
+#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+#		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+#
+#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+#		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+#
 
 
 # PATCH_VERTEX -118.0  32.0  0    0 0     0  0
@@ -487,18 +488,18 @@ dsfFileWrite(){
  
 
 
-#		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
-#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
-#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-#		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
-#		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
-#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-#		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
-#		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
 	
 		i="$[ $i + 1 ]"
 	echo 
@@ -580,23 +581,26 @@ echo -n				> "$dsfPath/${dsfName}_body.txt"
 
 geoStart=( 	$( getXY 	${UL[*]}		$LEVEL ) 	)
 GeoTransform=( 	$( geoRef 	${geoStart[*]} 		$LEVEL ) 	)
+GeoTransform=( ${GeoTransform[*]/,/} )
 
 
 p="1"
-for y in 16 ; do #$( seq 0 8 $ysize ) ; do
+for y in $( seq 0 8 $ysize ) ; do
 	yoffset="$[ $ystart + $y ]"
-	for x in 16 ; do #$( seq 0 8 $xsize ) ; do
+	for x in $( seq 0 8 $xsize ) ; do
 		# 2048x2048
 		xoffset="$[ $xstart + $x ]"
 		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
 		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
 
 
-		east="$(	echo "scale = 20; ${geoStart[2]} + ${GeoTransform[1]/,/} * 256 * $x" | bc )"
-		north="$( 	echo "scale = 20; ${geoStart[3]} + ${GeoTransform[5]/,/} * 256 * $y" | bc )"
+		
+		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $x) * ${GeoTransform[1]} + (256 * $y) * ${GeoTransform[2]}" | bc )"
+		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $x) * ${GeoTransform[4]} + (256 * $y) * ${GeoTransform[5]}" | bc )"
+
 		point=( $xoffset $yoffset $east $north )
 
-		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransform[1]/,/} ${GeoTransform[5]/,/} ) >> "$dsfPath/${dsfName}_body.txt"
+		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransform[1]} ${GeoTransform[5]} )	>> "$dsfPath/${dsfName}_body.txt"
 		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"								>> "$dsfPath/${dsfName}_header.txt"
 		p="$[ $p + 1 ]"
 		
