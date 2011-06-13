@@ -34,7 +34,7 @@ log(){
 
 UL=( 45 11 )
 LR=( 44 12 )
-LEVEL="4"
+LEVEL="64"
 OUTPUT_DIR="$1"
 
 log "Directory Tree creation ..."
@@ -75,7 +75,7 @@ getXY(){
 	local lon="$2"
 	local zoom="$3"
  	local zone="$( echo "scale = 6; ( $lon   + 180   ) / 6 + 1" | bc )"
-	zone="${zone%.*}"
+	local zone="${zone%.*}"
 
 cat << EOM | bc -l 
 mapwidthlevel1pixel 	= 33554432
@@ -125,8 +125,8 @@ EOM
 
 
 getDirName(){
-        lat="$1"
-        lon="$2"
+        local lat="$1"
+        local lon="$2"
         [ -z "$lat" ] && log "getDirName Latitude is empty"     && exit 1
         [ -z "$lon" ] && log "getDirName Longitude is empty"    && exit 1
 
@@ -134,7 +134,7 @@ getDirName(){
 
         [  "$( echo "$lat < 0" | bc -l )" = 1 ] && lat="$( echo "scale = 8; $lat - 10.0" | bc -l )"
 
-        int="${lat%.*}"
+        local int="${lat%.*}"
         [ -z "$int" ] && int="0"
         lat="$( echo  "$int - ( $int % 10 )" | bc )"
         [ -z "$( echo "${lat%.*}" | tr -d "-" )" ] && lat="$( echo "$lat" | sed -e s/"\."/"0\."/g )"
@@ -145,7 +145,7 @@ getDirName(){
 
         [  "$( echo "$lon < 0" | bc -l )" = 1 ] && lon="$( echo "scale = 8; $lon - 10.0" | bc -l )"
 
-        int="${lon%.*}"
+        local int="${lon%.*}"
         [ -z "$int" ] && int="0"
         lon="$( echo  "$int - ( $int % 10 )" | bc )"
         [ -z "$( echo "${lon%.*}" | tr -d "-" )" ] && lon="$( echo "$lon" | sed -e s/"\."/"0\."/g )"
@@ -162,8 +162,8 @@ getDirName(){
 }
 
 getDSFName(){
-        lat="$1"
-        lon="$2"
+        local lat="$1"
+        local lon="$2"
         [ -z "$lat" ] && log "getDSFName Latitude is empty"     && exit 1
         [ -z "$lon" ] && log "getDSFName Longitude is empty"    && exit 1
 
@@ -209,12 +209,12 @@ geoRef(){
 	local pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]}" | bc )"
 	
 
-	x="$( echo "$x" | awk -F. {'print "0."$2'} )"
-	y="$( echo "$y" | awk -F. {'print "0."$2'} )"
+	local x="$( echo "$x" | awk -F. {'print "0."$2'} )"
+	local y="$( echo "$y" | awk -F. {'print "0."$2'} )"
 
 	local ULx="$( echo "scale = 6; $E - ( $pixelRes * $x )" | bc )"
 	local ULy="$( echo "scale = 6; $N + ( $pixelRes * $y )" | bc )"
-	pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]} / 256" | bc )"
+	local pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]} / 256" | bc )"
 
 	echo -n "$ULx, $pixelRes, 0.0, $ULy, 0.0, -$pixelRes"
 
@@ -267,11 +267,10 @@ imageGeoInfo(){
 
 
 imageGeoInfoToLatLng(){
-	args=( $* )
+	local args=( $* )
+	local zone="${args[0]}"
 
-	zone="${args[0]}"
-
-	cnt="1"
+	local cnt="1"
 	while [ ! -z "${args[$cnt]}" ] ; do
 		x="${args[$cnt]%,*}"
 		y="${args[$cnt]#*,}"
@@ -312,7 +311,7 @@ define main(x,y, utmz){
 	lon	= (1000000*lngd)/1000000;
 
 
-	/*
+	/*	
 	if ( lat > ${UL[0]} ) lat = i(lat);
 	if ( lat < ${LR[0]} ) lat = i(lat) + 1;
 
@@ -332,11 +331,14 @@ EOM
 
 
 downloadTexture(){
-	xoffset="$1"
-	yoffset="$2"
-	LEVEL="$3"
-	file="$4"
-	cnt="0"
+	local xoffset="$1"
+	local yoffset="$2"
+	local LEVEL="$3"
+	local file="$4"
+	local cnt="0"
+	local x=""
+	local y=""
+
 	[ -f "$file" ] && return
 	log "Downloading texture for $xoffset $yoffset ..."
 	for y in $( seq 0  7 ) ; do
@@ -358,28 +360,31 @@ downloadTexture(){
 
 }
 
+
 pointsTextureLatLng(){
 	local xoffset="$1"
 	local yoffset="$2"
-	local E="$3"
-	local N="$4"
-	local ZUTM="$5"
-	local LEVEL="$6"
-	local xres="$7"
-	local yres="$8"
+	local ZUTM="$3"
+	local LEVEL="$4"
+	local padfGeoTransform=( ${5} ${6} ${7} ${8} ${9} ${10} )
+	local x=""
+	local y=""
+
+
 	log "Generating texture vertex coordintaes for $xoffset $yoffset ..."
-	cnt="0"
+	local cnt="0"
 	for y in $( seq 0  7 ) ; do
 		yT="$[ $yoffset + $y ]"
 		for x in $( seq 0  7 ) ; do
 			xT="$[ $xoffset + $x ]"
 
-			east="$(	echo "scale = 20; $E + $xres * 256 * $x" | bc )"
-			north="$( 	echo "scale = 20; $N + $yres * 256 * $y" | bc )"
 
+			local east="$(  echo "scale = 6; ${padfGeoTransform[0]} + (256 * $x) * ${padfGeoTransform[1]} + (256 * $y) * ${padfGeoTransform[2]}" | bc )"
+			local north="$( echo "scale = 6; ${padfGeoTransform[3]} + (256 * $x) * ${padfGeoTransform[4]} + (256 * $y) * ${padfGeoTransform[5]}" | bc )"
+			padfGeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
 
-			GeoTransform=(  $( geoRef ${xT} ${yT} $east $north $LEVEL )   )
-			UTMimageInfo=(  $( imageGeoInfo 	${GeoTransform[*]} )            )
+			#GeoTransform=(  $( geoRef ${xT} ${yT} $east $north $LEVEL )   )
+			UTMimageInfo=(  $( imageGeoInfo 	${padfGeoTransformNew[*]} )     )
 			imageInfo=( 	$( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) 	)
 
 			echo "${imageInfo[*]}"
@@ -390,9 +395,9 @@ pointsTextureLatLng(){
 }
 
 createTerFile(){
-	file="$1"
+	local file="$1"
 	[ -f "${file/.png/.ter}" ] && return
-	name="$( basename "$file")"
+	local name="$( basename "$file")"
 	log "Creating Ter file for $name ..."	
 cat > "${file/.png/.ter}" << EOF
 A
@@ -414,22 +419,24 @@ checkTheDot(){
 dsfFileWrite(){
 	local args=( $* )
 
-	n="8"
-	xtoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 		 ) )
-	ytoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 | sort -r ) )
+	local n="8"
+	local xtoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 		 ) )
+	local ytoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 | sort -r ) )
 
-	xsize="${xtoken[1]}"
-	ysize="${xtoken[1]}"
-	patchNum="$1"
+	local xsize="${xtoken[1]}"
+	local ysize="${xtoken[1]}"
+	local patchNum="$1"
 
 	local CC=()
 	local LL=()
 	local LR=()
 	local UR=()
 	local UL=()
+	local x=""
+	local y=""
 
-	cnt="1"
-	i="0"
+	local cnt="1"
+	local i="0"
 
 	echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
 	echo "BEGIN_PRIMITIVE 0"
@@ -589,6 +596,7 @@ for y in $( seq 0 8 $ysize ) ; do
 	yoffset="$[ $ystart + $y ]"
 	for x in $( seq 0 8 $xsize ) ; do
 		# 2048x2048
+		log "$x / $xsize, $y / $ysize ..."
 		xoffset="$[ $xstart + $x ]"
 		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
 		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
@@ -598,22 +606,19 @@ for y in $( seq 0 8 $ysize ) ; do
 		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $x) * ${GeoTransform[1]} + (256 * $y) * ${GeoTransform[2]}" | bc )"
 		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $x) * ${GeoTransform[4]} + (256 * $y) * ${GeoTransform[5]}" | bc )"
 
+		point=( $xoffset $yoffset )
+	
+		GeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
 
-		point=( $xoffset $yoffset $east $north )
-
-		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransform[1]} ${GeoTransform[5]} )	>> "$dsfPath/${dsfName}_body.txt"
-		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"								>> "$dsfPath/${dsfName}_header.txt"
+		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransformNew[*]} )	>> "$dsfPath/${dsfName}_body.txt"
+		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"						>> "$dsfPath/${dsfName}_header.txt"
 		p="$[ $p + 1 ]"
 		
-		[ "$p" -eq "3" ] && break
 	done
-	[ "$p" -eq "3" ] && break
 done
 
 
 dsfFileClose ${UL[*]} ${LR[*]} > "$dsfPath/${dsfName}.txt"
-exit
-
 
 
 exit 0
