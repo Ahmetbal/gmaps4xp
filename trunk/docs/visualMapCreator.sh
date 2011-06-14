@@ -374,16 +374,12 @@ pointsTextureLatLng(){
 	log "Generating texture vertex coordintaes for $xoffset $yoffset ..."
 	local cnt="0"
 	for y in $( seq 0  7 ) ; do
-		yT="$[ $yoffset + $y ]"
 		for x in $( seq 0  7 ) ; do
-			xT="$[ $xoffset + $x ]"
-
-
 			local east="$(  echo "scale = 6; ${padfGeoTransform[0]} + (256 * $x) * ${padfGeoTransform[1]} + (256 * $y) * ${padfGeoTransform[2]}" | bc )"
 			local north="$( echo "scale = 6; ${padfGeoTransform[3]} + (256 * $x) * ${padfGeoTransform[4]} + (256 * $y) * ${padfGeoTransform[5]}" | bc )"
+
 			padfGeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
 
-			#GeoTransform=(  $( geoRef ${xT} ${yT} $east $north $LEVEL )   )
 			UTMimageInfo=(  $( imageGeoInfo 	${padfGeoTransformNew[*]} )     )
 			imageInfo=( 	$( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) 	)
 
@@ -571,10 +567,14 @@ ULxy=( $( getXY ${UL[*]} $LEVEL ) )
 LRxy=( $( getXY ${LR[*]} $LEVEL ) )
 
 
-xsize="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
-ysize="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
-xsize="$[ ${xsize/-/} - 1 ]"
-ysize="$[ ${ysize/-/} - 1 ]"
+xdim="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
+ydim="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
+
+xdim="$[ ${xdim/-/} - 1 ]"
+ydim="$[ ${ydim/-/} - 1 ]"
+
+xdim="24"
+ydim="24"
 
 xstart="${ULxy[0]%.*}"
 ystart="${ULxy[1]%.*}"
@@ -586,35 +586,53 @@ dsfName="$( getDSFName ${LR[0]} ${UL[1]} )"
 dsfFileOpen ${UL[*]} ${LR[*]} 	> "$dsfPath/${dsfName}_header.txt"
 echo -n				> "$dsfPath/${dsfName}_body.txt" 
 
-geoStart=( 	$( getXY 	${UL[*]}		$LEVEL ) 	)
+geoStart=( 	 	$( getXY 			${UL[*]}		$LEVEL ) )
+geoStartUTM=( 	 	$( geoRef			${geoStart[*]}		$LEVEL ) )
+geoStartLatLong=( 	$( imageGeoInfoToLatLng 	$ZUTM			"${geoStartUTM[0]/,/},${geoStartUTM[3]/,/}" | tr "," " " ) )
+
+xfirst="0"
+yfirst="0"
+
+[ "$( echo "${geoStartLatLong[0]} < ${UL[1]}" | bc )" = "1" ] && xfirst="8"
+[ "$( echo "${geoStartLatLong[1]} > ${UL[0]}" | bc )" = "1" ] && yfirst="8" 
+
+
 GeoTransform=( 	$( geoRef 	${geoStart[*]} 		$LEVEL ) 	)
 GeoTransform=( ${GeoTransform[*]/,/} )
 
+log "Upper left coordinates: ${GeoTransform[0]}E ${GeoTransform[3]}N, Zone: $ZUTM, Resolution: ${GeoTransform[1]} / ${GeoTransform[5]} ..."
+
 
 p="1"
-for y in $( seq 0 8 $ysize ) ; do
-	yoffset="$[ $ystart + $y ]"
-	for x in $( seq 0 8 $xsize ) ; do
+for Y in $( seq $yfirst 8 $ydim ) ; do
+	yoffset="$[ $ystart + $Y ]"
+	for X in $( seq $xfirst 8 $xdim ) ; do
 		# 2048x2048
-		log "$x / $xsize, $y / $ysize ..."
-		xoffset="$[ $xstart + $x ]"
+		log "$X / $xdim, $Y / $ydim ..."
+		xoffset="$[ $xstart + $X ]"
 		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
 		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
 
 
 		
-		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $x) * ${GeoTransform[1]} + (256 * $y) * ${GeoTransform[2]}" | bc )"
-		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $x) * ${GeoTransform[4]} + (256 * $y) * ${GeoTransform[5]}" | bc )"
+		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
+		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
+		imageGeoInfoToLatLng $ZUTM "$east,$north"
 
+
+		echo
 		point=( $xoffset $yoffset )
 	
 		GeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
 
 		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransformNew[*]} )	>> "$dsfPath/${dsfName}_body.txt"
 		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"						>> "$dsfPath/${dsfName}_header.txt"
+[ "$p" -ge "5" ] && break
 		p="$[ $p + 1 ]"
 		
 	done
+[ "$p" -ge "5" ] && break
+
 done
 
 
