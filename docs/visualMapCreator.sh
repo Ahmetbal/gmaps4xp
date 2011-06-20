@@ -32,25 +32,20 @@ log(){
 #UL=( 44.906861 11.609939 )
 #LR=( 44.671381 11.808416 )
 
-UL=( 45 11 )
-LR=( 44 12 )
+UpperLeftLat="45"
+UpperLeftLon="11"
+
+UL=( $UpperLeftLat $UpperLeftLon )
+LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
 LEVEL="64"
 OUTPUT_DIR="$1"
-
+tolerance="1"
 log "Directory Tree creation ..."
 
 [ ! -d "$OUTPUT_DIR" ] 		&& mkdir "$OUTPUT_DIR"
 [ ! -d "$OUTPUT_DIR/images" ] 	&& mkdir "$OUTPUT_DIR/images"
 [ ! -d "$OUTPUT_DIR/ter" ] 	&& mkdir "$OUTPUT_DIR/ter"
 [ ! -d "$OUTPUT_DIR/tmp" ] 	&& mkdir "$OUTPUT_DIR/tmp"
-
-
-
-
-
-
-
-
 
 
 
@@ -270,6 +265,10 @@ imageGeoInfoToLatLng(){
 	local args=( $* )
 	local zone="${args[0]}"
 
+	scale="$[ $( echo "${tolerance#*.}" | wc -c ) - $( echo "${tolerance#*.}" | sed -e s/^0*//g  | wc -c ) + 2 ]"
+	scale="${scale/-/}"
+	[ -z "$scale" ] && scale="20"
+
 	local cnt="1"
 	while [ ! -z "${args[$cnt]}" ] ; do
 		x="${args[$cnt]%,*}"
@@ -278,6 +277,7 @@ cat << EOM | bc -l
 define i(xt) 		{  auto s ; s = scale; scale = 0; xt /= 1; scale = s; return (xt); }
 scale = 20
 define tan(xt) 		{ xt = s(xt) / c(xt); return (xt); }
+define abs(xt) 		{ if ( xt < 0 ) xt = xt * -1.0; return (xt); }
 define pow(at,bt)	{ xt = e(l(at) * bt); return (xt); }
 define main(x,y, utmz){
 	drad	= 4*a(1) / 180
@@ -311,13 +311,26 @@ define main(x,y, utmz){
 	lon	= (1000000*lngd)/1000000;
 
 
-	/*	
-	if ( lat > ${UL[0]} ) lat = i(lat);
-	if ( lat < ${LR[0]} ) lat = i(lat) + 1;
+	latd = lat - i(lat); 
+	lond = lon - i(lon); 
 
-	if ( lon < ${UL[1]} ) lon = i(lon) + 1;
-	if ( lon > ${LR[1]} ) lon = i(lon);
-	*/
+	if ( latd > 0.5 ) { 
+		latd = 1.0 - latd;
+		nlat = lat + 1.0; 
+	} else 	nlat = lat;
+
+	if ( lond > 0.5 ) {
+		lond = 1.0 - lond;
+		nlon = lon + 1.0;
+	} else  nlon = lon;
+	
+	if ( abs( latd ) < $tolerance )  lat = i(nlat);
+	if ( abs( lond ) < $tolerance )  lon = i(nlon);
+	scale = $scale;
+
+	lon /= 1;
+	lat /= 1;
+	
 	print	lon, "," , lat, " "
 }
 
@@ -491,6 +504,12 @@ dsfFileWrite(){
  
 
 
+		t=( $( echo "${UL[0]%.*} ${UR[0]%.*} ${LR[0]%.*} ${LL[0]%.*}" | tr " " "\n" | sort -u ) )
+		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
+		t=( $( echo "${UL[1]%.*} ${UR[1]%.*} ${LR[1]%.*} ${LL[1]%.*}" | tr " " "\n" | sort -u ) )
+		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
+
+
 		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
 		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
 		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
@@ -537,7 +556,9 @@ dsfFileClose(){
 	local args=( $* )
 	file="$OUTPUT_DIR/Earth nav data/$( getDirName ${args[2]} ${args[1]} )/$( getDSFName ${args[2]} ${args[1]} )"
 	log "Merging $( getDirName ${args[2]} ${args[1]} )/$( getDSFName ${args[2]} ${args[1]} ) ..."
-	cat "${file}_header.txt"
+	# 45 11 44 12
+
+	cat "${file}_header.txt" 
 cat << EOF
 
 BEGIN_PATCH 0   0.0 -1.0    1   5
@@ -602,37 +623,48 @@ GeoTransform=( ${GeoTransform[*]/,/} )
 
 log "Upper left coordinates: ${GeoTransform[0]}E ${GeoTransform[3]}N, Zone: $ZUTM, Resolution: ${GeoTransform[1]} / ${GeoTransform[5]} ..."
 
+tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} ) / 2 / 1000" | bc )"
 
 p="1"
-for Y in $( seq $yfirst 8 $ydim ) ; do
+
+Y="$yfirst"
+while : ; do 
+	X="$xfirst"
 	yoffset="$[ $ystart + $Y ]"
-	for X in $( seq $xfirst 8 $xdim ) ; do
+	northNext="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * ($Y+8)) * ${GeoTransform[5]}" | bc )"
+	eastNext="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * ($Y+8)) * ${GeoTransform[2]}" | bc )"
+	latlonNext=( $( imageGeoInfoToLatLng $ZUTM "$eastNext,$northNext" | tr "," " " ) )
+	[ "$( echo "${latlonNext[1]} < ${LR[0]}" | bc )" = "1" ] && break
+	[ "$( echo "${latlonNext[1]} > ${UL[0]}" | bc )" = "1" ] && continue
+
+	while : ; do 
+		northNext="$( echo "scale = 6; ${GeoTransform[3]} + (256 * ($X+8)) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
+		eastNext="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * ($X+8)) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
+		latlonNext=( $( imageGeoInfoToLatLng $ZUTM "$eastNext,$northNext" | tr "," " " ) )
+		[ "$( echo "${latlonNext[0]} > ${LR[1]}" | bc )" = "1" ] && break
+		[ "$( echo "${latlonNext[0]} < ${UL[1]}" | bc )" = "1" ] && continue
+
 		# 2048x2048
-		log "$X / $xdim, $Y / $ydim ..."
+		log "$X, $Y ..."
 		xoffset="$[ $xstart + $X ]"
 		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
 		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
 
-
-		
-		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
 		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
-		imageGeoInfoToLatLng $ZUTM "$east,$north"
+		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
 
-
-		echo
 		point=( $xoffset $yoffset )
 	
 		GeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
 
 		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransformNew[*]} )	>> "$dsfPath/${dsfName}_body.txt"
 		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"						>> "$dsfPath/${dsfName}_header.txt"
-[ "$p" -ge "5" ] && break
-		p="$[ $p + 1 ]"
-		
-	done
-[ "$p" -ge "5" ] && break
 
+		p="$[ $p + 1 ]"
+		X="$[ $X + 8 ]"
+
+	done
+	Y="$[ $Y + 8 ]"
 done
 
 
