@@ -235,7 +235,7 @@ imageGeoInfo(){
 
 
 	# Upper right
-	dfPixel="255"
+	dfPixel="256"
 	dfLine="0"
 	pdfGeoX="$( echo "scale = 6; ${padfGeoTransform[0]} + $dfPixel * ${padfGeoTransform[1]} + $dfLine * ${padfGeoTransform[2]}" | bc )"
 	pdfGeoY="$( echo "scale = 6; ${padfGeoTransform[3]} + $dfPixel * ${padfGeoTransform[4]} + $dfLine * ${padfGeoTransform[5]}" | bc )"
@@ -243,15 +243,15 @@ imageGeoInfo(){
 
 
 	# Lower right
-	dfPixel="255"
-	dfLine="255"
+	dfPixel="256"
+	dfLine="256"
 	pdfGeoX="$( echo "scale = 6; ${padfGeoTransform[0]} + $dfPixel * ${padfGeoTransform[1]} + $dfLine * ${padfGeoTransform[2]}" | bc )"
 	pdfGeoY="$( echo "scale = 6; ${padfGeoTransform[3]} + $dfPixel * ${padfGeoTransform[4]} + $dfLine * ${padfGeoTransform[5]}" | bc )"
 	echo -n "$pdfGeoX,$pdfGeoY "
 
 	# Lower left
 	dfPixel="0"
-	dfLine="255"
+	dfLine="256"
 	pdfGeoX="$( echo "scale = 6; ${padfGeoTransform[0]} + $dfPixel * ${padfGeoTransform[1]} + $dfLine * ${padfGeoTransform[2]}" | bc )"
 	pdfGeoY="$( echo "scale = 6; ${padfGeoTransform[3]} + $dfPixel * ${padfGeoTransform[4]} + $dfLine * ${padfGeoTransform[5]}" | bc )"
 	echo -n "$pdfGeoX,$pdfGeoY"
@@ -373,6 +373,13 @@ downloadTexture(){
 
 }
 
+# 0 CC
+# 1 UL
+# 2 UR
+# 3 LR
+# 4 LL
+
+
 
 pointsTextureLatLng(){
 	local xoffset="$1"
@@ -397,6 +404,7 @@ pointsTextureLatLng(){
 			imageInfo=( 	$( imageGeoInfoToLatLng "$ZUTM" "${UTMimageInfo[*]}" ) 	)
 
 			echo "${imageInfo[*]}"
+
 			cnt=$[ $cnt + 1 ]
 		done
 	done
@@ -408,6 +416,8 @@ createTerFile(){
 	[ -f "${file/.png/.ter}" ] && return
 	local name="$( basename "$file")"
 	log "Creating Ter file for $name ..."	
+
+# LOAD_CENTER 42.70321 -72.34234 4000 1024
 cat > "${file/.png/.ter}" << EOF
 A
 800
@@ -450,16 +460,18 @@ dsfFileWrite(){
 	echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
 	echo "BEGIN_PRIMITIVE 0"
 	while [ ! -z "${args[$cnt]}" ] ; do			
+	
+		x="$[ $i % $n ]"
+		y="$[ $i / $n ]"
+
+
 		CC=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
 		UL=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
 		UR=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
 		LR=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
 		LL=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
-		
-		
-		x="$[ $i % $n ]"
-		y="$[ $i / $n ]"
 
+		
 		local xstart="${xtoken[$x]}"
 		local ystart="${ytoken[$y]}"
 
@@ -476,52 +488,25 @@ dsfFileWrite(){
 		UR=( $( checkTheDot ${UR[*]} ) )
 		UL=( $( checkTheDot ${UL[*]} ) )
 
-#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-#		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-#
-#		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-#		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-#		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
-#
-
-
-# PATCH_VERTEX -118.0  32.0  0    0 0     0  0
-# PATCH_VERTEX -117.75 32.25 0    0 0     1  1
-# PATCH_VERTEX -117.75 32.0  0    0 0     1  0
-# PATCH_VERTEX -118.0  32.0  0    0 0     0  0
-# PATCH_VERTEX -118.0  32.25 0    0 0     0  1
-# PATCH_VERTEX -117.75 32.25 0    0 0     1  1
-
-
-# PATCH_VERTEX 11 44      0.0 0 0 0 0
-# PATCH_VERTEX 12 45      0.0 0 0 1 1
-# PATCH_VERTEX 12 44      0.0 0 0 1 0
-# 
-# PATCH_VERTEX 11 44      0.0 0 0 0 0
-# PATCH_VERTEX 11 45      0.0 0 0 0 1
-# PATCH_VERTEX 12 45      0.0 0 0 1 1
- 
-
-
 		t=( $( echo "${UL[0]%.*} ${UR[0]%.*} ${LR[0]%.*} ${LL[0]%.*}" | tr " " "\n" | sort -u ) )
 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
 		t=( $( echo "${UL[1]%.*} ${UR[1]%.*} ${LR[1]%.*} ${LL[1]%.*}" | tr " " "\n" | sort -u ) )
 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
 
+		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
+		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
+		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
+		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
+		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
 
-		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
-		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
-		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
-		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
-		echo "PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[2]} 0 0 ${LR[3]} ${LR[4]}"
-		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
-		echo "PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[2]} 0 0 ${LL[3]} ${LL[4]}"
-		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
-		echo "PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
+
 	
 		i="$[ $i + 1 ]"
 	echo 
@@ -546,8 +531,12 @@ PROPERTY sim/north ${args[0]}
 PROPERTY sim/south ${args[2]}
 PROPERTY sim/planet earth
 
-TERRAIN_DEF terrain_Water
 EOF
+
+#TERRAIN_DEF terrain_Water
+#EOF
+
+
 
 }
 
@@ -625,7 +614,7 @@ log "Upper left coordinates: ${GeoTransform[0]}E ${GeoTransform[3]}N, Zone: $ZUT
 
 tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} ) / 2 / 1000" | bc )"
 
-p="1"
+p="0"
 
 Y="$yfirst"
 while : ; do 
