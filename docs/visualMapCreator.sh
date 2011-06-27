@@ -501,10 +501,10 @@ dsfFileWrite(){
 		done
 
 
-# 		t=( $( echo "${UL[0]%.*} ${UR[0]%.*} ${LR[0]%.*} ${LL[0]%.*}" | tr " " "\n" | sort -u ) )
-# 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
-# 		t=( $( echo "${UL[1]%.*} ${UR[1]%.*} ${LR[1]%.*} ${LL[1]%.*}" | tr " " "\n" | sort -u ) )
-# 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
+ 		t=( $( echo "${UL[0]%.*} ${UR[0]%.*} ${LR[0]%.*} ${LL[0]%.*}" | tr " " "\n" | sort -u ) )
+ 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
+ 		t=( $( echo "${UL[1]%.*} ${UR[1]%.*} ${LR[1]%.*} ${LL[1]%.*}" | tr " " "\n" | sort -u ) )
+ 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
 
 
 
