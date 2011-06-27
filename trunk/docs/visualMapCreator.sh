@@ -343,7 +343,7 @@ define main(x,y, utmz){
 r = main($x, $y, $zone)
 
 EOM
-		cnt="$[ $cnt + 1 ]"
+		((cnt++))
 	done
 }
 
@@ -411,7 +411,7 @@ pointsTextureLatLng(){
 
 			echo "${imageInfo[*]}"
 
-			cnt=$[ $cnt + 1 ]
+			((cnt++))
 		done
 	done
 
@@ -487,11 +487,11 @@ dsfFileWrite(){
 
 
 		for j in {0..4} ; do
-			[ "${CC[$j]}" = "0" ] && CC[$j]="0.000000"
-			[ "${LL[$j]}" = "0" ] && LL[$j]="0.000000"
-			[ "${UL[$j]}" = "0" ] && UL[$j]="0.000000"
-			[ "${UR[$j]}" = "0" ] && UR[$j]="0.000000"
-			[ "${LR[$j]}" = "0" ] && LR[$j]="0.000000"
+# 			[ "${CC[$j]}" = "0" ] && CC[$j]="0.000000"
+# 			[ "${LL[$j]}" = "0" ] && LL[$j]="0.000000"
+# 			[ "${UL[$j]}" = "0" ] && UL[$j]="0.000000"
+# 			[ "${UR[$j]}" = "0" ] && UR[$j]="0.000000"
+# 			[ "${LR[$j]}" = "0" ] && LR[$j]="0.000000"
 
 			[ -z "$( echo "${CC[$j]%.*}" | tr -d "-" )" ] && CC[$j]=${CC[$j]/./0.} 
 			[ -z "$( echo "${LL[$j]%.*}" | tr -d "-" )" ] && LL[$j]=${LL[$j]/./0.} 
@@ -523,7 +523,7 @@ dsfFileWrite(){
 
 
 	
-		i="$[ $i + 1 ]"
+		((i++))
 	echo 
 	done
 	echo "END_PRIMITIVE"
