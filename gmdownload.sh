@@ -1118,13 +1118,14 @@ getDSFName(){
 
 upDateServer(){
 	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
-	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
-	#server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
-	#server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
-	#server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
-	#server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=76&" "http://${servers_maps[$server_index]}/vt/lyrs=m@142&" )
-	
+	# server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
+	# server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=76&" "http://${servers_maps[$server_index]}/vt/lyrs=m@142&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=88&" "http://${servers_maps[$server_index]}/vt/lyrs=m@156000000&" )
+
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
