@@ -37,7 +37,7 @@ UpperLeftLon="11"
 
 UL=( $UpperLeftLat $UpperLeftLon )
 LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
-LEVEL="64"
+LEVEL="16"
 OUTPUT_DIR="$1"
 tolerance="1"
 log "Directory Tree creation ..."
@@ -47,9 +47,7 @@ log "Directory Tree creation ..."
 [ ! -d "$OUTPUT_DIR/ter" ] 	&& mkdir "$OUTPUT_DIR/ter"
 [ ! -d "$OUTPUT_DIR/tmp" ] 	&& mkdir "$OUTPUT_DIR/tmp"
 
-
-
-
+WD="$( cd $( dirname $0 ); pwd )"
 
 
 downloadTile(){
@@ -58,13 +56,21 @@ downloadTile(){
 	local zcoord="$3"
 	local file="$4"
 	local server="$[ ( $xcoord % 4 )  + 1 ]"
-	wget -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual"		-O "$file"
+	pid="1"
+	while [ "$pid" -ne "0" ] ;  do
+		wget --timeout=10 -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual" -O "$file"
+		pid="$?"
+		[ "$pid" -ne "0" ] && log "Unable to download retry in 10 seconds ..."
+		sleep 10
+	done
 }
 
 # http://visualimages3.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=1&y=1&z=32768&extra=2&ts=256&q=65&rdr=0&sito=visual
 # http://visualimages3.paginegialle.it/xmlvisual.php/europa.imgi?cmd=tile&format=jpeg&x=8422&y=10628&z=8&extra=2&ts=256&q=60&rdr=0&sito=visual&v=1
 # http://visualimages1.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=8432&y=10648&z=8&extra=2&ts=256&q=65&rdr=0&sito=visual
- 
+# ftp://xftp.jrc.it/pub/srtmV4/tiff/srtm_39_04.zip
+
+
 getXY(){
 	local lat="$1"
 	local lon="$2"
@@ -354,9 +360,9 @@ downloadTexture(){
 
 	[ -f "$file" ] && return
 	log "Downloading texture for $xoffset $yoffset ..."
-	for y in $( seq 0  7 ) ; do
+	for y in {0..7} ; do
 	       yT="$[ $yoffset + $y ]"
-	       for x in $( seq 0  7 ) ; do
+	       for x in {0..7} ; do
 	               xT="$[ $xoffset + $x ]"
 	               log "$cnt / 64"
 	               downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png"
@@ -393,8 +399,8 @@ pointsTextureLatLng(){
 
 	log "Generating texture vertex coordintaes for $xoffset $yoffset ..."
 	local cnt="0"
-	for y in $( seq 0  7 ) ; do
-		for x in $( seq 0  7 ) ; do
+	for y in {0..7} ; do
+		for x in {0..7} ; do
 			local east="$(  echo "scale = 6; ${padfGeoTransform[0]} + (256 * $x) * ${padfGeoTransform[1]} + (256 * $y) * ${padfGeoTransform[2]}" | bc )"
 			local north="$( echo "scale = 6; ${padfGeoTransform[3]} + (256 * $x) * ${padfGeoTransform[4]} + (256 * $y) * ${padfGeoTransform[5]}" | bc )"
 
@@ -427,14 +433,6 @@ EOF
 
 }
 
-checkTheDot(){
-	for i in $* ; do
-		[ "$i" = "0" ]				 && echo -n "0.000000 "				&& continue
-		[ -z "$( echo "${i%.*}" | tr -d "-" )" ] && echo -n "$i " | sed -e s/"\."/"0\."/g 	&& continue
-		echo -n "$i "
-	done
-}
-
 dsfFileWrite(){
 	local args=( $* )
 
@@ -457,6 +455,7 @@ dsfFileWrite(){
 	local cnt="1"
 	local i="0"
 
+	srtm="srtm_39_04.tif"
 	echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
 	echo "BEGIN_PRIMITIVE 0"
 	while [ ! -z "${args[$cnt]}" ] ; do			
@@ -464,34 +463,50 @@ dsfFileWrite(){
 		x="$[ $i % $n ]"
 		y="$[ $i / $n ]"
 
+ 		CC=( ${args[$cnt]/,/ } ) ; cnt="$[ $cnt + 1 ]"
+ 		UL=( ${args[$cnt]/,/ } ) ; cnt="$[ $cnt + 1 ]"
+ 		UR=( ${args[$cnt]/,/ } ) ; cnt="$[ $cnt + 1 ]"
+ 		LR=( ${args[$cnt]/,/ } ) ; cnt="$[ $cnt + 1 ]"
+ 		LL=( ${args[$cnt]/,/ } ) ; cnt="$[ $cnt + 1 ]"
+ 
+ 		CC[${#CC[*]}]="$( $WD/dem/getalt $WD/dem/$srtm ${CC[*]} )"
+ 		UL[${#UL[*]}]="$( $WD/dem/getalt $WD/dem/$srtm ${UL[*]} )"
+ 		UR[${#UR[*]}]="$( $WD/dem/getalt $WD/dem/$srtm ${UR[*]} )"
+ 		LR[${#LR[*]}]="$( $WD/dem/getalt $WD/dem/$srtm ${LR[*]} )"
+ 		LL[${#LL[*]}]="$( $WD/dem/getalt $WD/dem/$srtm ${LL[*]} )"
+ 		
+ 		local xstart="${xtoken[$x]}"
+ 		local ystart="${ytoken[$y]}"
+ 
+ 
+                CC[${#CC[*]}]="$( echo "scale = 6; $xstart + $xsize / 2"         | bc )"; CC[${#CC[*]}]="$( echo "scale = 6; $ystart - $ysize / 2"        | bc )" 
+                LL[${#LL[*]}]="$( echo "scale = 6; $xstart"                      | bc )"; LL[${#LL[*]}]="$( echo "scale = 6; $ystart - $ysize"            | bc )" 
+                UL[${#UL[*]}]="$( echo "scale = 6; $xstart"                      | bc )"; UL[${#UL[*]}]="$( echo "scale = 6; $ystart"                     | bc )" 
+                UR[${#UR[*]}]="$( echo "scale = 6; $xstart + $xsize"             | bc )"; UR[${#UR[*]}]="$( echo "scale = 6; $ystart"                     | bc )" 
+                LR[${#LR[*]}]="$( echo "scale = 6; $xstart + $xsize"             | bc )"; LR[${#LR[*]}]="$( echo "scale = 6; $ystart - $ysize"            | bc )" 
 
-		CC=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
-		UL=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
-		UR=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
-		LR=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
-		LL=( ${args[$cnt]/,/ } 0.0 ) ; cnt="$[ $cnt + 1 ]"
 
-		
-		local xstart="${xtoken[$x]}"
-		local ystart="${ytoken[$y]}"
+		for j in {0..4} ; do
+			[ "${CC[$j]}" = "0" ] && CC[$j]="0.000000"
+			[ "${LL[$j]}" = "0" ] && LL[$j]="0.000000"
+			[ "${UL[$j]}" = "0" ] && UL[$j]="0.000000"
+			[ "${UR[$j]}" = "0" ] && UR[$j]="0.000000"
+			[ "${LR[$j]}" = "0" ] && LR[$j]="0.000000"
 
-		CC=( ${CC[*]} $( echo "scale = 6; $xstart + $xsize / 2" 	| bc ) $( echo "scale = 6; $ystart - $ysize / 2" 	| bc ) )
-		LL=( ${LL[*]} $( echo "scale = 6; $xstart" 			| bc ) $( echo "scale = 6; $ystart - $ysize"		| bc ) )
-		UL=( ${UL[*]} $( echo "scale = 6; $xstart"			| bc ) $( echo "scale = 6; $ystart"			| bc ) )
-                UR=( ${UR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart"	 		| bc ) )
-                LR=( ${LR[*]} $( echo "scale = 6; $xstart + $xsize" 		| bc ) $( echo "scale = 6; $ystart - $ysize" 		| bc ) )
+			[ -z "$( echo "${CC[$j]%.*}" | tr -d "-" )" ] && CC[$j]=${CC[$j]/./0.} 
+			[ -z "$( echo "${LL[$j]%.*}" | tr -d "-" )" ] && LL[$j]=${LL[$j]/./0.} 
+			[ -z "$( echo "${UL[$j]%.*}" | tr -d "-" )" ] && UL[$j]=${UL[$j]/./0.} 
+			[ -z "$( echo "${UR[$j]%.*}" | tr -d "-" )" ] && UR[$j]=${UR[$j]/./0.} 
+			[ -z "$( echo "${LR[$j]%.*}" | tr -d "-" )" ] && LR[$j]=${LR[$j]/./0.} 
+		done
 
 
-		CC=( $( checkTheDot ${CC[*]} ) )
-		LL=( $( checkTheDot ${LL[*]} ) )
-		LR=( $( checkTheDot ${LR[*]} ) )
-		UR=( $( checkTheDot ${UR[*]} ) )
-		UL=( $( checkTheDot ${UL[*]} ) )
+# 		t=( $( echo "${UL[0]%.*} ${UR[0]%.*} ${LR[0]%.*} ${LL[0]%.*}" | tr " " "\n" | sort -u ) )
+# 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
+# 		t=( $( echo "${UL[1]%.*} ${UR[1]%.*} ${LR[1]%.*} ${LL[1]%.*}" | tr " " "\n" | sort -u ) )
+# 		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
 
-		t=( $( echo "${UL[0]%.*} ${UR[0]%.*} ${LR[0]%.*} ${LL[0]%.*}" | tr " " "\n" | sort -u ) )
-		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
-		t=( $( echo "${UL[1]%.*} ${UR[1]%.*} ${LR[1]%.*} ${LL[1]%.*}" | tr " " "\n" | sort -u ) )
-		[ "${#t[*]}" -gt "1" ] && i="$[ $i + 1 ]" && continue
+
 
 		echo "PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}"
 		echo "PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[2]} 0 0 ${UR[3]} ${UR[4]}"
@@ -548,20 +563,20 @@ dsfFileClose(){
 	# 45 11 44 12
 
 	cat "${file}_header.txt" 
-cat << EOF
-
-BEGIN_PATCH 0   0.0 -1.0    1   5
-BEGIN_PRIMITIVE 0
-PATCH_VERTEX ${args[1]} ${args[2]} 0   0 0
-PATCH_VERTEX ${args[3]} ${args[0]} 0   0 0
-PATCH_VERTEX ${args[3]} ${args[2]} 0   0 0
-PATCH_VERTEX ${args[1]} ${args[2]} 0   0 0
-PATCH_VERTEX ${args[1]} ${args[0]} 0   0 0
-PATCH_VERTEX ${args[3]} ${args[0]} 0   0 0
-END_PRIMITIVE
-END_PATCH
-
-EOF
+# cat << EOF
+# 
+# BEGIN_PATCH 0   0.0 -1.0    1   5
+# BEGIN_PRIMITIVE 0
+# PATCH_VERTEX ${args[1]} ${args[2]} 0   0 0
+# PATCH_VERTEX ${args[3]} ${args[0]} 0   0 0
+# PATCH_VERTEX ${args[3]} ${args[2]} 0   0 0
+# PATCH_VERTEX ${args[1]} ${args[2]} 0   0 0
+# PATCH_VERTEX ${args[1]} ${args[0]} 0   0 0
+# PATCH_VERTEX ${args[3]} ${args[0]} 0   0 0
+# END_PRIMITIVE
+# END_PATCH
+# 
+# EOF
 
 	cat "${file}_body.txt"
 
