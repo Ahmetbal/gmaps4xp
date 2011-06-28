@@ -60,8 +60,7 @@ downloadTile(){
 	while [ "$pid" -ne "0" ] ;  do
 		wget --timeout=10 -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual" -O "$file"
 		pid="$?"
-		[ "$pid" -ne "0" ] && log "Unable to download retry in 10 seconds ..."
-		sleep 10
+		[ "$pid" -ne "0" ] && log "Unable to download retry in 10 seconds ..." && sleep 10
 	done
 }
 
@@ -372,7 +371,7 @@ downloadTexture(){
 	               cnt=$[ $cnt + 1 ]
 	       done
 	done
-	convert  -layers mosaic ${imageList[*]} "$file"
+	convert -channel ALL -normalize -layers mosaic ${imageList[*]} "$file"
 	rm -f "$OUTPUT_DIR/tmp/tile-"*
 	echo -n "$file"
 	
