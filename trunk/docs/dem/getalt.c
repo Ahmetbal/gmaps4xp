@@ -5,6 +5,7 @@
 #include <gdal.h>
 
 int main(int argc, char **argv){
+	int i;
 	GDALDatasetH    hSrcDS;
 	GDALRasterBandH hBandSrc;
 	int             pxSizeX         	= 0;
@@ -26,8 +27,6 @@ int main(int argc, char **argv){
 		return 1;
 	}
 
-	lon = atof(argv[2]);
-	lat = atof(argv[3]);
 
 	if ( (hSrcDS = GDALOpen( argv[1], GA_ReadOnly )) == NULL ){
 		printf("Unable open src file %s\n", argv[1]);
@@ -45,21 +44,27 @@ int main(int argc, char **argv){
 	        printf("Problem with inversion of matrix\n");
 	        return 3;
 	}
-
-	GDALApplyGeoTransform(revfGeoTransform, lon, lat, &x, &y);
-	pxSizeX = GDALGetRasterXSize(hSrcDS);
-	pxSizeY = GDALGetRasterYSize(hSrcDS);
-	if ( x < 0 ) 		return 5;
-	if ( y < 0 ) 		return 5;
-	if ( x >= pxSizeX ) 	return 5;
-	if ( y >= pxSizeX ) 	return 5;
-	
+	pxSizeX	 = GDALGetRasterXSize(hSrcDS);
+	pxSizeY  = GDALGetRasterYSize(hSrcDS);
         hBandSrc = GDALGetRasterBand( hSrcDS, 1 );
 
-	GDALRasterIO( hBandSrc, GF_Read, (int)x, (int)y, 1, 1, &value, 1, 1, GDT_Int16, 0, 0);
-	if ( value == -32768 ) { printf("0\n"); return 0; } // Water
 
-	printf("%d\n", value);
+	for ( i = 2; i < argc; i+=2){
+		lon = atof(argv[i]);
+		lat = atof(argv[i+1]);
 
+		GDALApplyGeoTransform(revfGeoTransform, lon, lat, &x, &y);
+		if ( x < 0 ) 		return 5;
+		if ( y < 0 ) 		return 5;
+		if ( x >= pxSizeX ) 	return 5;
+		if ( y >= pxSizeX ) 	return 5;
+		
+
+		GDALRasterIO( hBandSrc, GF_Read, (int)x, (int)y, 1, 1, &value, 1, 1, GDT_Int16, 0, 0);
+		if ( value == -32768 ) value = 0; // Water
+
+		printf("%d ", value);
+	}
+	printf("\n");
 	return 0;
 }
