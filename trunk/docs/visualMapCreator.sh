@@ -32,8 +32,13 @@ log(){
 #UL=( 44.906861 11.609939 )
 #LR=( 44.671381 11.808416 )
 
+#UpperLeftLat="45"
+#UpperLeftLon="11"
+
 UpperLeftLat="45"
-UpperLeftLon="11"
+UpperLeftLon="12"
+
+
 
 UL=( $UpperLeftLat $UpperLeftLon )
 LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
@@ -297,13 +302,13 @@ define main(x,y, utmz){
 	mu	= m / (a*(1 - esq * ( 1/4 + esq * ( 3/64 + 5*esq/256))));
 	phi1	= mu + e1*(3/2 - 27*e1*e1/32)* s(2*mu) + e1*e1*(21/16 -55*e1*e1/32) * s(4*mu);
 	phi1	= phi1 + e1*e1*e1*(s(6*mu)*151/96 + e1*s(8*mu)*1097/512);
-	c1 	= e0sq * pow(c(phi1),2);
-	t1 	= pow(tan(phi1),2);
-	n1 	= a / sqrt(1 - pow(e*s(phi1),2));
-	r1 	= n1*(1-e*e)/(1-pow(e*s(phi1),2));
+	c1 	= e0sq * c(phi1) * c(phi1);
+	t1 	= tan(phi1) * tan(phi1);
+	n1 	= a / sqrt(1 - ((e*s(phi1)) * e*s(phi1)) );
+	r1 	= n1*(1-e*e)/ (1- (e*s(phi1) * e*s(phi1)) );
 	d 	= (x-500000)/(n1*k0);
 	phi	= (d*d)*(1/2 - d*d*(5 + 3*t1 + 10*c1 - 4*c1*c1 - 9*e0sq)/24);
-	phi	= phi + pow(d,6)*(61 + 90*t1 + 298*c1 + 45*t1*t1 -252*e0sq - 3*c1*c1)/720;
+	phi	= phi + d*d*d*d*d*d*(61 + 90*t1 + 298*c1 + 45*t1*t1 -252*e0sq - 3*c1*c1)/720;
 	phi	= phi1 - (n1*tan(phi1)/r1)*phi;
 	lat 	= ( 1000000 * phi / drad)/1000000;
 	lng	= d*(1 + d*d*((-1 -2*t1 -c1)/6 + d*d*(5 - 2*c1 + 28*t1 - 3*c1*c1 +8*e0sq + 24*t1*t1)/120))/c(phi1);
@@ -343,6 +348,7 @@ EOM
 		((cnt++))
 	done
 }
+
 
 downloadTexture(){
 	local xoffset="$1"
@@ -613,6 +619,7 @@ tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} 
 p="0"
 
 Y="$yfirst"
+
 while : ; do 
 	X="$xfirst"
 	yoffset="$[ $ystart + $Y ]"
