@@ -32,23 +32,26 @@ log(){
 #UL=( 44.906861 11.609939 )
 #LR=( 44.671381 11.808416 )
 
-#UpperLeftLat="45"
-#UpperLeftLon="11"
 
-UpperLeftLat="45"
-UpperLeftLon="12"
+if [ -z "$3" ] ; then
+	echo "Usage $(basename $0) UpperLeftLat UpperLeftLon OutputDirectory"
+	exit 1
+fi
 
+UpperLeftLat="$1"
+UpperLeftLon="$2"
 
 
 UL=( $UpperLeftLat $UpperLeftLon )
 LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
 LEVEL="16"
-OUTPUT_DIR="$1"
+OUTPUT_DIR="$3"
 tolerance="1"
 log "Directory Tree creation ..."
 
 [ ! -d "$OUTPUT_DIR" ] 		&& mkdir "$OUTPUT_DIR"
 [ ! -d "$OUTPUT_DIR/images" ] 	&& mkdir "$OUTPUT_DIR/images"
+[ ! -d "$OUTPUT_DIR/dds" ] 	&& mkdir "$OUTPUT_DIR/dds"
 [ ! -d "$OUTPUT_DIR/ter" ] 	&& mkdir "$OUTPUT_DIR/ter"
 [ ! -d "$OUTPUT_DIR/tmp" ] 	&& mkdir "$OUTPUT_DIR/tmp"
 
@@ -62,10 +65,12 @@ downloadTile(){
 	local file="$4"
 	local server="$[ ( $xcoord % 4 )  + 1 ]"
 	pid="1"
+	[ -f "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" ] && return
 	while [ "$pid" -ne "0" ] ;  do
 		wget --timeout=10 -q "http://visualimages${server}.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=png&x=${xcoord}&y=${ycoord}&z=${zcoord}&extra=2&ts=256&q=100&rdr=0&sito=visual" -O "$file"
 		pid="$?"
-		[ "$pid" -ne "0" ] && log "Unable to download retry in 10 seconds ..." && sleep 10
+		sec="$[ 1 + $RANDOM % 10 ]"
+		[ "$pid" -ne "0" ] && log "Unable to download retry in $sec seconds ..." && sleep $sec
 	done
 }
 
@@ -75,20 +80,74 @@ downloadTile(){
 # ftp://xftp.jrc.it/pub/srtmV4/tiff/srtm_39_04.zip
 
 
+getLongZone(){
+	longitude="$1"
+cat << EOM   | bc
+	scale 		= 6;
+	longitude 	= $longitude;
+	longzone	= 0;
+
+	if ( longitude < 0.0 ){
+		longzone = ((180.0 + longitude) / 6) + 1; 
+	}else{
+		longzone = (longitude / 6) + 31; 
+	}
+	
+
+	scale = 0;
+	longzone / 1;
+EOM
+
+}
+
 getXY(){
 	local lat="$1"
 	local lon="$2"
 	local zoom="$3"
- 	local zone="$( echo "scale = 6; ( $lon   + 180   ) / 6 + 1" | bc )"
-	local zone="${zone%.*}"
 
 cat << EOM | bc -l 
-mapwidthlevel1pixel 	= 33554432
-mapwidthmeters		= 4709238.7
-mapcentreutmeasting	= 637855.35
-mapcentreutmnorthing	= 5671353.65
-define tan(x) { x = s(x) / c(x); return (x); }
-define latlongxy(e,a,t){
+mapwidthlevel1pixel 	= 33554432;
+mapwidthmeters		= 4709238.7;
+
+define i(xt)  		{ auto s ; s = scale; scale = 0; xt /= 1; scale = s; return (xt); }
+define tan(x) 		{ x = s(x) / c(x); return (x); }
+define pow(at,bt)       { xt = e(l(at) * bt); return (xt); }
+define ceil(xt) 	{ auto savescale; savescale = scale; scale = 0; if (xt>0) { if (xt%1>0) result = xt+(1-(xt%1)) else result = xt } else result = -1*floor(-1*xt);  scale = savescale; return result }
+define floor(xt) 	{ auto savescale; savescale = scale; scale = 0; if (xt>0) result = xt-(xt%1) else result = -1*ceil(-1*xt);  scale = savescale; return result }
+
+
+scale = 20;
+define latlongxy(e,a){ 
+	eori = e;	
+	b = floor( ( e + 180 ) / 360);
+	h = ( e + 180 ) - b * 360 - 180;
+	t = 32;
+
+        if (( h > 14.1285  ) && ( h < 24.143875 ) && ( a > 49.003201 ) && ( a < 54.8387 ) ) t = 33;
+	if ( h < 5.763938 ) t = 31;
+
+	mapcentreutmeasting	= 637855.35
+	mapcentreutmnorthing	= 5671353.65
+
+	
+	if( t == 33 ){
+		mapcentreutmnorthing 	= 5677219.33619 - 117761.5;
+		mapcentreutmeasting	= 718496.723786 + 133922.35;
+	}else{
+		if( t == 35 ){
+			mapcentreutmnorthing	= 4533619.12;
+			mapcentreutmeasting	= 637855.35;
+		}else{
+			if( t == 31 ){	
+				mapcentreutmnorthing	= 5699775.82 + 103232.5;
+				mapcentreutmeasting	= 1056886.43 - 617710;
+			}else{
+				mapcentreutmnorthing	= 5671353.65;
+				mapcentreutmeasting	= 637855.35;
+			}
+		}
+	}
+	
 	p = 6378137
 	n = 0.00669438
 	l = 0.9996
@@ -104,25 +163,55 @@ define latlongxy(e,a,t){
 	j = p*((1-n/4-3*n*n/64-5*n*n*n/256)*f-(3*n/8+3*n*n/32+45*n*n*n/1024) * s(2*f)+(15*n*n/256+45*n*n*n/1024) * s(4*f)-(35*n*n*n/3072)*s(6*f))
 	s = (l*g*(o+(1-d+m)*o*o*o/6+(5-18*d+d*d+72*m-58*h)*o*o*o*o*o/120)+500000)
 	r = (l*(j+g*tan(f)*(o*o/2+(5-d+9*m+4*m*m)*o*o*o*o/24+(61-58*d+d*d+600*m-330*h)*o*o*o*o*o*o/720)));
+	
+	x = s;
+	y = r;
 
-	x = s
-	y = r
-	n = mapwidthmeters
-	f = mapcentreutmeasting
-	g = mapcentreutmnorthing
-	j = t
-	e = x+((n/2)-f)
-	b = g + (n/2) - y
-	l = e / n
-	h = b / n
-	l * ${TILE_LEVEL[$zoom]}
-	h * ${TILE_LEVEL[$zoom]}
-	s
-	r
+	n = mapwidthmeters;
+	f = mapcentreutmeasting;
+	g = mapcentreutmnorthing;
+	j = t;
+	e = x+((n/2)-f);
+	b = g + (n/2) - y;
+	l = e / n;
+	h = b / n;
+	l * ${TILE_LEVEL[$zoom]};
+	h * ${TILE_LEVEL[$zoom]};
+
+	/*-------------------------*/	
+	e = eori;
+
+	if ( e < 0.0 ){
+		t = ((180.0 + e) / 6) + 1; 
+	}else{
+		t = (e / 6) + 31; 
+	}
+
+	t = i(t);	
+
+	p = 6378137
+	n = 0.00669438
+	l = 0.9996
+	u = 3.14159265
+	b = u * e / 180
+	f = u * a / 180
+	q = ( (t-1) * 6 - 180 + 3 ) * u / 180
+	h = (n) / (1-n)
+	g = p /  sqrt(1-n * s(f) *s(f) )
+	d = tan(f) * tan(f)
+	m = h * c(f) * c(f)
+	o = c(f) * (b-q)
+	j = p*((1-n/4-3*n*n/64-5*n*n*n/256)*f-(3*n/8+3*n*n/32+45*n*n*n/1024) * s(2*f)+(15*n*n/256+45*n*n*n/1024) * s(4*f)-(35*n*n*n/3072)*s(6*f))
+	s = (l*g*(o+(1-d+m)*o*o*o/6+(5-18*d+d*d+72*m-58*h)*o*o*o*o*o/120)+500000)
+	r = (l*(j+g*tan(f)*(o*o/2+(5-d+9*m+4*m*m)*o*o*o*o/24+(61-58*d+d*d+600*m-330*h)*o*o*o*o*o*o/720)));
+	
+	s;
+	r;
+	
 	
 }
 
-a = latlongxy($lon, $lat, $zone)
+a = latlongxy($lon, $lat);
 
 EOM
 
@@ -334,11 +423,13 @@ define main(x,y, utmz){
 
 	scale = $scale;
 
+	
 	if ( ( lat >= $UpperLeftLat - 1 ) && ( lat <= $UpperLeftLat ) && ( lon >= $UpperLeftLon ) && ( lon <= ( $UpperLeftLon + 1 ) ) ) {
 		lon /= 1;
 		lat /= 1;
 		print lon, "," , lat, " ";
 	} else	print " , " ;
+	
 	
 }
 
@@ -362,18 +453,33 @@ downloadTexture(){
 	[ -f "$file" ] && return
 	log "Downloading texture for $xoffset $yoffset ..."
 	for y in {0..7} ; do
-	       yT="$[ $yoffset + $y ]"
-	       for x in {0..7} ; do
-	               xT="$[ $xoffset + $x ]"
-	               log "$cnt / 64"
-	               downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png"
-	               convert -page +$[ 256 * $x  ]+$[ 256 * $y ] "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" -channel RGB -format PNG32 "$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
-	               imageList[$cnt]="$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
-	               rm -f "$OUTPUT_DIR/tmp/tmp-${xT}-${yT}.png"
-	               cnt=$[ $cnt + 1 ]
-	       done
+		yT="$[ $yoffset + $y ]"
+
+		pidList=()
+		echo -n "$(date) - Get Line $yT starting: " 1>&2
+		for x in {0..7} ; do
+        		xT="$[ $xoffset + $x ]"
+			downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" &
+			pidList[$x]="$!"
+			echo -n "$x " 1>&2
+		done
+		echo  " ... Waiting ..." 1>&2
+		for x in {0..7} ; do wait ${pidList[$x]} ; done
+		log "Done"
+
+		for x in {0..7} ; do
+        		xT="$[ $xoffset + $x ]"
+	        	log "$cnt / 64"
+
+			#downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png"
+
+		 	convert -page +$[ 256 * $x  ]+$[ 256 * $y ] "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" -channel RGB -format PNG32 "$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
+		 	imageList[$cnt]="$OUTPUT_DIR/tmp/tile-${xT}-${yT}.png"
+		 	cnt=$[ $cnt + 1 ]
+		done
 	done
-	convert -channel ALL -normalize -layers mosaic ${imageList[*]} "$file"
+	#convert -channel ALL -normalize -layers mosaic ${imageList[*]} "$file"
+	convert -layers mosaic ${imageList[*]} "$file"
 	rm -f "$OUTPUT_DIR/tmp/tile-"*
 	echo -n "$file"
 	
@@ -569,25 +675,39 @@ dsfFileClose(){
 
 }
 
+distEarth(){
+	decLonA="$1"
+	decLatA="$2"
+	
+	decLonB="$3"
+	decLatB="$4"
+
+	pi="$( echo "scale=10; 4*a(1)" | bc -l )"
+
+	radLatA="$(     echo "scale = 16; $pi * $decLatA / 180" | bc -l )"
+	radLonA="$(     echo "scale = 16; $pi * $decLonA / 180" | bc -l )"
+	radLatB="$(     echo "scale = 16; $pi * $decLatB / 180" | bc -l )"
+	radLonB="$(     echo "scale = 16; $pi * $decLonB / 180" | bc -l )"
+	phi="$(         echo "scale = 16;  $radLonA - $radLonB"                                                 | bc -l | tr -d "-" )"
+	P="$(           echo "scale = 16; (s($radLatA) * s($radLatB)) +  (c($radLatA) * c($radLatB) * c($phi))" | bc -l )"
+	P="$(           echo "scale = 16; a(-1 * $P / sqrt(-1 * $P * $P + 1)) + 2 * a(1)"                       | bc -l )"
+
+	echo "scale=16; $P * 6372.795477598 * 1000" | bc -l | awk '{ printf "%.4f", $1 }'
+
+}
 
 
-
-ZUTM="$( echo "scale = 6; ( ( ${LR[1]} + ${UL[1]} ) / 2  + 180   ) / 6 + 1" | bc )"
-ZUTM="${ZUTM%.*}"
+ZUTM="$( getLongZone "${UL[1]}" )"
 
 ULxy=( $( getXY ${UL[*]} $LEVEL ) )
 LRxy=( $( getXY ${LR[*]} $LEVEL ) )
 
+UL=( $UpperLeftLat $UpperLeftLon )
+LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
 
-xdim="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
-ydim="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
 
-xdim="$[ ${xdim/-/} - 1 ]"
-ydim="$[ ${ydim/-/} - 1 ]"
-
-xdim="24"
-ydim="24"
-
+zoneXsize="$( distEarth ${UL[1]} ${UL[0]} ${LR[1]} ${UL[0]} )"
+zoneYsize="$( distEarth ${UL[1]} ${UL[0]} ${UL[1]} ${LR[0]} )"
 xstart="${ULxy[0]%.*}"
 ystart="${ULxy[1]%.*}"
 
@@ -602,28 +722,22 @@ geoStart=( 	 	$( getXY 			${UL[*]}		$LEVEL ) )
 geoStartUTM=( 	 	$( geoRef			${geoStart[*]}		$LEVEL ) )
 geoStartLatLong=( 	$( imageGeoInfoToLatLng 	$ZUTM			"${geoStartUTM[0]/,/},${geoStartUTM[3]/,/}" | tr "," " " ) )
 
-xfirst="0"
-yfirst="0"
-
-[ "$( echo "${geoStartLatLong[0]} < ${UL[1]}" | bc )" = "1" ] && xfirst="8"
-[ "$( echo "${geoStartLatLong[1]} > ${UL[0]}" | bc )" = "1" ] && yfirst="8" 
-
-
 GeoTransform=( 	$( geoRef 	${geoStart[*]} 		$LEVEL ) 	)
 GeoTransform=( ${GeoTransform[*]/,/} )
 
 log "Upper left coordinates: ${GeoTransform[0]}E ${GeoTransform[3]}N, Zone: $ZUTM, Resolution: ${GeoTransform[1]} / ${GeoTransform[5]} ..."
-
+log "Zone dimentions $zoneXsize x $zoneYsize meters ..."
 tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} ) / 2 / 1000" | bc )"
 
 p="0"
 
-Y="$yfirst"
+Y="0"
 
+ySize="0"
 while : ; do 
-	X="$xfirst"
+	X="0"
 	yoffset="$[ $ystart + $Y ]"
-
+	xSize="0"
 	while : ; do 
 
 		# 2048x2048
@@ -636,27 +750,27 @@ while : ; do
 	
 		GeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
 
-		dsfFileWrite "$p" $( time pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransformNew[*]}; echo -n " $?" )	>> "$dsfPath/${dsfName}_body.txt"
+		dsfFileWrite "$p" $( pointsTextureLatLng ${point[*]} $ZUTM $LEVEL ${GeoTransformNew[*]}; echo -n " $?" )	>> "$dsfPath/${dsfName}_body.txt"
 		if [ "$?" -eq "0" ] ; then
 			echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"		>> "$dsfPath/${dsfName}_header.txt"
 			[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
 			[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
 
 			((p++))
+		else
+			log "Empty ..."
+
 		fi
 
-		northNext="$( echo "scale = 6; ${GeoTransform[3]} + (256 * ($X+8)) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
-		eastNext="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * ($X+8)) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
-		[ -z "$( imageGeoInfoToLatLng $ZUTM "$eastNext,$northNext" | tr -d ", " )" ]  && break
+		xSize="$( echo "scale = 6; $xSize + 2048 * ${GeoTransform[1]}" | bc )"
+		[ "$( echo "$xSize > $zoneXsize" | bc )" = "1" ]  && break
 
 
 		X="$[ $X + 8 ]"
 
 	done
-
-	northNext="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * ($Y+8)) * ${GeoTransform[5]}" | bc )"
-	eastNext="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * ($Y+8)) * ${GeoTransform[2]}" | bc )"
-	[ -z "$( imageGeoInfoToLatLng $ZUTM "$eastNext,$northNext" | tr -d ", " )" ] && break
+	ySize="$( echo "scale = 6; $ySize + 2048 * ${GeoTransform[1]}" | bc )"
+	[ "$( echo "$ySize > $zoneYsize" | bc )" = "1" ]  && break
 
 	Y="$[ $Y + 8 ]"
 done
