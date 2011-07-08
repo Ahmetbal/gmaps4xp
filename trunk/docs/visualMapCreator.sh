@@ -23,14 +23,7 @@ log(){
         echo "$(date) - $1" 1>&2
 }
 
-
-
-#UL=( 44.854227 11.597803 )
-#LR=( 44.824209 11.636779 )
-#UL=( 44.875188 11.575790 )
-#LR=( 44.849834 11.607900 )
-#UL=( 44.906861 11.609939 )
-#LR=( 44.671381 11.808416 )
+##############################################################################################3
 
 
 if [ -z "$3" ] ; then
@@ -44,6 +37,8 @@ UpperLeftLon="$2"
 
 UL=( $UpperLeftLat $UpperLeftLon )
 LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
+
+
 LEVEL="16"
 OUTPUT_DIR="$3"
 tolerance="1"
@@ -56,7 +51,9 @@ log "Directory Tree creation ..."
 [ ! -d "$OUTPUT_DIR/tmp" ] 	&& mkdir "$OUTPUT_DIR/tmp"
 
 WD="$( cd $( dirname $0 ); pwd )"
+pixelResolution=()
 
+##############################################################################################3
 
 downloadTile(){
 	local xcoord="$1"
@@ -79,6 +76,7 @@ downloadTile(){
 # http://visualimages1.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=8432&y=10648&z=8&extra=2&ts=256&q=65&rdr=0&sito=visual
 # ftp://xftp.jrc.it/pub/srtmV4/tiff/srtm_39_04.zip
 
+##############################################################################################3
 
 getLongZone(){
 	longitude="$1"
@@ -99,6 +97,8 @@ cat << EOM   | bc
 EOM
 
 }
+
+##############################################################################################3
 
 getXY(){
 	local lat="$1"
@@ -217,6 +217,7 @@ EOM
 
 }
 
+##############################################################################################3
 
 getDirName(){
         local lat="$1"
@@ -255,6 +256,8 @@ getDirName(){
         echo "$lat$lon"
 }
 
+##############################################################################################3
+
 getDSFName(){
         local lat="$1"
         local lon="$2"
@@ -291,6 +294,7 @@ getDSFName(){
         echo "$lat$lon.dsf"
 }
 
+##############################################################################################3
 
 geoRef(){
 	local x="$1"
@@ -313,6 +317,8 @@ geoRef(){
 	echo -n "$ULx, $pixelRes, 0.0, $ULy, 0.0, -$pixelRes"
 
 }
+
+##############################################################################################3
 
 imageGeoInfo(){
 	local padfGeoTransform=( $( echo "$*" | tr "," " " ) )
@@ -354,6 +360,8 @@ EOM
 
 
 }
+
+##############################################################################################
 
 imageGeoInfoToLatLng(){
 	local args=( $* )
@@ -439,6 +447,8 @@ EOM
 	done
 }
 
+##############################################################################################3
+
 downloadTexture(){
 	local xoffset="$1"
 	local yoffset="$2"
@@ -481,6 +491,7 @@ downloadTexture(){
 
 }
 
+##############################################################################################3
 
 pointsTextureLatLng(){
 	local ZUTM="$1"
@@ -507,6 +518,7 @@ pointsTextureLatLng(){
 	return 0
 }
 
+##############################################################################################3
 
 imageGeoInfoToLatLngWithCrop(){
 	local args=( $* )
@@ -558,6 +570,7 @@ define main(x,y, utmz){
 	lon	= (1000000*lngd)/1000000;
 
 
+	/*
 	latd = lat - i(lat); 
 	lond = lon - i(lon); 
 
@@ -570,61 +583,56 @@ define main(x,y, utmz){
 		lond = 1.0 - lond;
 		nlon = lon + 1.0;
 	} else  nlon = lon;
-	
 	if ( abs( latd ) < $tolerance )  lat = i(nlat);
 	if ( abs( lond ) < $tolerance )  lon = i(nlon);
+	*/
 
+	e = lon;
+	a = lat;
+	if ( lat < ( $UpperLeftLat - 1 ) )	{ a = $UpperLeftLat - 1; }
+	if ( lat > $UpperLeftLat ) 		{ a = $UpperLeftLat;	 }	
+	if ( lon < $UpperLeftLon ) 		{ e = $UpperLeftLon;	 }
+	if ( lon > ( $UpperLeftLon + 1 ) )	{ e = $UpperLeftLon + 1; }
 
-
-	if ( ( lat > ( $UpperLeftLat - 1) ) && ( lat < $UpperLeftLat ) && ( lon > $UpperLeftLon ) && ( lon < ( $UpperLeftLon + 1 ) ) ) {
-		scale = $scale;
-		lon /= 1;
-		lat /= 1;
-	 	print lon, "," , lat, " ";
-
-	} else{
-		e = lon;
-		a = lat;
-		if ( lat < ( $UpperLeftLat - 1 ) )	{ a = $UpperLeftLat - 1; }
-		if ( lat > $UpperLeftLat ) 		{ a = $UpperLeftLat;	 }	
-		if ( lon < $UpperLeftLon ) 		{ e = $UpperLeftLon;	 }
-		if ( lon > ( $UpperLeftLon + 1 ) )	{ e = $UpperLeftLon + 1; }
-
-		if ( e < 0.0 ){
-			t = ((180.0 + e) / 6) + 1; 
-		}else{
-			t = (e / 6) + 31; 
-		}
-	
-		t = i(t);	
-	
-		p = 6378137
-		n = 0.00669438
-		l = 0.9996
-		u = 3.14159265
-		b = u * e / 180
-		f = u * a / 180
-		q = ( (t-1) * 6 - 180 + 3 ) * u / 180
-		h = (n) / (1-n)
-		g = p /  sqrt(1-n * s(f) *s(f) )
-		d = tan(f) * tan(f)
-		m = h * c(f) * c(f)
-		o = c(f) * (b-q)
-		j = p*((1-n/4-3*n*n/64-5*n*n*n/256)*f-(3*n/8+3*n*n/32+45*n*n*n/1024) * s(2*f)+(15*n*n/256+45*n*n*n/1024) * s(4*f)-(35*n*n*n/3072)*s(6*f))
-		s = (l*g*(o+(1-d+m)*o*o*o/6+(5-18*d+d*d+72*m-58*h)*o*o*o*o*o/120)+500000)
-		r = (l*(j+g*tan(f)*(o*o/2+(5-d+9*m+4*m*m)*o*o*o*o/24+(61-58*d+d*d+600*m-330*h)*o*o*o*o*o*o/720)));
-		s = s - $x;
-		r = r - $y;
-
-		scale 	= $scale;
-		s	/= 1;
-		r	/= 1;
-		lon	/= 1;
-		lat	/= 1;
-
-	 	print lon, "," , lat, "," , s, "," , r, " ";
-
+	if ( e < 0.0 ){
+		t = ((180.0 + e) / 6) + 1; 
+	}else{
+		t = (e / 6) + 31; 
 	}
+
+	t = i(t);	
+
+	p = 6378137
+	n = 0.00669438
+	l = 0.9996
+	u = 3.14159265
+	b = u * e / 180
+	f = u * a / 180
+	q = ( (t-1) * 6 - 180 + 3 ) * u / 180
+	h = (n) / (1-n)
+	g = p /  sqrt(1-n * s(f) *s(f) )
+	d = tan(f) * tan(f)
+	m = h * c(f) * c(f)
+	o = c(f) * (b-q)
+	j = p*((1-n/4-3*n*n/64-5*n*n*n/256)*f-(3*n/8+3*n*n/32+45*n*n*n/1024) * s(2*f)+(15*n*n/256+45*n*n*n/1024) * s(4*f)-(35*n*n*n/3072)*s(6*f))
+	s = (l*g*(o+(1-d+m)*o*o*o/6+(5-18*d+d*d+72*m-58*h)*o*o*o*o*o/120)+500000)
+	r = (l*(j+g*tan(f)*(o*o/2+(5-d+9*m+4*m*m)*o*o*o*o/24+(61-58*d+d*d+600*m-330*h)*o*o*o*o*o*o/720)));
+	s = i(( s - $x ) / ${pixelResolution[0]});
+	r = i(( r - $y ) / ${pixelResolution[0]});
+	
+	s = s / 256 / 8;
+	r = r / 256 / 8;
+
+
+	scale 	= $scale;
+	e	/= 1;
+	a	/= 1;
+	s	/= 1;
+	r	/= 1;
+
+ 	print e, "," , a, "," , s, "," , r, " ";
+
+	
 
 	
 }
@@ -636,22 +644,19 @@ EOM
 	done
 }
 
+##############################################################################################3
 
 pointsTextureLatLngBorder(){
-	local xstart="$1"
-	local ystart="$2"
-	local ZUTM="$3"
-	local LEVEL="$4"
-	local padfGeoTransform=( ${5} ${6} ${7} ${8} ${9} ${10} )
+	local ZUTM="$1"
+	local LEVEL="$2"
+	local padfGeoTransform=( ${3} ${4} ${5} ${6} ${7} ${8} )
 	local x=""
 	local y=""
 
 
 	log "Generating texture vertex coordintaes for $xoffset $yoffset border side ..."
 	for y in {0..7} ; do
-		yoffset="$[ $ystart + $y ]"
 		for x in {0..7} ; do
-			xoffset="$[ $xstart + $x ]"
 
 			local east="$(  echo "scale = 6; ${padfGeoTransform[0]} + (256 * $x) * ${padfGeoTransform[1]} + (256 * $y) * ${padfGeoTransform[2]}" | bc )"
 			local north="$( echo "scale = 6; ${padfGeoTransform[3]} + (256 * $x) * ${padfGeoTransform[4]} + (256 * $y) * ${padfGeoTransform[5]}" | bc )"
@@ -666,10 +671,7 @@ pointsTextureLatLngBorder(){
 	return 0
 }
 
-
-
-
-
+##############################################################################################3
 
 createTerFile(){
 	local file="$1"
@@ -717,7 +719,8 @@ dsfFileWrite(){
 	while [ ! -z "${args[$cnt]}" ] ; do			
 		x="$[ $i % $n ]"
 		y="$[ $i / $n ]"
-		
+		((i++))
+
  		CC=( $( awk 'BEGIN { printf "%f %f", '${args[$cnt]}'	}' ) ) 
  		UL=( $( awk 'BEGIN { printf "%f %f", '${args[$cnt+1]}'	}' ) ) 
  		UR=( $( awk 'BEGIN { printf "%f %f", '${args[$cnt+2]}'	}' ) ) 
@@ -727,7 +730,7 @@ dsfFileWrite(){
 
 
 		alt=( $( $WD/dem/getalt $WD/dem/$srtm ${CC[*]} ${UL[*]} ${UR[*]} ${LR[*]} ${LL[*]} ) )
-		[ "${#alt[*]}" -ne "5" ] && cnt="$[ $cnt + 5 ]" && continue
+		[ "${#alt[*]}" -ne "5" ] && continue
 
 
 		CC[${#CC[*]}]="${alt[0]}"
@@ -765,13 +768,131 @@ PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[2]} 0 0 ${UL[3]} ${UL[4]}
 PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[2]} 0 0 ${CC[3]} ${CC[4]}"
 
 	
-		((i++))
 	done
 	echo "END_PRIMITIVE"
 	echo "END_PATCH"
 	echo
 	return 0
 }
+
+##############################################################################################3
+
+dsfFileWriteBorder(){
+	local args=( $* )
+
+	local n="8"
+	local xtoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 		 ) )
+	local ytoken=( $( seq 0 $( echo "scale = 6; 1 / $n" | bc ) 1 | sort -r ) )
+
+	local xsize="${xtoken[1]}"
+	local ysize="${xtoken[1]}"
+	local patchNum="$1"
+
+	local CC=()
+	local LL=()
+	local LR=()
+	local UR=()
+	local UL=()
+	local x=""
+	local y=""
+
+	local cnt="1"
+	local i="0"
+	last=$[ ${#args[*]} - 1 ] ; [ "${args[$last]}" -ne "0" ] && return ${args[$last]}
+	unset args[$last]
+
+	srtm="srtm_39_04.tif"
+	echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
+	echo "BEGIN_PRIMITIVE 0"
+	while [ ! -z "${args[$cnt]}" ] ; do			
+		x="$[ $i % $n ]"
+		y="$[ $i / $n ]"
+		((i++))
+
+ 		CC=( $( awk 'BEGIN { printf "%f %f %f %f", '${args[$cnt]}'	}' ) ) 
+ 		UL=( $( awk 'BEGIN { printf "%f %f %f %f", '${args[$cnt+1]}'	}' ) ) 
+ 		UR=( $( awk 'BEGIN { printf "%f %f %f %f", '${args[$cnt+2]}'	}' ) ) 
+ 		LR=( $( awk 'BEGIN { printf "%f %f %f %f", '${args[$cnt+3]}'	}' ) ) 
+ 		LL=( $( awk 'BEGIN { printf "%f %f %f %f", '${args[$cnt+4]}'	}' ) ) 
+		cnt="$[ $cnt + 5 ]"	
+
+
+		alt=( $( $WD/dem/getalt $WD/dem/$srtm ${CC[0]} ${CC[1]} ${UL[0]} ${UL[1]} ${UR[0]} ${UR[1]} ${LR[0]} ${LR[1]} ${LL[0]} ${LL[1]} ) )
+		[ "${#alt[*]}" -ne "5" ] && continue
+
+		CC[${#CC[*]}]="${alt[0]}"
+		UL[${#UL[*]}]="${alt[1]}"
+		UR[${#UR[*]}]="${alt[2]}"
+		LR[${#LR[*]}]="${alt[3]}"
+		LL[${#LL[*]}]="${alt[4]}"
+
+ 		local xstart="${xtoken[$x]}"
+ 		local ystart="${ytoken[$y]}"
+
+		CC[${#CC[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' + '$xsize' / 2 }'	)"
+		CC[${#CC[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize' / 2 }'	)" 
+		LL[${#LL[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' }' 		)"
+		LL[${#LL[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize'  }' 	)" 
+		UL[${#UL[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' }' 		)"
+		UL[${#UL[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' }' 		)" 
+		UR[${#UR[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' + '$xsize' }'	)"
+		UR[${#UR[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' }'		)" 
+		LR[${#LR[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' + '$xsize' }'	)"
+		LR[${#LR[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize'  }'	)" 
+
+
+
+		if [ "$( 	echo 	"( ${CC[2]} == 0.0 ) && ( ${CC[3]} == 0.0 ) && ( ${LL[2]} == 0.0 ) && ( ${LL[3]} == 0.0 ) && ( ${UL[2]} == 0.0 ) && ( ${UL[3]} == 0.0 ) &&  \
+					 ( ${UR[2]} == 0.0 ) && ( ${UR[3]} == 0.0 ) && ( ${LR[2]} == 0.0 ) && ( ${LR[3]} == 0.0 )" | bc )" = "0" ] ; then
+
+			[ "$( 	echo 	"( ${CC[2]} != 0.0 ) && ( ${CC[3]} != 0.0 ) && ( ${LL[2]} != 0.0 ) && ( ${LL[3]} != 0.0 ) && ( ${UL[2]} != 0.0 ) && ( ${UL[3]} != 0.0 ) &&  \
+					 ( ${UR[2]} != 0.0 ) && ( ${UR[3]} != 0.0 ) && ( ${LR[2]} != 0.0 ) && ( ${LR[3]} != 0.0 )" | bc )" = "1" ] && continue 
+ 
+			log "{CC[2]},{CC[3]} {LL[2]},{LL[3]} {UL[2]},{UL[3]} {UR[2]},{UR[3]} {LR[2]},{LR[3]}" 
+			log "${CC[2]},${CC[3]} ${LL[2]},${LL[3]} ${UL[2]},${UL[3]} ${UR[2]},${UR[3]} ${LR[2]},${LR[3]}" 
+			log "${CC[0]},${CC[1]} ${LL[0]},${LL[1]} ${UL[0]},${UL[1]} ${UR[0]},${UR[1]} ${LR[0]},${LR[1]}" 
+
+			[ "$( echo "$UpperLeftLon == ${UL[0]}" | bc )" = "1" ] && UL[5]="$( awk 'BEGIN { printf "%f", '${UL[5]}' + '${UL[2]}' }' )"
+			[ "$( echo "$UpperLeftLat == ${UL[1]}" | bc )" = "1" ] && UL[6]="$( awk 'BEGIN { printf "%f", '${UL[6]}' + '${UL[3]}' }' )"
+
+			[ "$( echo "$UpperLeftLat == ${UR[1]}" | bc )" = "1" ] && UR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' }' )"
+
+			[ "$( echo "$UpperLeftLon == ${LL[0]}" | bc )" = "1" ] && LL[5]="$( awk 'BEGIN { printf "%f", '${LL[5]}' + '${LL[2]}' }' )"
+
+
+
+			log "--"	
+
+
+			#continue
+		fi
+
+
+
+
+echo "
+PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[4]} 0 0 ${UL[5]} ${UL[6]}
+PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[4]} 0 0 ${UR[5]} ${UR[6]}
+PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[4]} 0 0 ${CC[5]} ${CC[6]}
+PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[4]} 0 0 ${UR[5]} ${UR[6]}
+PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[4]} 0 0 ${LR[5]} ${LR[6]}
+PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[4]} 0 0 ${CC[5]} ${CC[6]}
+PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[4]} 0 0 ${LR[5]} ${LR[6]}
+PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[4]} 0 0 ${LL[5]} ${LL[6]}
+PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[4]} 0 0 ${CC[5]} ${CC[6]}
+PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[4]} 0 0 ${LL[5]} ${LL[6]}
+PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[4]} 0 0 ${UL[5]} ${UL[6]}
+PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[4]} 0 0 ${CC[5]} ${CC[6]}"
+
+	
+	done
+	echo "END_PRIMITIVE"
+	echo "END_PATCH"
+	echo
+	return 0
+}
+
+##############################################################################################3
 
 dsfFileOpen(){
 	local args=( $* )
@@ -797,6 +918,7 @@ EOF
 
 }
 
+##############################################################################################3
 
 dsfFileClose(){
 	local args=( $* )
@@ -824,6 +946,8 @@ dsfFileClose(){
 
 }
 
+##############################################################################################3
+
 distEarth(){
 	decLonA="$1"
 	decLatA="$2"
@@ -845,6 +969,7 @@ distEarth(){
 
 }
 
+##############################################################################################3
 
 ZUTM="$( getLongZone "${UL[1]}" )"
 
@@ -873,7 +998,7 @@ geoStartLatLong=( 	$( imageGeoInfoToLatLng 	$ZUTM			"${geoStartUTM[0]/,/},${geoS
 
 GeoTransform=( 	$( geoRef 	${geoStart[*]} 		$LEVEL ) 	)
 GeoTransform=( ${GeoTransform[*]/,/} )
-
+pixelResolution=( ${GeoTransform[1]} ${GeoTransform[5]} )
 log "Upper left coordinates: ${GeoTransform[0]}E ${GeoTransform[3]}N, Zone: $ZUTM, Resolution: ${GeoTransform[1]} / ${GeoTransform[5]} ..."
 log "Zone dimentions $zoneXsize x $zoneYsize meters ..."
 tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} ) / 2 / 1000" | bc )"
@@ -910,10 +1035,17 @@ while : ; do
 			((p++))
 		else
 			log "Empty ..."
-			pointsTextureLatLngBorder ${point[*]} $ZUTM $LEVEL ${GeoTransformNew[*]} 
+			dsfFileWriteBorder $p $( pointsTextureLatLngBorder $ZUTM $LEVEL ${GeoTransformNew[*]};  echo -n " $?" ) >> "$dsfPath/${dsfName}_body.txt"
+			if [ "$?" -eq "0" ] ; then
+				echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"		>> "$dsfPath/${dsfName}_header.txt"
+				[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
+				[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
+
+				((p++))
+			fi
 
 		fi
-		exit 0
+		break;
 
 		xSize="$( echo "scale = 6; $xSize + 2048 * ${GeoTransform[1]}" | bc )"
 		[ "$( echo "$xSize > $zoneXsize" | bc )" = "1" ]  && break
@@ -922,6 +1054,7 @@ while : ; do
 		X="$[ $X + 8 ]"
 
 	done
+	break;
 	ySize="$( echo "scale = 6; $ySize + 2048 * ${GeoTransform[1]}" | bc )"
 	[ "$( echo "$ySize > $zoneYsize" | bc )" = "1" ]  && break
 
