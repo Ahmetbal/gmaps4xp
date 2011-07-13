@@ -413,6 +413,7 @@ define main(x,y, utmz){
 	lon	= (1000000*lngd)/1000000;
 
 
+	/*
 	latd = lat - i(lat); 
 	lond = lon - i(lon); 
 
@@ -428,6 +429,7 @@ define main(x,y, utmz){
 	
 	if ( abs( latd ) < $tolerance )  lat = i(nlat);
 	if ( abs( lond ) < $tolerance )  lon = i(nlon);
+	*/
 
 	scale = $scale;
 	
@@ -570,29 +572,13 @@ define main(x,y, utmz){
 	lon	= (1000000*lngd)/1000000;
 
 
-	/*
-	latd = lat - i(lat); 
-	lond = lon - i(lon); 
-
-	if ( latd > 0.5 ) { 
-		latd = 1.0 - latd;
-		nlat = lat + 1.0; 
-	} else 	nlat = lat;
-
-	if ( lond > 0.5 ) {
-		lond = 1.0 - lond;
-		nlon = lon + 1.0;
-	} else  nlon = lon;
-	if ( abs( latd ) < $tolerance )  lat = i(nlat);
-	if ( abs( lond ) < $tolerance )  lon = i(nlon);
-	*/
-
 	e = lon;
 	a = lat;
 	if ( lat < ( $UpperLeftLat - 1 ) )	{ a = $UpperLeftLat - 1; }
 	if ( lat > $UpperLeftLat ) 		{ a = $UpperLeftLat;	 }	
 	if ( lon < $UpperLeftLon ) 		{ e = $UpperLeftLon;	 }
 	if ( lon > ( $UpperLeftLon + 1 ) )	{ e = $UpperLeftLon + 1; }
+
 
 	if ( e < 0.0 ){
 		t = ((180.0 + e) / 6) + 1; 
@@ -617,14 +603,18 @@ define main(x,y, utmz){
 	j = p*((1-n/4-3*n*n/64-5*n*n*n/256)*f-(3*n/8+3*n*n/32+45*n*n*n/1024) * s(2*f)+(15*n*n/256+45*n*n*n/1024) * s(4*f)-(35*n*n*n/3072)*s(6*f))
 	s = (l*g*(o+(1-d+m)*o*o*o/6+(5-18*d+d*d+72*m-58*h)*o*o*o*o*o/120)+500000)
 	r = (l*(j+g*tan(f)*(o*o/2+(5-d+9*m+4*m*m)*o*o*o*o/24+(61-58*d+d*d+600*m-330*h)*o*o*o*o*o*o/720)));
-	s = i(( s - $x ) / ${pixelResolution[0]});
-	r = i(( r - $y ) / ${pixelResolution[0]});
-	
-	s = s / 256 / 8;
-	r = r / 256 / 8;
 
+	s = ( s  - $x );
+	r = ( $y - r  );
 
-	scale 	= $scale;
+	if ( abs(s) 	< abs(${pixelResolution[0]}) ) 	s 	= 0.0;
+	if ( abs(r) 	< abs(${pixelResolution[1]}) ) 	r	= 0.0;
+	if (( e 	== $UpperLeftLon ) && (( a - $UpperLeftLat ) <= 0.1))	e 	+= 0.00001;
+
+	s = i(s / ${pixelResolution[0]} );
+	r = i(r / ${pixelResolution[1]} );
+
+	scale 	= 7; /* $scale; */
 	e	/= 1;
 	a	/= 1;
 	s	/= 1;
@@ -653,8 +643,6 @@ pointsTextureLatLngBorder(){
 	local x=""
 	local y=""
 
-
-	log "Generating texture vertex coordintaes for $xoffset $yoffset border side ..."
 	for y in {0..7} ; do
 		for x in {0..7} ; do
 
@@ -845,26 +833,47 @@ dsfFileWriteBorder(){
 		if [ "$( 	echo 	"( ${CC[2]} == 0.0 ) && ( ${CC[3]} == 0.0 ) && ( ${LL[2]} == 0.0 ) && ( ${LL[3]} == 0.0 ) && ( ${UL[2]} == 0.0 ) && ( ${UL[3]} == 0.0 ) &&  \
 					 ( ${UR[2]} == 0.0 ) && ( ${UR[3]} == 0.0 ) && ( ${LR[2]} == 0.0 ) && ( ${LR[3]} == 0.0 )" | bc )" = "0" ] ; then
 
-			[ "$( 	echo 	"( ${CC[2]} != 0.0 ) && ( ${CC[3]} != 0.0 ) && ( ${LL[2]} != 0.0 ) && ( ${LL[3]} != 0.0 ) && ( ${UL[2]} != 0.0 ) && ( ${UL[3]} != 0.0 ) &&  \
-					 ( ${UR[2]} != 0.0 ) && ( ${UR[3]} != 0.0 ) && ( ${LR[2]} != 0.0 ) && ( ${LR[3]} != 0.0 )" | bc )" = "1" ] && continue 
  
-			log "{CC[2]},{CC[3]} {LL[2]},{LL[3]} {UL[2]},{UL[3]} {UR[2]},{UR[3]} {LR[2]},{LR[3]}" 
-			log "${CC[2]},${CC[3]} ${LL[2]},${LL[3]} ${UL[2]},${UL[3]} ${UR[2]},${UR[3]} ${LR[2]},${LR[3]}" 
-			log "${CC[0]},${CC[1]} ${LL[0]},${LL[1]} ${UL[0]},${UL[1]} ${UR[0]},${UR[1]} ${LR[0]},${LR[1]}" 
+#	 12.000000,44.999300	 12.000000,45.000000	 12.003300,45.000000	 12.003600,44.999500
+#	 127.000000,4.000000	 129.000000,230.000000	 -8.000000,234.000000	 0.000000,0.000000
+#	 0.000000,0.875000	 0.000000,1.000000	 0.125000,1.000000	 0.125000,0.875000
+	
 
-			[ "$( echo "$UpperLeftLon == ${UL[0]}" | bc )" = "1" ] && UL[5]="$( awk 'BEGIN { printf "%f", '${UL[5]}' + '${UL[2]}' }' )"
-			[ "$( echo "$UpperLeftLat == ${UL[1]}" | bc )" = "1" ] && UL[6]="$( awk 'BEGIN { printf "%f", '${UL[6]}' + '${UL[3]}' }' )"
+#			log "${LL[2]},${LL[3]} ${UL[2]},${UL[3]} ${UR[2]},${UR[3]} ${LR[2]},${LR[3]}" 
+#			log "${LL[0]},${LL[1]} ${UL[0]},${UL[1]} ${UR[0]},${UR[1]} ${LR[0]},${LR[1]}" 
+#			log "${LL[5]},${LL[6]} ${UL[5]},${UL[6]} ${UR[5]},${UR[6]} ${LR[5]},${LR[6]}" 
+	 
+  			LL[5]="$( awk 'BEGIN { printf "%f", '${LL[5]}' + '${LL[2]}' * 1 / 2048 }')"
+  			LL[6]="$( awk 'BEGIN { printf "%f", '${LL[6]}' + '${LL[3]}' * 1 / 2048 }')"
+  
+  			UL[5]="$( awk 'BEGIN { printf "%f", '${UL[5]}' + '${UL[2]}' * 1 / 2048 }')"
+  			UL[6]="$( awk 'BEGIN { printf "%f", '${UL[6]}' + '${UL[3]}' * 1 / 2048 }')"
+  
+  			UR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' + '${UR[2]}' * 1 / 2048 }')"
+  			UR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' * 1 / 2048 }')"
 
-			[ "$( echo "$UpperLeftLat == ${UR[1]}" | bc )" = "1" ] && UR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' }' )"
 
-			[ "$( echo "$UpperLeftLon == ${LL[0]}" | bc )" = "1" ] && LL[5]="$( awk 'BEGIN { printf "%f", '${LL[5]}' + '${LL[2]}' }' )"
-
-
-
-			log "--"	
+  			LL[6]="$( awk 'BEGIN { printf "%f", '${LL[6]}' < 0 ? 0 : '${LL[6]}' }')"
+  
 
 
-			#continue
+#			log "${LL[5]},${LL[6]} ${UL[5]},${UL[6]} ${UR[5]},${UR[6]} ${LR[5]},${LR[6]}" 
+
+			
+
+echo "
+PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[4]} 0 0 ${LL[5]} ${LL[6]}
+PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[4]} 0 0 ${UL[5]} ${UL[6]}
+PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[4]} 0 0 ${UR[5]} ${UR[6]}
+PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[4]} 0 0 ${LL[5]} ${LL[6]}
+PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[4]} 0 0 ${UR[5]} ${UR[6]}
+PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[4]} 0 0 ${LR[5]} ${LR[6]}
+"
+
+
+#			log "--"	
+
+			continue
 		fi
 
 
@@ -982,7 +991,7 @@ LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
 
 zoneXsize="$( distEarth ${UL[1]} ${UL[0]} ${LR[1]} ${UL[0]} )"
 zoneYsize="$( distEarth ${UL[1]} ${UL[0]} ${UL[1]} ${LR[0]} )"
-xstart="${ULxy[0]%.*}"
+xstart="$[ ${ULxy[0]%.*} - 16 ]"
 ystart="${ULxy[1]%.*}"
 
 dsfPath="$OUTPUT_DIR/Earth nav data/$( getDirName ${LR[0]} ${UL[1]} )" ; [ ! -d "$dsfPath" ] && mkdir -p "$dsfPath"
@@ -1004,9 +1013,41 @@ log "Zone dimentions $zoneXsize x $zoneYsize meters ..."
 tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} ) / 2 / 1000" | bc )"
 
 p="0"
-
+X="0"
 Y="0"
 
+ySize="0"
+log "Generating left border ...."
+while : ; do
+	xoffset="$xstart"
+	yoffset="$[ $ystart + $Y ]"
+	point=( $xoffset $yoffset )
+	north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
+	east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
+	GeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
+
+	log "Generating texture vertex coordintaes for $yoffset ..."
+
+
+	dsfFileWriteBorder $p $( pointsTextureLatLngBorder $ZUTM $LEVEL ${GeoTransformNew[*]};  echo -n " $?" ) >> "$dsfPath/${dsfName}_body.txt"
+	if [ "$?" -eq "0" ] ; then
+		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"		>> "$dsfPath/${dsfName}_header.txt"
+		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
+		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
+
+		((p++))
+	fi
+
+	ySize="$( echo "scale = 6; $ySize + 2048 * ${GeoTransform[1]}" | bc )"
+	[ "$( echo "$ySize > $zoneYsize" | bc )" = "1" ]  && break
+
+	Y="$[ $Y + 8 ]"
+
+
+done
+
+
+Y="0"
 ySize="0"
 while : ; do 
 	X="0"
@@ -1033,19 +1074,8 @@ while : ; do
 			[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
 
 			((p++))
-		else
-			log "Empty ..."
-			dsfFileWriteBorder $p $( pointsTextureLatLngBorder $ZUTM $LEVEL ${GeoTransformNew[*]};  echo -n " $?" ) >> "$dsfPath/${dsfName}_body.txt"
-			if [ "$?" -eq "0" ] ; then
-				echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"		>> "$dsfPath/${dsfName}_header.txt"
-				[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
-				[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
-
-				((p++))
-			fi
 
 		fi
-		break;
 
 		xSize="$( echo "scale = 6; $xSize + 2048 * ${GeoTransform[1]}" | bc )"
 		[ "$( echo "$xSize > $zoneXsize" | bc )" = "1" ]  && break
