@@ -788,10 +788,10 @@ dsfFileWriteBorder(){
 	local i="0"
 	last=$[ ${#args[*]} - 1 ] ; [ "${args[$last]}" -ne "0" ] && return ${args[$last]}
 	unset args[$last]
+	writeHeader="false"
+	headerWrote="false"
 
 	srtm="srtm_39_04.tif"
-	echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
-	echo "BEGIN_PRIMITIVE 0"
 	while [ ! -z "${args[$cnt]}" ] ; do			
 		x="$[ $i % $n ]"
 		y="$[ $i / $n ]"
@@ -820,32 +820,32 @@ dsfFileWriteBorder(){
 		CC[${#CC[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' + '$xsize' / 2 }'	)"
 		CC[${#CC[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize' / 2 }'	)" 
 		LL[${#LL[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' }' 		)"
-		LL[${#LL[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize'  }' 	)" 
+		LL[${#LL[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize' }' 	)" 
 		UL[${#UL[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' }' 		)"
 		UL[${#UL[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' }' 		)" 
 		UR[${#UR[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' + '$xsize' }'	)"
 		UR[${#UR[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' }'		)" 
 		LR[${#LR[*]}]="$( awk 'BEGIN { printf "%f", '$xstart' + '$xsize' }'	)"
-		LR[${#LR[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize'  }'	)" 
+		LR[${#LR[*]}]="$( awk 'BEGIN { printf "%f", '$ystart' - '$ysize' }'	)" 
 
 
 
 		if [ "$( 	echo 	"( ${CC[2]} == 0.0 ) && ( ${CC[3]} == 0.0 ) && ( ${LL[2]} == 0.0 ) && ( ${LL[3]} == 0.0 ) && ( ${UL[2]} == 0.0 ) && ( ${UL[3]} == 0.0 ) &&  \
 					 ( ${UR[2]} == 0.0 ) && ( ${UR[3]} == 0.0 ) && ( ${LR[2]} == 0.0 ) && ( ${LR[3]} == 0.0 )" | bc )" = "0" ] ; then
 
- 
-#	 12.000000,44.999300	 12.000000,45.000000	 12.003300,45.000000	 12.003600,44.999500
-#	 127.000000,4.000000	 129.000000,230.000000	 -8.000000,234.000000	 0.000000,0.000000
-#	 0.000000,0.875000	 0.000000,1.000000	 0.125000,1.000000	 0.125000,0.875000
-	
-
-#			log "${LL[2]},${LL[3]} ${UL[2]},${UL[3]} ${UR[2]},${UR[3]} ${LR[2]},${LR[3]}" 
 
 			[ "$( echo  -ne "${LL[0]}\n${UL[0]}\n${UR[0]}\n${LR[0]}\n" | sort -n -u | wc -l )" -le "1" ] && continue
 			[ "$( echo  -ne "${LL[1]}\n${UL[1]}\n${UR[1]}\n${LR[1]}\n" | sort -n -u | wc -l )" -le "1" ] && continue
 
-#			log "${LL[5]},${LL[6]} ${UL[5]},${UL[6]} ${UR[5]},${UR[6]} ${LR[5]},${LR[6]}" 
 
+			
+			writeHeader="true"
+
+			if [ "$writeHeader" = "true" ] && [ "$headerWrote" = "false" ] ; then
+				echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
+				echo "BEGIN_PRIMITIVE 0"
+				headerWrote="true"
+			fi
 
   			LL[5]="$( awk 'BEGIN { printf "%f", '${LL[5]}' + '${LL[2]}' * 1 / 2048 }')"
   			LL[6]="$( awk 'BEGIN { printf "%f", '${LL[6]}' + '${LL[3]}' * 1 / 2048 }')"
@@ -853,17 +853,22 @@ dsfFileWriteBorder(){
   			UL[5]="$( awk 'BEGIN { printf "%f", '${UL[5]}' + '${UL[2]}' * 1 / 2048 }')"
   			UL[6]="$( awk 'BEGIN { printf "%f", '${UL[6]}' + '${UL[3]}' * 1 / 2048 }')"
   
-  			UR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' + '${UR[2]}' * 1 / 2048 }')"
+  			UR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' - '${UR[2]}' * 1 / 2048 }')"
   			UR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' * 1 / 2048 }')"
 
-  			LR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' + '${UR[2]}' * 1 / 2048 }')"
-  			LR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' * 1 / 2048 }')"
+  			LR[5]="$( awk 'BEGIN { printf "%f", '${LR[5]}' - '${LR[2]}' * 1 / 2048 }')"
+  			LR[6]="$( awk 'BEGIN { printf "%f", '${LR[6]}' + '${LR[3]}' * 1 / 2048 }')"
 
   			LL[5]="$( awk 'BEGIN { printf "%f", ('${LL[5]}' < 0) ? 0 : '${LL[5]}' }')"
   			LR[5]="$( awk 'BEGIN { printf "%f", ('${LR[5]}' < 0) ? 0 : '${LR[5]}' }')"
   			UL[5]="$( awk 'BEGIN { printf "%f", ('${UL[5]}' < 0) ? 0 : '${UL[5]}' }')"
   			UR[5]="$( awk 'BEGIN { printf "%f", ('${UR[5]}' < 0) ? 0 : '${UR[5]}' }')"
                                                                                         
+   			LL[5]="$( awk 'BEGIN { printf "%f", ('${LL[5]}' > 1) ? 1 : '${LL[5]}' }')"
+   			LR[5]="$( awk 'BEGIN { printf "%f", ('${LR[5]}' > 1) ? 1 : '${LR[5]}' }')"
+   			UL[5]="$( awk 'BEGIN { printf "%f", ('${UL[5]}' > 1) ? 1 : '${UL[5]}' }')"
+   			UR[5]="$( awk 'BEGIN { printf "%f", ('${UR[5]}' > 1) ? 1 : '${UR[5]}' }')"
+
   			LL[6]="$( awk 'BEGIN { printf "%f", ('${LL[6]}' < 0) ? 0 : '${LL[6]}' }')"
   			LR[6]="$( awk 'BEGIN { printf "%f", ('${LR[6]}' < 0) ? 0 : '${LR[6]}' }')"
   			UL[6]="$( awk 'BEGIN { printf "%f", ('${UL[6]}' < 0) ? 0 : '${UL[6]}' }')"
@@ -874,33 +879,25 @@ dsfFileWriteBorder(){
    			UL[6]="$( awk 'BEGIN { printf "%f", ('${UL[6]}' > 1) ? 1 : '${UL[6]}' }')"
    			UR[6]="$( awk 'BEGIN { printf "%f", ('${UR[6]}' > 1) ? 1 : '${UR[6]}' }')"
                                                                            
-   			LL[5]="$( awk 'BEGIN { printf "%f", ('${LL[5]}' > 1) ? 1 : '${LL[5]}' }')"
-   			LR[5]="$( awk 'BEGIN { printf "%f", ('${LR[5]}' > 1) ? 1 : '${LR[5]}' }')"
-   			UL[5]="$( awk 'BEGIN { printf "%f", ('${UL[5]}' > 1) ? 1 : '${UL[5]}' }')"
-   			UR[5]="$( awk 'BEGIN { printf "%f", ('${UR[5]}' > 1) ? 1 : '${UR[5]}' }')"
- 
-
-
-#			log "${LL[5]},${LL[6]} ${UL[5]},${UL[6]} ${UR[5]},${UR[6]} ${LR[5]},${LR[6]}" 
-
-			
-
 echo "
 PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[4]} 0 0 ${LL[5]} ${LL[6]}
 PATCH_VERTEX ${UL[0]} ${UL[1]} ${UL[4]} 0 0 ${UL[5]} ${UL[6]}
 PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[4]} 0 0 ${UR[5]} ${UR[6]}
 PATCH_VERTEX ${LL[0]} ${LL[1]} ${LL[4]} 0 0 ${LL[5]} ${LL[6]}
 PATCH_VERTEX ${UR[0]} ${UR[1]} ${UR[4]} 0 0 ${UR[5]} ${UR[6]}
-PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[4]} 0 0 ${LR[5]} ${LR[6]}
-"
-
-
-#			log "--"	
+PATCH_VERTEX ${LR[0]} ${LR[1]} ${LR[4]} 0 0 ${LR[5]} ${LR[6]}"
 
 			continue
 		fi
 
 
+		writeHeader="true"
+
+		if [ "$writeHeader" = "true" ] && [ "$headerWrote" = "false" ] ; then
+			echo "BEGIN_PATCH $patchNum   0.0 -1.0     1 7"
+			echo "BEGIN_PRIMITIVE 0"
+			headerWrote="true"
+		fi
 
 
 echo "
@@ -919,9 +916,14 @@ PATCH_VERTEX ${CC[0]} ${CC[1]} ${CC[4]} 0 0 ${CC[5]} ${CC[6]}"
 
 	
 	done
-	echo "END_PRIMITIVE"
-	echo "END_PATCH"
-	echo
+	if [ "$writeHeader" = "true" ] && [ "$headerWrote" = "true" ] ; then
+		echo "END_PRIMITIVE"
+		echo "END_PATCH"
+		echo
+	else
+		return 1
+
+	fi
 	return 0
 }
 
@@ -1039,15 +1041,6 @@ LLxy=( $( getXY ${LR[0]} ${UL[1]} $LEVEL ) )
 URxy=( $( getXY ${UL[0]} ${LR[1]} $LEVEL ) )
 
 
-echo "${ULxy[*]}"
-echo "${LLxy[*]}"
-
-getMQ ${ULxy[0]} ${ULxy[1]} ${LLxy[0]} ${LLxy[1]}
-
-
-exit
-
-
 zoneXsize="$( distEarth ${UL[1]} ${UL[0]} ${LR[1]} ${UL[0]} )"
 zoneYsize="$( distEarth ${UL[1]} ${UL[0]} ${UL[1]} ${LR[0]} )"
 
@@ -1078,9 +1071,19 @@ X="0"
 Y="0"
 ySize="0"
 while : ; do 
-	X="0"
 	yoffset="$[ $ystart + $Y ]"
+
 	xSize="0"
+	X="0"
+	log "Forwaring in longitude ..."
+	while : ; do
+		xoffset="$[ $xstart + $X ]"
+                north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
+                east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
+		[ -z "$( imageGeoInfoToLatLng $ZUTM "$east,$north" | tr -d ", " )" ] && break
+		X="$[ $X - 8 ]"
+	done
+	
 	while : ; do 
 
 		# 2048x2048
@@ -1128,8 +1131,8 @@ while : ; do
 	done
 	ySize="$( echo "scale = 6; $ySize + 2048 * ${GeoTransform[1]}" | bc )"
 	[ "$( echo "$ySize > $zoneYsize" | bc )" = "1" ]  && break
-
 	Y="$[ $Y + 8 ]"
+
 done
 
 
