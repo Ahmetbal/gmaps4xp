@@ -840,9 +840,13 @@ dsfFileWriteBorder(){
 	
 
 #			log "${LL[2]},${LL[3]} ${UL[2]},${UL[3]} ${UR[2]},${UR[3]} ${LR[2]},${LR[3]}" 
-#			log "${LL[0]},${LL[1]} ${UL[0]},${UL[1]} ${UR[0]},${UR[1]} ${LR[0]},${LR[1]}" 
+
+			[ "$( echo  -ne "${LL[0]}\n${UL[0]}\n${UR[0]}\n${LR[0]}\n" | sort -n -u | wc -l )" -le "1" ] && continue
+			[ "$( echo  -ne "${LL[1]}\n${UL[1]}\n${UR[1]}\n${LR[1]}\n" | sort -n -u | wc -l )" -le "1" ] && continue
+
 #			log "${LL[5]},${LL[6]} ${UL[5]},${UL[6]} ${UR[5]},${UR[6]} ${LR[5]},${LR[6]}" 
-	 
+
+
   			LL[5]="$( awk 'BEGIN { printf "%f", '${LL[5]}' + '${LL[2]}' * 1 / 2048 }')"
   			LL[6]="$( awk 'BEGIN { printf "%f", '${LL[6]}' + '${LL[3]}' * 1 / 2048 }')"
   
@@ -852,9 +856,29 @@ dsfFileWriteBorder(){
   			UR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' + '${UR[2]}' * 1 / 2048 }')"
   			UR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' * 1 / 2048 }')"
 
+  			LR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' + '${UR[2]}' * 1 / 2048 }')"
+  			LR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' * 1 / 2048 }')"
 
-  			LL[6]="$( awk 'BEGIN { printf "%f", '${LL[6]}' < 0 ? 0 : '${LL[6]}' }')"
-  
+  			LL[5]="$( awk 'BEGIN { printf "%f", ('${LL[5]}' < 0) ? 0 : '${LL[5]}' }')"
+  			LR[5]="$( awk 'BEGIN { printf "%f", ('${LR[5]}' < 0) ? 0 : '${LR[5]}' }')"
+  			UL[5]="$( awk 'BEGIN { printf "%f", ('${UL[5]}' < 0) ? 0 : '${UL[5]}' }')"
+  			UR[5]="$( awk 'BEGIN { printf "%f", ('${UR[5]}' < 0) ? 0 : '${UR[5]}' }')"
+                                                                                        
+  			LL[6]="$( awk 'BEGIN { printf "%f", ('${LL[6]}' < 0) ? 0 : '${LL[6]}' }')"
+  			LR[6]="$( awk 'BEGIN { printf "%f", ('${LR[6]}' < 0) ? 0 : '${LR[6]}' }')"
+  			UL[6]="$( awk 'BEGIN { printf "%f", ('${UL[6]}' < 0) ? 0 : '${UL[6]}' }')"
+  			UR[6]="$( awk 'BEGIN { printf "%f", ('${UR[6]}' < 0) ? 0 : '${UR[6]}' }')"
+                                                                                        
+   			LL[6]="$( awk 'BEGIN { printf "%f", ('${LL[6]}' > 1) ? 1 : '${LL[6]}' }')"
+   			LR[6]="$( awk 'BEGIN { printf "%f", ('${LR[6]}' > 1) ? 1 : '${LR[6]}' }')"
+   			UL[6]="$( awk 'BEGIN { printf "%f", ('${UL[6]}' > 1) ? 1 : '${UL[6]}' }')"
+   			UR[6]="$( awk 'BEGIN { printf "%f", ('${UR[6]}' > 1) ? 1 : '${UR[6]}' }')"
+                                                                           
+   			LL[5]="$( awk 'BEGIN { printf "%f", ('${LL[5]}' > 1) ? 1 : '${LL[5]}' }')"
+   			LR[5]="$( awk 'BEGIN { printf "%f", ('${LR[5]}' > 1) ? 1 : '${LR[5]}' }')"
+   			UL[5]="$( awk 'BEGIN { printf "%f", ('${UL[5]}' > 1) ? 1 : '${UL[5]}' }')"
+   			UR[5]="$( awk 'BEGIN { printf "%f", ('${UR[5]}' > 1) ? 1 : '${UR[5]}' }')"
+ 
 
 
 #			log "${LL[5]},${LL[6]} ${UL[5]},${UL[6]} ${UR[5]},${UR[6]} ${LR[5]},${LR[6]}" 
@@ -980,18 +1004,55 @@ distEarth(){
 
 ##############################################################################################3
 
+# 4267.50432795132138078208 5285.90057636915915661312 263553.97392506660609542713 4987329.49919556277015735568
+# 4274.60224298288348454912 5479.13148088584732516352 259473.67898415547566969349 4876249.12156055389327270092
+
+
+getMQ(){
+
+cat << EOM | bc 
+	scale = 6;
+	x1 = $1;
+	y1 = $2;
+	x2 = $3;
+	y2 = $4;
+
+
+	m = ( y2 - y1 ) - (x2 - x1 );
+	q = y1 - m * x1;
+	print m, " ", q;
+
+EOM
+
+
+}
+
+
+
+##############################################################################################3
+
 ZUTM="$( getLongZone "${UL[1]}" )"
 
-ULxy=( $( getXY ${UL[*]} $LEVEL ) )
-LRxy=( $( getXY ${LR[*]} $LEVEL ) )
+ULxy=( $( getXY ${UL[*]} 	  $LEVEL ) )
+LRxy=( $( getXY ${LR[*]} 	  $LEVEL ) )
+LLxy=( $( getXY ${LR[0]} ${UL[1]} $LEVEL ) )
+URxy=( $( getXY ${UL[0]} ${LR[1]} $LEVEL ) )
 
-UL=( $UpperLeftLat $UpperLeftLon )
-LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
+
+echo "${ULxy[*]}"
+echo "${LLxy[*]}"
+
+getMQ ${ULxy[0]} ${ULxy[1]} ${LLxy[0]} ${LLxy[1]}
+
+
+exit
 
 
 zoneXsize="$( distEarth ${UL[1]} ${UL[0]} ${LR[1]} ${UL[0]} )"
 zoneYsize="$( distEarth ${UL[1]} ${UL[0]} ${UL[1]} ${LR[0]} )"
-xstart="$[ ${ULxy[0]%.*} - 16 ]"
+
+
+xstart="${ULxy[0]%.*}"
 ystart="${ULxy[1]%.*}"
 
 dsfPath="$OUTPUT_DIR/Earth nav data/$( getDirName ${LR[0]} ${UL[1]} )" ; [ ! -d "$dsfPath" ] && mkdir -p "$dsfPath"
@@ -1014,39 +1075,6 @@ tolerance="$( echo "scale = 20; ( ${GeoTransform[1]/-/} + ${GeoTransform[5]/-/} 
 
 p="0"
 X="0"
-Y="0"
-
-ySize="0"
-log "Generating left border ...."
-while : ; do
-	xoffset="$xstart"
-	yoffset="$[ $ystart + $Y ]"
-	point=( $xoffset $yoffset )
-	north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
-	east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
-	GeoTransformNew=( $east ${GeoTransform[1]} ${GeoTransform[2]} $north ${GeoTransform[4]} ${GeoTransform[5]} )
-
-	log "Generating texture vertex coordintaes for $yoffset ..."
-
-
-	dsfFileWriteBorder $p $( pointsTextureLatLngBorder $ZUTM $LEVEL ${GeoTransformNew[*]};  echo -n " $?" ) >> "$dsfPath/${dsfName}_body.txt"
-	if [ "$?" -eq "0" ] ; then
-		echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"		>> "$dsfPath/${dsfName}_header.txt"
-		[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
-		[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
-
-		((p++))
-	fi
-
-	ySize="$( echo "scale = 6; $ySize + 2048 * ${GeoTransform[1]}" | bc )"
-	[ "$( echo "$ySize > $zoneYsize" | bc )" = "1" ]  && break
-
-	Y="$[ $Y + 8 ]"
-
-
-done
-
-
 Y="0"
 ySize="0"
 while : ; do 
@@ -1075,7 +1103,21 @@ while : ; do
 
 			((p++))
 
+		else
+			log "Texture out of tile ... Try to crop ..."
+
+			dsfFileWriteBorder $p $( pointsTextureLatLngBorder $ZUTM $LEVEL ${GeoTransformNew[*]};  echo -n " $?" ) >> "$dsfPath/${dsfName}_body.txt"
+			if [ "$?" -eq "0" ] ; then
+				echo "TERRAIN_DEF ter/texture-$xoffset-$yoffset.ter"		>> "$dsfPath/${dsfName}_header.txt"
+				[ ! -f "$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" ] 	&& downloadTexture	$xoffset $yoffset $LEVEL 	"$OUTPUT_DIR/images/texture-$xoffset-$yoffset.png" 	> /dev/null
+				[ ! -f "$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.ter" ] 	&& createTerFile 					"$OUTPUT_DIR/ter/texture-$xoffset-$yoffset.png"		> /dev/null
+	
+				((p++))
+			else
+				log "Failed, completly out..."
+			fi
 		fi
+
 
 		xSize="$( echo "scale = 6; $xSize + 2048 * ${GeoTransform[1]}" | bc )"
 		[ "$( echo "$xSize > $zoneXsize" | bc )" = "1" ]  && break
@@ -1084,7 +1126,6 @@ while : ; do
 		X="$[ $X + 8 ]"
 
 	done
-	break;
 	ySize="$( echo "scale = 6; $ySize + 2048 * ${GeoTransform[1]}" | bc )"
 	[ "$( echo "$ySize > $zoneYsize" | bc )" = "1" ]  && break
 
