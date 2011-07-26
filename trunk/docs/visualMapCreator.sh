@@ -580,6 +580,7 @@ define main(x,y, utmz){
 	if ( lon > ( $UpperLeftLon + 1 ) )	{ e = $UpperLeftLon + 1; }
 
 
+	/*
 	if ( e < 0.0 ){
 		t = ((180.0 + e) / 6) + 1; 
 	}else{
@@ -587,6 +588,8 @@ define main(x,y, utmz){
 	}
 
 	t = i(t);	
+	*/
+	t = $zone;
 
 	p = 6378137
 	n = 0.00669438
@@ -853,11 +856,12 @@ dsfFileWriteBorder(){
   			UL[5]="$( awk 'BEGIN { printf "%f", '${UL[5]}' + '${UL[2]}' * 1 / 2048 }')"
   			UL[6]="$( awk 'BEGIN { printf "%f", '${UL[6]}' + '${UL[3]}' * 1 / 2048 }')"
   
-  			UR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' - '${UR[2]}' * 1 / 2048 }')"
+  			UR[5]="$( awk 'BEGIN { printf "%f", '${UR[5]}' + '${UR[2]}' * 1 / 2048 }')"
   			UR[6]="$( awk 'BEGIN { printf "%f", '${UR[6]}' + '${UR[3]}' * 1 / 2048 }')"
 
-  			LR[5]="$( awk 'BEGIN { printf "%f", '${LR[5]}' - '${LR[2]}' * 1 / 2048 }')"
+  			LR[5]="$( awk 'BEGIN { printf "%f", '${LR[5]}' + '${LR[2]}' * 1 / 2048 }')"
   			LR[6]="$( awk 'BEGIN { printf "%f", '${LR[6]}' + '${LR[3]}' * 1 / 2048 }')"
+
 
   			LL[5]="$( awk 'BEGIN { printf "%f", ('${LL[5]}' < 0) ? 0 : '${LL[5]}' }')"
   			LR[5]="$( awk 'BEGIN { printf "%f", ('${LR[5]}' < 0) ? 0 : '${LR[5]}' }')"
@@ -1072,7 +1076,6 @@ Y="0"
 ySize="0"
 while : ; do 
 	yoffset="$[ $ystart + $Y ]"
-
 	xSize="0"
 	X="0"
 	log "Forwaring in longitude ..."
@@ -1089,6 +1092,7 @@ while : ; do
 		# 2048x2048
 		log "$X, $Y ..."
 		xoffset="$[ $xstart + $X ]"
+
 		north="$( echo "scale = 6; ${GeoTransform[3]} + (256 * $X) * ${GeoTransform[4]} + (256 * $Y) * ${GeoTransform[5]}" | bc )"
 		east="$(  echo "scale = 6; ${GeoTransform[0]} + (256 * $X) * ${GeoTransform[1]} + (256 * $Y) * ${GeoTransform[2]}" | bc )"
 
@@ -1124,7 +1128,6 @@ while : ; do
 
 		xSize="$( echo "scale = 6; $xSize + 2048 * ${GeoTransform[1]}" | bc )"
 		[ "$( echo "$xSize > $zoneXsize" | bc )" = "1" ]  && break
-
 
 		X="$[ $X + 8 ]"
 
