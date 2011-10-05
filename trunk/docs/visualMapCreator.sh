@@ -39,7 +39,7 @@ UL=( $UpperLeftLat $UpperLeftLon )
 LR=( $[ $UpperLeftLat - 1 ] $[ $UpperLeftLon + 1 ] )
 
 
-LEVEL="16"
+LEVEL="8"
 OUTPUT_DIR="$3"
 tolerance="1"
 log "Directory Tree creation ..."
@@ -75,6 +75,7 @@ downloadTile(){
 # http://visualimages3.paginegialle.it/xmlvisual.php/europa.imgi?cmd=tile&format=jpeg&x=8422&y=10628&z=8&extra=2&ts=256&q=60&rdr=0&sito=visual&v=1
 # http://visualimages1.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=8432&y=10648&z=8&extra=2&ts=256&q=65&rdr=0&sito=visual
 # ftp://xftp.jrc.it/pub/srtmV4/tiff/srtm_39_04.zip
+
 
 ##############################################################################################3
 
@@ -469,7 +470,7 @@ downloadTexture(){
 		echo -n "$(date) - Get Line $yT starting: " 1>&2
 		for x in {0..7} ; do
         		xT="$[ $xoffset + $x ]"
-			downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" &
+			downloadTile "${xT}" "${yT}" "$LEVEL" "$OUTPUT_DIR/tmp/raw-${xT}-${yT}.png" & 
 			pidList[$x]="$!"
 			echo -n "$x " 1>&2
 		done
@@ -1075,9 +1076,11 @@ X="0"
 Y="0"
 ySize="0"
 while : ; do 
-	yoffset="$[ $ystart + $Y ]"
 	xSize="0"
 	X="0"
+	yoffset="$[ $ystart + $Y ]"
+
+
 	log "Forwaring in longitude ..."
 	while : ; do
 		xoffset="$[ $xstart + $X ]"

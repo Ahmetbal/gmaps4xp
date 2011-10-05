@@ -2,6 +2,8 @@
 
 
 if [ "$( uname -s )" = "Darwin" ] ; then
+	export LC_ALL="us"
+	export LANG="us"
 	export LC_NUMERIC="us"
 	export LC_COLLATE="us"
 	export LC_CTYPE="us"
@@ -9,7 +11,11 @@ if [ "$( uname -s )" = "Darwin" ] ; then
 	export LC_MONETARY="us"
 	export LC_NUMERIC="us"
 	export LC_TIME="us"     
+else
+	export LANG="en_US.UTF-8"
+	export LC_ALL="en_US.UTF-8"
 fi
+
 
 # Q	R
 #
@@ -1124,7 +1130,8 @@ upDateServer(){
 	# server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=76&" "http://${servers_maps[$server_index]}/vt/lyrs=m@142&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=88&" "http://${servers_maps[$server_index]}/vt/lyrs=m@156000000&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=88&" "http://${servers_maps[$server_index]}/vt/lyrs=m@156000000&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=93&" "http://${servers_maps[$server_index]}/vt/lyrs=m@161000000&style=3&" )
 
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
