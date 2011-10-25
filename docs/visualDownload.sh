@@ -106,7 +106,7 @@ geoRef(){
 	y="$( echo "$y" | awk -F. {'print "0."$2'} )"
 
 	ULx="$( echo "scale = 6; $E - ( $pixelRes * $x )" | bc )"
-	ULy="$( echo "scale = 6; $N - ( $pixelRes * $y )" | bc )"
+	ULy="$( echo "scale = 6; $N + ( $pixelRes * $y )" | bc )"
 	pixelRes="$( echo "scale = 6; 4709238.7 / ${TILE_LEVEL[$zoom]} / 256" | bc )"
 
 	echo -n "$ULx, $pixelRes, 0.0, $ULy, 0.0, $pixelRes"
@@ -114,8 +114,9 @@ geoRef(){
 }
 
 
-#UL=( 44.854227 11.597803 )
-#LR=( 44.824209 11.636779 )
+UL=( 44.854227 11.597803 )
+LR=( 44.824209 11.636779 )
+
 #UL=( 44.875188 11.575790 )
 #LR=( 44.849834 11.607900 )
 #UL=( 44.906861 11.609939 )
@@ -125,9 +126,6 @@ geoRef(){
 #UL=(  44.875582  11.576781 )
 #LR=(  44.844107  11.603004 )
 
-#  44.684171°  11.756196°  44.844139°  12.250887°
-UL=( 44.844139 11.756196 )
-LR=( 44.684171 12.250887 )
 
 
 
@@ -137,13 +135,14 @@ LEVEL="8"
 ULxy=( $( getXY ${UL[*]} $LEVEL ) )
 LRxy=( $( getXY ${LR[*]} $LEVEL ) )
 
+echo "${ULxy[*]}"
+echo "${LRxy[*]}"
 
 xsize="$[ ${LRxy[0]%.*} - ${ULxy[0]%.*} ]"
 ysize="$[ ${LRxy[1]%.*} - ${ULxy[1]%.*} ]"
 xoffset="${ULxy[0]%.*}"
 yoffset="${ULxy[1]%.*}"
 
- 
  cnt="0"
  for y in $( seq 0  $ysize ) ; do
  	yT="$[ $yoffset + $y ]"
