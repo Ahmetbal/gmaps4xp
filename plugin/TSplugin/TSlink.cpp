@@ -4,12 +4,22 @@
 #include <curl/curl.h>
 #include <curl/types.h>
 #include <curl/easy.h>
+#include <math.h>
+
+
 #include "XPLMProcessing.h"
 #include "XPLMDataAccess.h"
 #include "XPLMUtilities.h"
 
+#define ONLINE			0
+#define OFFLINE			1
 #define MAX_SERVERS_NUMBER 	10
 #define	MAX_WHAZZUP_LINES	1000
+#define MAX_ATC_DISTANCE	100000 // In meters
+#define DELTA_FREQ		0.0001
+
+#define XIvApPath		"./Resources/plugins/X-IvAp Resources/X-IvAp.conf"
+#define tsControlPath		"./TeamSpeak2RC2/client_sdk/tsControl"
 
 
 XPLMDataRef gPlaneLat 	= NULL;
@@ -34,6 +44,21 @@ struct ATC{
 };
 
 
+struct userInfo {
+	char *VID;
+	char 	*PASSWORD;
+	char 	*CALLSIGN;
+	float 	lat;
+	float 	lon;
+	float 	alt;
+	float 	freq;
+	int 	status;
+};
+
+struct userInfo Pilot;
+
+
+
 static void *myrealloc(void *ptr, size_t size){
         if(ptr) return realloc(ptr, size);
         else    return malloc(size);
@@ -53,57 +78,76 @@ static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *da
         return realsize;
 }
 
-/*
-0 ARNOLD_OBS
-1 325086
-2 Arnold Berkics
-3 ATC
-4 118.100
-5 47.4369
-6 19.25
-7 0
-8 0
-9 EU6
-10 B
-11 4
-12 0
-13 0
-14 200
-15 IVAO Observer  -  No Active ATC Position   
-16 20120213174242
-17 20120213174241
-18 IvAc
-19 1.1.14
-20 2
-21 4
-*/
+float distAprox(float lat1, float lon1, float lat2, float lon2) {
+        float  R       = 6372.795477598;
+        float  dLat    = 0.0;
+        float  dLon    = 0.0;
+        float  a       = 0.0;
+        float  c       = 0.0;
+
+        dLat = (lat2-lat1) * ( M_PI / 180.0 );
+        dLon = (lon2-lon1) * ( M_PI / 180.0 );
+
+        a       = sin(dLat/2.0) * sin(dLat/2.0) + cos(lat1 * ( M_PI / 180.0 )) * cos(lat2 * ( M_PI / 180.0 )) * sin(dLon/2.0) * sin(dLon/2.0);
+        c       = 2.0 * atan2(sqrt(a), sqrt(1-a));
+
+        return( R * c  * 1000.0);
+}
+
+
+
 
 int ExtractInfoFromLine(char *line, struct ATC *info){
-	char *token;
-	char *tmp;
-	char i = 0;
+	char 	*token	= NULL;
+	char 	*tmp	= NULL;
+	int	i	= 0;
+	int	j	= 0;
 	if ( line == NULL ) return 1;
 	tmp = (char *)malloc(sizeof(char) * strlen(line) + 1);
 	strcpy(tmp, line);
-	info->freq 	= 0;
+	info->freq 	= 0.0;
 	info->lat	= 0.0;
 	info->lon	= 0.0;
 	bzero(info->name,   24);
 	bzero(info->server, 99);
 
 	for ( token = strtok(tmp, ":"), i = 0; token != NULL; token = strtok(NULL, ":"), i++ ){
-		printf("%d %s\n", i, token);
+		//printf("%d %s\n", i, token);
 		switch(i){
-			case 1:
+			case 0: // Name
 				strcpy(info->name, token);
 				break;
-			case 4:
-				info->freq = atof(token);
+			case 4: // Freq
+
+				info->freq = atof(token) + 0.0f;
+				// Check VHF range
+				if ( info->freq < 118.0	  ) return 1;
+				if ( info->freq > 136.975 ) return 1;
+			
 				break;
+			case 5: // Latitude
+				info->lat = atof(token);
+				// Check coordinate
+				if ( info->lat < -90.0 ) return 1;
+				if ( info->lat >  90.0 ) return 1;
+				break;
+			case 6: // Longitude
+				info->lon = atof(token);
+				// Check coordinate
+				if ( info->lat < -180.0	) return 1;
+				if ( info->lat >  180.0 ) return 1;
+				break;
+			case 15: // Server
+				for ( j = 0; j < (int)strlen(token); j++) if ( token[j] == '^' ) break;
+				strncpy(info->server, token, j);
+				// Check if the server is good
+				if ( ! strstr( info->server, "ts.ivao.aero" )) 	return 1;
+				break;
+			
 		}
 
 	}
-
+	return 0;
 
 }
 
@@ -173,6 +217,98 @@ int downloadWhazzup(){
 
 }
 
+int connectToST(char *name){
+	char *tmp  	= NULL;
+	char *host 	= NULL;
+	char *channel 	= NULL;
+	char commandLine[1024];
+	char commandOut[1024];
+
+	if ( Pilot.status == ONLINE ) return 0;
+
+	bzero(commandLine, 1023);
+	bzero(commandOut,  1023);
+
+	tmp = (char *)malloc(strlen(name) + 1);
+	bzero(tmp, strlen(name));
+	strcpy(tmp, name);
+	host 	= strtok(tmp, "/");
+	channel = strtok(NULL, "/");
+	if ( host		== NULL ) return 1;
+	if ( channel		== NULL	) return 1;
+        if ( Pilot.VID 		== NULL ) return 1; 
+	if ( Pilot.PASSWORD 	== NULL ) return 1;
+	if ( Pilot.CALLSIGN	== NULL ) return 1;
+
+
+	sprintf(commandLine, "%s CONNECT TeamSpeak://%s/?nickname=\"XP-%s\"?loginname=\"%s\"?password=\"%s\"?channel=%s\n", tsControlPath, host, Pilot.CALLSIGN, Pilot.VID, Pilot.PASSWORD, channel);
+	printf("Link to %s on %s ...\n", channel, host);
+
+
+	FILE 	*fp	= NULL;
+	int 	error 	= 1;
+
+	fp = popen(commandLine, "r");
+	if (fp == NULL) { printf("Failed to run command: %s\n", commandLine ); return 1; }
+
+	while (fgets(commandOut, 1023, fp) != NULL) if ( strcmp(commandOut, "OK" ) ) { error = 0; break; }
+	
+
+	pclose(fp);
+
+	if (error){
+		printf("Failed to run command: %s\n", commandLine );
+		return 1;
+	}
+	
+
+	Pilot.status = ONLINE;
+
+	return 0;
+}
+
+
+int readXIvApInfo(){
+	char 	line[128];
+	FILE 	*file = NULL;
+
+	file = fopen (XIvApPath , "r" );
+
+	if ( file == NULL ){
+		printf("Unable to open X-IvAp configuration file %s!\n", XIvApPath);
+		return 1;
+	}
+
+	while ( fgets ( line, 127, file ) != NULL ){
+		for ( int j = 0; j < 128; j++){
+			if ( line[j] == '\n' ) line[j] = '\0';
+			if ( line[j] == '\r' ) line[j] = '\0';
+		}
+		
+		if ( strstr(line, "VID=") ){
+			Pilot.VID = (char *)malloc(sizeof(char) * 255 );
+			sprintf(Pilot.VID, "%s", line+4);
+			continue;
+	
+		}
+
+		if ( strstr(line, "PASSWORD=") ){
+			Pilot.PASSWORD = (char *)malloc(sizeof(char) * 255 );
+			sprintf(Pilot.PASSWORD, "%s", line+9);
+			continue;
+	
+		}
+		if ( strstr(line, "CALLSIGN=") ){
+			Pilot.CALLSIGN = (char *)malloc(sizeof(char) * 255 );
+			sprintf(Pilot.CALLSIGN, "%s", line+9);
+			continue;
+	
+		}
+		
+	}
+	fclose ( file );
+	return 0;
+}
 
 
 
@@ -182,9 +318,19 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
         float   lat	= XPLMGetDataf(gPlaneLat);
         float   lon	= XPLMGetDataf(gPlaneLon);
         float   el	= XPLMGetDataf(gPlaneEl);
-	float	com1	= (float)XPLMGetDatai(gCom1) / 1000.0;
+	float	com1	= (float)XPLMGetDatai(gCom1) / 100.0;
         
-        printf("Time=%f, lat=%f,lon=%f,el=%f com1=%if.\n",elapsed, lat, lon, el, com1);
+        //printf("Time=%f, lat=%f,lon=%f,el=%f com1=%.3f.\n",elapsed, lat, lon, el, com1);
+
+        Pilot.lat       = lat;
+        Pilot.lon       = lon;
+        Pilot.alt       = el;
+        Pilot.freq      = com1;
+
+
+        if ( Pilot.VID 		== NULL ) readXIvApInfo();
+	if ( Pilot.PASSWORD 	== NULL ) readXIvApInfo();
+	if ( Pilot.CALLSIGN	== NULL ) readXIvApInfo();
 
 	for (i = 0; i < MAX_SERVERS_NUMBER; i++) if ( SERVERS[i] != NULL ) break;
 	if  (i == MAX_SERVERS_NUMBER ) downloadServerList();
@@ -193,10 +339,17 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
 
 	for (i = 0; i < MAX_WHAZZUP_LINES;  i++){
 		if ( Whazzup[i] == NULL ) continue;
-		struct ATC info;
-		ExtractInfoFromLine(Whazzup[i], &info);
-		printf("%s %f\n", info.name, info.freq);
 
+		struct ATC info;
+		if ( ExtractInfoFromLine(Whazzup[i], &info) ) { Whazzup[i] = NULL; continue; }
+
+		double dist = distAprox(lat, lon, info.lat, info.lon);
+
+		printf("%s\t Freq: %.3f\t Server: %s\t Dist: %f\n", info.name, info.freq, info.server, dist);
+
+		if ( dist > MAX_ATC_DISTANCE ) { Whazzup[i] = NULL; continue; }
+		if ( fabs( com1 - info.freq  ) > DELTA_FREQ ) continue;
+		connectToST(info.server);
 		break;
  	}
         return 10.0;
@@ -215,6 +368,16 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc){
 	gCom1	  = XPLMFindDataRef("sim/cockpit/radios/com1_freq_hz");
 
 	XPLMRegisterFlightLoopCallback(	FlightLoopCallback, 1.0, NULL);
+	
+
+        Pilot.VID	= NULL;
+        Pilot.PASSWORD	= NULL;
+        Pilot.CALLSIGN	= NULL;
+        Pilot.lat	= 0.0;
+        Pilot.lon	= 0.0;
+        Pilot.alt	= 0.0;
+        Pilot.freq	= 0.0;
+	Pilot.status	= OFFLINE;
 
 	for (int i = 0; i < MAX_SERVERS_NUMBER; i++) SERVERS[MAX_SERVERS_NUMBER] = NULL;
 	for (int i = 0; i < MAX_WHAZZUP_LINES;  i++) Whazzup[MAX_WHAZZUP_LINES]  = NULL;
