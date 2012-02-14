@@ -27,7 +27,7 @@ clean_TSlink:
 
 TSlink:
 	$(MAKE) TSlink.xpl TARGET=TSlink.xpl\
- CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lGL -lGLU -lcurl -ljpeg -lpthread -lm"
+ CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lcurl -lm"
 
 TSlink.xpl: ${OBJS_TSlink}
 	${CC} -shared ${LDFLAGS} -o TSlink.xpl ${OBJS_TSlink} ${LIBS}
