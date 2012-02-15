@@ -13,10 +13,14 @@
 
 #define ONLINE			0
 #define OFFLINE			1
+#define NOTWORK			2
 #define MAX_SERVERS_NUMBER 	10
-#define	MAX_WHAZZUP_LINES	1000
-#define MAX_ATC_DISTANCE	100000 // In meters
-#define DELTA_FREQ		0.0001
+#define	MAX_WHAZZUP_LINES	10000
+
+#define MAX_ATC_DISTANCE	100000	// In meters
+#define DELTA_FREQ		0.0001	
+#define UPDATE_TIME		60	// Seconds
+
 
 #define XIvApPath		"./Resources/plugins/X-IvAp Resources/X-IvAp.conf"
 #define tsControlPath		"./TeamSpeak2RC2/client_sdk/tsControl"
@@ -52,6 +56,7 @@ struct userInfo {
 	float 	lon;
 	float 	alt;
 	float 	freq;
+	float	time;
 	int 	status;
 };
 
@@ -190,6 +195,7 @@ int downloadWhazzup(){
 	CURLcode 	res;
 	char		*token;
 	int		i = 0;
+	int		j = 0;
 
 	chunk.memory    = NULL;
         chunk.size      = 0;
@@ -199,23 +205,105 @@ int downloadWhazzup(){
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION,    WriteMemoryCallback);     
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA,        (void *)&chunk);
 
-	for ( i = 0; i < MAX_SERVERS_NUMBER; i++){
+	for ( i = 0, j = 0; i < MAX_SERVERS_NUMBER; i++){
 		if ( SERVERS[i] == NULL ) continue;
+
 		curl_easy_setopt(curl_handle, CURLOPT_URL, SERVERS[i]);
 
 		res = curl_easy_perform(curl_handle);
 	        if (res != CURLE_OK) { SERVERS[i] = NULL; continue; }
 
-		for ( token = strtok(chunk.memory, "\n"), i = 0; token != NULL; token = strtok(NULL, "\n") ){
+		for ( token = strtok(chunk.memory, "\n"); token != NULL; token = strtok(NULL, "\n") ){
 			if ( ! strstr(token, ":ATC:") ) continue;
-			Whazzup[i] = (char *)malloc(sizeof(char) * strlen(token) + 1);
-			strcpy(Whazzup[i], token); i++;
+			Whazzup[j] = (char *)malloc(sizeof(char) * strlen(token) + 1);
+			strcpy(Whazzup[j], token); j++;
 		}
-		break;
 	}
+
+	if ( j == 0 ) for (int i = 0; i < MAX_SERVERS_NUMBER; i++) SERVERS[MAX_SERVERS_NUMBER] = NULL;
+
+
 	return 0;
 
 }
+
+int getInfoToST(){
+	char commandLine[1024];
+	char commandOut[1024];
+
+	if ( Pilot.status != ONLINE ) return 0;
+
+        bzero(commandLine, 1023);
+        bzero(commandOut,  1023);
+        sprintf(commandLine, "%s GET_USER_INFO", tsControlPath);
+
+	FILE 	*fp	= NULL;
+	int 	error 	= 1;
+
+	fp = popen(commandLine, "r");
+	if (fp == NULL) { printf("Failed to run command: %s\n", commandLine ); return 1; }
+
+	while (fgets(commandOut, 1023, fp) != NULL){
+		for ( int j = 0; j < 128; j++){
+			if ( commandOut[j] == '\n' ) commandOut[j] = '\0';
+			if ( commandOut[j] == '\r' ) commandOut[j] = '\0';
+		}
+
+		if ( ! strcmp(commandOut, "OK" ) ) { error = 0; }
+	}
+	
+
+	pclose(fp);
+
+	if (error) Pilot.status = OFFLINE;
+	
+        return 0;
+
+
+}
+
+
+
+
+
+int disconnetToST(){
+	char commandLine[1024];
+	char commandOut[1024];
+
+	if ( Pilot.status != ONLINE ) return 0;
+
+        bzero(commandLine, 1023);
+        bzero(commandOut,  1023);
+        sprintf(commandLine, "%s DISCONNECT", tsControlPath);
+        printf("Unlink TeamSpeak ...\n");
+
+	FILE 	*fp	= NULL;
+	int 	error 	= 1;
+
+	fp = popen(commandLine, "r");
+	if (fp == NULL) { printf("Failed to run command: %s\n", commandLine ); return 1; }
+
+	while (fgets(commandOut, 1023, fp) != NULL){
+		for ( int j = 0; j < 128; j++){
+			if ( commandOut[j] == '\n' ) commandOut[j] = '\0';
+			if ( commandOut[j] == '\r' ) commandOut[j] = '\0';
+		}
+
+		if ( ! strcmp(commandOut, "OK" ) ) { error = 0; }
+	}
+	
+
+	pclose(fp);
+
+	if (error){ printf("Failed to run command: %s\n", commandLine ); Pilot.status = NOTWORK; return 1; }
+
+        Pilot.status = OFFLINE;
+
+        return 0;
+
+
+}
+
 
 int connectToST(char *name){
 	char *tmp  	= NULL;
@@ -224,7 +312,7 @@ int connectToST(char *name){
 	char commandLine[1024];
 	char commandOut[1024];
 
-	if ( Pilot.status == ONLINE ) return 0;
+	if ( Pilot.status != OFFLINE ) return 0;
 
 	bzero(commandLine, 1023);
 	bzero(commandOut,  1023);
@@ -241,7 +329,7 @@ int connectToST(char *name){
 	if ( Pilot.CALLSIGN	== NULL ) return 1;
 
 
-	sprintf(commandLine, "%s CONNECT TeamSpeak://%s/?nickname=\"XP-%s\"?loginname=\"%s\"?password=\"%s\"?channel=%s\n", tsControlPath, host, Pilot.CALLSIGN, Pilot.VID, Pilot.PASSWORD, channel);
+	sprintf(commandLine, "%s CONNECT TeamSpeak://%s/?nickname=\"XP-%s\"?loginname=\"%s\"?password=\"%s\"?channel=%s", tsControlPath, host, Pilot.CALLSIGN, Pilot.VID, Pilot.PASSWORD, channel);
 	printf("Link to %s on %s ...\n", channel, host);
 
 
@@ -251,15 +339,19 @@ int connectToST(char *name){
 	fp = popen(commandLine, "r");
 	if (fp == NULL) { printf("Failed to run command: %s\n", commandLine ); return 1; }
 
-	while (fgets(commandOut, 1023, fp) != NULL) if ( strcmp(commandOut, "OK" ) ) { error = 0; break; }
+	while (fgets(commandOut, 1023, fp) != NULL){
+		for ( int j = 0; j < 128; j++){
+			if ( commandOut[j] == '\n' ) commandOut[j] = '\0';
+			if ( commandOut[j] == '\r' ) commandOut[j] = '\0';
+		}
+
+		if ( ! strcmp(commandOut, "OK" ) ) { error = 0; }
+	}
 	
 
 	pclose(fp);
 
-	if (error){
-		printf("Failed to run command: %s\n", commandLine );
-		return 1;
-	}
+	if (error){ printf("Failed to run command: %s\n", commandLine ); Pilot.status = NOTWORK; return 1; }
 	
 
 	Pilot.status = ONLINE;
@@ -319,23 +411,45 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
         float   lon	= XPLMGetDataf(gPlaneLon);
         float   el	= XPLMGetDataf(gPlaneEl);
 	float	com1	= (float)XPLMGetDatai(gCom1) / 100.0;
-        
+	int	update	= 0;        
+
+
         //printf("Time=%f, lat=%f,lon=%f,el=%f com1=%.3f.\n",elapsed, lat, lon, el, com1);
+
+
+	
+        if ( Pilot.VID 		== NULL ) readXIvApInfo();
+	if ( Pilot.PASSWORD 	== NULL ) readXIvApInfo();
+	if ( Pilot.CALLSIGN	== NULL ) readXIvApInfo();
+
+
+	getInfoToST();
+
+	double dist = distAprox(lat, lon, Pilot.lat, Pilot.lon);
+
+
+	// Conditions for update
+	if ( fabs( elapsed - Pilot.time ) > UPDATE_TIME ) 	{ Pilot.time = elapsed;	update = 1; }
+	if ( dist > MAX_ATC_DISTANCE )				{ disconnetToST(); 	update = 1; }
+
+
+	if (update){
+		for (i = 0; i < MAX_SERVERS_NUMBER; i++) if ( SERVERS[i] != NULL ) break;
+		if  (i == MAX_SERVERS_NUMBER ) downloadServerList();
+		for (i = 0; i < MAX_WHAZZUP_LINES;  i++) if ( Whazzup[i] != NULL ) break;
+		if  ( i == MAX_WHAZZUP_LINES )  downloadWhazzup();
+	}
+
+	if ( ( fabs( com1 - Pilot.freq ) > DELTA_FREQ ) && ( Pilot.status == NOTWORK ) ) Pilot.status = OFFLINE;
+
 
         Pilot.lat       = lat;
         Pilot.lon       = lon;
         Pilot.alt       = el;
         Pilot.freq      = com1;
 
-
-        if ( Pilot.VID 		== NULL ) readXIvApInfo();
-	if ( Pilot.PASSWORD 	== NULL ) readXIvApInfo();
-	if ( Pilot.CALLSIGN	== NULL ) readXIvApInfo();
-
-	for (i = 0; i < MAX_SERVERS_NUMBER; i++) if ( SERVERS[i] != NULL ) break;
-	if  (i == MAX_SERVERS_NUMBER ) downloadServerList();
-	for (i = 0; i < MAX_WHAZZUP_LINES;  i++) if ( Whazzup[i] != NULL ) break;
-	if  ( i == MAX_WHAZZUP_LINES )  downloadWhazzup();
+	// Disconnect
+	if ( fabs( Pilot.freq - info.freq  ) > DELTA_FREQ ) disconnetToST();
 
 	for (i = 0; i < MAX_WHAZZUP_LINES;  i++){
 		if ( Whazzup[i] == NULL ) continue;
@@ -345,14 +459,13 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
 
 		double dist = distAprox(lat, lon, info.lat, info.lon);
 
-		printf("%s\t Freq: %.3f\t Server: %s\t Dist: %f\n", info.name, info.freq, info.server, dist);
+		if ( ( Pilot.status == OFFLINE ) && ( update ) ) printf("%s\t %.3fMHz\t Server: %s\t Dist: %.1fKm\n", info.name, info.freq, info.server, dist / 1000.0);
 
-		if ( dist > MAX_ATC_DISTANCE ) { Whazzup[i] = NULL; continue; }
-		if ( fabs( com1 - info.freq  ) > DELTA_FREQ ) continue;
-		connectToST(info.server);
-		break;
+		if ( dist > MAX_ATC_DISTANCE ) continue;
+
+		if ( fabs( Pilot.freq - info.freq  ) < DELTA_FREQ ) connectToST(info.server);  
  	}
-        return 10.0;
+        return 1.0;
 }                            
 
 
@@ -373,8 +486,8 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc){
         Pilot.VID	= NULL;
         Pilot.PASSWORD	= NULL;
         Pilot.CALLSIGN	= NULL;
-        Pilot.lat	= 0.0;
-        Pilot.lon	= 0.0;
+        Pilot.lat	= -90.0;
+        Pilot.lon	= -180.0;
         Pilot.alt	= 0.0;
         Pilot.freq	= 0.0;
 	Pilot.status	= OFFLINE;
@@ -391,5 +504,5 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc){
 
 PLUGIN_API void XPluginDisable(void)	{}
 PLUGIN_API int  XPluginEnable(void)	{ return 1; }
-PLUGIN_API void XPluginStop(void)	{ XPLMUnregisterFlightLoopCallback(FlightLoopCallback, NULL); }
+PLUGIN_API void XPluginStop(void)	{ disconnetToST(); XPLMUnregisterFlightLoopCallback(FlightLoopCallback, NULL); }
 
