@@ -6,7 +6,6 @@
 #include <curl/easy.h>
 #include <math.h>
 
-
 #include "XPLMProcessing.h"
 #include "XPLMDataAccess.h"
 #include "XPLMUtilities.h"
@@ -21,10 +20,11 @@
 #define DELTA_FREQ		0.0001	
 #define UPDATE_TIME		60	// Seconds
 
+#define CONF_FILE		"./TSlink.conf"
 
-#define XIvApPath		"./Resources/plugins/X-IvAp Resources/X-IvAp.conf"
-#define tsControlPath		"./TeamSpeak2RC2/client_sdk/tsControl"
 
+char *XIvApPath 	= NULL;
+char *tsControlPath 	= NULL;
 
 XPLMDataRef gPlaneLat 	= NULL;
 XPLMDataRef gPlaneLon 	= NULL;
@@ -63,7 +63,6 @@ struct userInfo {
 struct userInfo Pilot;
 
 
-
 static void *myrealloc(void *ptr, size_t size){
         if(ptr) return realloc(ptr, size);
         else    return malloc(size);
@@ -99,7 +98,58 @@ float distAprox(float lat1, float lon1, float lat2, float lon2) {
         return( R * c  * 1000.0);
 }
 
+int readConfigurationFile(){
+	char 	line[1024];
+	FILE 	*file = NULL;
 
+	file = fopen (CONF_FILE, "r" );
+	if ( file == NULL ){
+		file = fopen(CONF_FILE, "w" );
+		XIvApPath 	= (char *)malloc(sizeof(char) * 255);
+		tsControlPath 	= (char *)malloc(sizeof(char) * 255);
+		sprintf(XIvApPath,	"./Resources/plugins/X-IvAp Resources/X-IvAp.conf");
+		sprintf(tsControlPath,	"./TeamSpeak2RC2/client_sdk/tsControl");
+
+
+		fprintf(file, "XIvApPath\t= \"%s\"\n", 		XIvApPath);
+		fprintf(file, "tsControlPath\t= \"%s\"\n", 	tsControlPath);
+		fclose (file);
+		return 0;
+	}
+
+	int start 	= 0;
+	int end		= 0;
+	int j		= 0;
+
+	while ( fgets ( line, 1023, file ) != NULL ){
+		for (  j = 0	; j < 1024; j++) if ( line[j] == '\"' ) { start	= j; break; }
+		for (  j++	; j < 1024; j++) if ( line[j] == '\"' ) { end	= j; break; }
+
+		if ( ( end - start ) <= 0) continue;
+		
+		if ( strstr(line, "XIvApPath") ){
+			XIvApPath = (char *)malloc(sizeof(char) * (strlen(line) + 1) );
+			sprintf(XIvApPath, "%.*s", end - start - 1, line + start + 1);
+			continue;
+	
+		}
+
+		if ( strstr(line, "tsControlPath") ){
+			tsControlPath = (char *)malloc(sizeof(char) * (strlen(line) + 1) );
+			sprintf(tsControlPath, "%.*s", end - start - 1, line + start + 1);
+			continue;
+	
+		}
+		
+	}
+	fclose ( file );
+	
+	if ( XIvApPath	   == NULL ) Pilot.status = NOTWORK;
+	if ( tsControlPath == NULL ) Pilot.status = NOTWORK;
+
+
+	return 0;
+}
 
 
 int ExtractInfoFromLine(char *line, struct ATC *info){
@@ -117,7 +167,6 @@ int ExtractInfoFromLine(char *line, struct ATC *info){
 	bzero(info->server, 99);
 
 	for ( token = strtok(tmp, ":"), i = 0; token != NULL; token = strtok(NULL, ":"), i++ ){
-		//printf("%d %s\n", i, token);
 		switch(i){
 			case 0: // Name
 				strcpy(info->name, token);
@@ -364,10 +413,13 @@ int readXIvApInfo(){
 	char 	line[128];
 	FILE 	*file = NULL;
 
+	if ( Pilot.status != OFFLINE ) return 0;
+
 	file = fopen (XIvApPath , "r" );
 
 	if ( file == NULL ){
 		printf("Unable to open X-IvAp configuration file %s!\n", XIvApPath);
+		Pilot.status = NOTWORK;
 		return 1;
 	}
 
@@ -476,6 +528,9 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc){
 	strcpy(outName, "TeamSpeak2 to X-Plane Linker");
 	strcpy(outSig,  "by Mario Cavicchi");
 	strcpy(outDesc, "cavicchi@ferrara.linux.it");
+
+
+
 	gPlaneLat = XPLMFindDataRef("sim/flightmodel/position/latitude");
         gPlaneLon = XPLMFindDataRef("sim/flightmodel/position/longitude");
         gPlaneEl  = XPLMFindDataRef("sim/flightmodel/position/elevation");
@@ -496,10 +551,14 @@ PLUGIN_API int XPluginStart( char *outName, char *outSig, char *outDesc){
 	for (int i = 0; i < MAX_SERVERS_NUMBER; i++) SERVERS[MAX_SERVERS_NUMBER] = NULL;
 	for (int i = 0; i < MAX_WHAZZUP_LINES;  i++) Whazzup[MAX_WHAZZUP_LINES]  = NULL;
 
+	readConfigurationFile();
+
+
 	curl_global_init(CURL_GLOBAL_ALL);
 
 	return (gCom1 != NULL) ? 1 : 0;
 }
+
 
 
 
