@@ -1132,7 +1132,8 @@ upDateServer(){
 	# server=( "http://${servers_tile[$server_index]}/kh/v=76&" "http://${servers_maps[$server_index]}/vt/lyrs=m@142&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=88&" "http://${servers_maps[$server_index]}/vt/lyrs=m@156000000&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=93&" "http://${servers_maps[$server_index]}/vt/lyrs=m@161000000&style=3&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=102&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=102&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
+	server=( "http://${servers_tile[$server_index]}/kh/v=104&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
 
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
