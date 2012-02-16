@@ -124,7 +124,7 @@ int ExtractInfoFromLine(char *line, struct ATC *info){
 				break;
 			case 4: // Freq
 
-				info->freq = atof(token) + 0.0f;
+				info->freq = (float)((int)( atof(token) * 100 )) / 100.0; // Rounded to second decimal for X-Plane
 				// Check VHF range
 				if ( info->freq < 118.0	  ) return 1;
 				if ( info->freq > 136.975 ) return 1;
@@ -449,6 +449,8 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
         Pilot.freq      = com1;
 
 	// Disconnect
+	// 0.00 0.02 0.05 0.07 1.00
+
 
 	for (i = 0; i < MAX_WHAZZUP_LINES;  i++){
 		if ( Whazzup[i] == NULL ) continue;
@@ -458,7 +460,7 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
 
 		double dist = distAprox(lat, lon, info.lat, info.lon);
 
-		if ( ( Pilot.status == OFFLINE ) && ( update ) ) printf("%s\t %.3fMHz\t Server: %s\t Dist: %.1fKm\n", info.name, info.freq, info.server, dist / 1000.0);
+		if ( ( Pilot.status == OFFLINE ) && ( update ) ) printf("%s\t %.2fMHz\t Server: %s\t Dist: %.1fKm\n", info.name, info.freq, info.server, dist / 1000.0);
 
 		if ( dist > MAX_ATC_DISTANCE ) continue;
 
