@@ -17,7 +17,7 @@
 #define MAX_SERVERS_NUMBER 	10
 #define	MAX_WHAZZUP_LINES	10000
 
-#define MAX_ATC_DISTANCE	100000	// In meters
+#define MAX_ATC_DISTANCE	300000	// In meters
 #define DELTA_FREQ		0.0001	
 #define UPDATE_TIME		60	// Seconds
 
@@ -441,7 +441,7 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
 	}
 
 	if ( ( fabs( com1 - Pilot.freq ) > DELTA_FREQ ) && ( Pilot.status == NOTWORK ) ) Pilot.status = OFFLINE;
-
+	if (   fabs( com1 - Pilot.freq ) > DELTA_FREQ ) disconnetToST();
 
         Pilot.lat       = lat;
         Pilot.lon       = lon;
@@ -449,7 +449,6 @@ float FlightLoopCallback( float inElapsedSinceLastCall, float inElapsedTimeSince
         Pilot.freq      = com1;
 
 	// Disconnect
-	if ( fabs( Pilot.freq - info.freq  ) > DELTA_FREQ ) disconnetToST();
 
 	for (i = 0; i < MAX_WHAZZUP_LINES;  i++){
 		if ( Whazzup[i] == NULL ) continue;
