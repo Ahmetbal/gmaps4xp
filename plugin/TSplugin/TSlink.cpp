@@ -346,7 +346,10 @@ int disconnetToST(){
 
 	if (error){ printf("Failed to run command: %s\n", commandLine ); Pilot.status = NOTWORK; return 1; }
 
-        Pilot.status = OFFLINE;
+	Pilot.VID 	= NULL; 
+	Pilot.PASSWORD 	= NULL;
+	Pilot.CALLSIGN	= NULL;
+        Pilot.status	= OFFLINE;
 
         return 0;
 
