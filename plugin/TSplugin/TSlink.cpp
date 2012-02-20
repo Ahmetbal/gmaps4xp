@@ -10,6 +10,7 @@
 #include "XPLMDataAccess.h"
 #include "XPLMUtilities.h"
 
+
 #define ONLINE			0
 #define OFFLINE			1
 #define NOTWORK			2
