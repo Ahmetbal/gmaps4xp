@@ -40,7 +40,7 @@ AIRPORT_LABEL="AIRPORT"
 PLANE_LABEL_ROT="PLANE_ROT"
 AIRPORT_LABEL_ROT="AIRPORT_ROT"
 ZOOM_REFERENCE_LABEL="ZOOM_REFERENCE"
-
+MAPS_VERSION=()
 XPLANE_CMD_VERSION="920"
 TER_DIR="terrain" 
 MESH_LEVEL="2"
@@ -1133,11 +1133,23 @@ upDateServer(){
 	# server=( "http://${servers_tile[$server_index]}/kh/v=88&" "http://${servers_maps[$server_index]}/vt/lyrs=m@156000000&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=93&" "http://${servers_maps[$server_index]}/vt/lyrs=m@161000000&style=3&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=102&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
-	server=( "http://${servers_tile[$server_index]}/kh/v=104&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
+	# server=( "http://${servers_tile[$server_index]}/kh/v=104&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
+	
 
+	if [ "${#MAPS_VERSION[*]}" -ne "2" ] ; then
+		echo "Downloading and update Map Version ..."
+		googleMainContent="$( wget -q -O- http://maps.google.com/ | tr ",\"\[\]" "\n" )"
+		MAPS_VERSION[0]="$( echo "$googleMainContent" | grep '/kh/v='		| head -n 1 | sed -e 's/&amp;/=/g' | sed -e 's/\\x26/=/g' | awk -F= {'print $2'} )"
+		MAPS_VERSION[1]="$( echo "$googleMainContent" | grep '/vt/lyrs=m@'	| head -n 1 | sed -e 's/&amp;/=/g' | sed -e 's/\\x26/=/g' | awk -F= {'print $2'} )"
+		echo "Image  Map version: ${MAPS_VERSION[0]}"
+		echo "Street Map version: ${MAPS_VERSION[1]}"
+	fi
+
+	server=( "http://${servers_tile[$server_index]}/kh/v=${MAPS_VERSION[0]}&" "http://${servers_maps[$server_index]}/vt/lyrs=${MAPS_VERSION[1]}&style=3&" )
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
+
 
 tile_size(){  
 	RAGGIO_QUADRATICO_MEDIO="6372.795477598"
