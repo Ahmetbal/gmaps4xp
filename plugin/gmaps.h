@@ -39,7 +39,7 @@
 #define BUFFER_CONSOL_COL	80
 #define BUFFER_CONSOL_LIN	35
 #define SERVERS_NUMBER		4
-#define GMAPS_VERION 		69
+#define GMAPS_VERION 		104
 #define LAYER_NMBER		20 
 #define	CACHE_DIR		"./GMapsCache"
 
