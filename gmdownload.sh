@@ -17,12 +17,6 @@ else
 fi
 
 
-# Q	R
-#
-# T	S
-# Start url...
-url="http://khm.google.com/kh?v=3&t="
-
 servers_tile=( khm0.google.com khm1.google.com khm2.google.com khm3.google.com )
 servers_maps=( mt0.google.com  mt1.google.com  mt2.google.com  mt3.google.com  )
 OSM="no"
@@ -49,9 +43,6 @@ TMPFILE="tmp$$"
 output=()
 COOKIES=""
 COOKIES_FILE="$( dirname -- "$0" )/cookies.txt"
-
-USER_AGENT="Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13 GTB7.1"
-
 
 point_lat="$1"
 point_lon="$2"
@@ -259,6 +250,7 @@ osm_center_lon="$( echo "scale = 8; ( $point_lon + $lowright_lon ) / 2 " | bc )"
 
 
 nfo_file="$tiles_dir/tile_"$point_lat"_"$point_lon"_"$lowright_lat"_"$lowright_lon".nfo"
+
 ################################################################################################################33
 
 # Compatibilty for macosx
@@ -1574,7 +1566,6 @@ cnt="1"
 tot="${#good_tile[@]}"
 
 SHIT_COLOR="E4E3DF"
-#[ "$( uname -s )" = "Linux" ]  && SHIT_COLOR="#E4E4E3E3DFDF"
 
 for c2 in ${good_tile[@]} ; do
 	echo  "$cnt / $tot"
@@ -2098,20 +2089,6 @@ for x in $( seq 0 $dim_x ) ; do
 
 				fi
 			fi
-
-#			[ -z "$( echo "${ul_lat%.*}" | tr -d "-" )" ] && ul_lat="$( echo "$ul_lat" | sed -e s/"\."/"0\."/g )" 
-#			[ -z "$( echo "${ul_lon%.*}" | tr -d "-" )" ] && ul_lon="$( echo "$ul_lon" | sed -e s/"\."/"0\."/g )" 
-#
-#			[ -z "$( echo "${ur_lat%.*}" | tr -d "-" )" ] && ur_lat="$( echo "$ur_lat" | sed -e s/"\."/"0\."/g )" 
-#			[ -z "$( echo "${ur_lon%.*}" | tr -d "-" )" ] && ur_lon="$( echo "$ur_lon" | sed -e s/"\."/"0\."/g )" 
-#
-#			[ -z "$( echo "${lr_lat%.*}" | tr -d "-" )" ] && lr_lat="$( echo "$lr_lat" | sed -e s/"\."/"0\."/g )" 
-#			[ -z "$( echo "${lr_lon%.*}" | tr -d "-" )" ] && lr_lon="$( echo "$lr_lon" | sed -e s/"\."/"0\."/g )" 
-#
-#			[ -z "$( echo "${ll_lat%.*}" | tr -d "-" )" ] && ll_lat="$( echo "$ll_lat" | sed -e s/"\."/"0\."/g )" 
-#			[ -z "$( echo "${ll_lon%.*}" | tr -d "-" )" ] && ll_lon="$( echo "$ll_lon" | sed -e s/"\."/"0\."/g )" 
-#
-
 
 
 			if [ "$MASH_SCENARY" = "no" ] ; then
