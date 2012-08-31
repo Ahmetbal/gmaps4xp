@@ -27,7 +27,7 @@ servers_tile=( khm0.google.com khm1.google.com khm2.google.com khm3.google.com )
 servers_maps=( mt0.google.com  mt1.google.com  mt2.google.com  mt3.google.com  )
 OSM="no"
 server_index="0"
-SLEEP_TIME="20"
+SLEEP_TIME="1"
 MAX_PERC_COVER="1"
 
 
@@ -47,6 +47,9 @@ MESH_LEVEL="2"
 output_index="0"
 TMPFILE="tmp$$"
 output=()
+COOKIES=""
+COOKIES_FILE="$( dirname -- "$0" )/cookies.txt"
+
 USER_AGENT="Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13 GTB7.1"
 
 
@@ -178,8 +181,6 @@ if [ -f "$file" ] ; then
 		[ "$( echo "scale = 8;  $lat_fix >= 0"    | bc -l )" == 1 ] && lat_fix="$( echo "scale = 8; $lat_runwa - $lat_plane" | bc -l )"
 		[ "$( echo "scale = 8;  $lon_fix >= 0"    | bc -l )" == 1 ] && lon_fix="$( echo "scale = 8; $lon_runwa - $lon_plane" | bc -l )"
 
-
-		echo "$lat_fix $lon_fix"
 
 		m_plane="$( echo "scale = 8; ( $lat_plane + $lat_fix - $lat_plane_rot ) / ( $lon_plane + $lon_fix - $lon_plane_rot )" | bc -l  )"
 
@@ -316,22 +317,6 @@ if [ "$( uname -s )" = "Linux" ] ; then
 	fi
 fi	
 
-
-
-if [ -f "$( dirname -- "$0" )/cookies.txt" ] ; then
-	echo "Found cookie file for wget!"
-	[ "$( uname -s )" = "Linux" ]  && coockie_date="$( ls -lact --time-style="+%s"  "$( dirname -- "$0" )/cookies.txt" |awk {'print $6'} )"
-	[ "$( uname -s )" = "Darwin" ] && coockie_date="$( stat -f "%a"  "$( dirname -- "$0" )/cookies.txt"  )"
-	now_date="$( date +%s )"
-	if [ "$( echo "scale = 8;  ( $now_date - $coockie_date )  > ( 24 * 3600 )" | bc -l )" = "1" ] ; then
-		echo "Your cookies.txt file is too old, over 24h of life! You must update it. "
-		exit 2
-	fi
-	COOKIES_FILE="$( dirname -- "$0" )/cookies.txt"
-
-	SLEEP_TIME="1"
-fi
-
 ################################################################################################################33
 
 #
@@ -353,6 +338,35 @@ log(){
 }
 
 
+getCookies(){
+
+	indexContent="$( wget   --header='Connection: keep-alive' \
+			--header='User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.81 Safari/537.1' \
+			--header='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+			--header='Accept-Encoding: deflate,sdch' \
+			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
+			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' -q -O- --server-response "http://maps.google.com"  2>&1  )"
+
+
+	khcookie="khcookie=$(   echo "$indexContent" | tr "[]" "\n"  | grep "Map data" | rev | awk -F "\"" {'print $2'} | rev | tr -d " " )"
+	PREF="$(                echo "$indexContent" | grep " Set-Cookie: PREF" | cut -f 2- -d ":" | awk -F\; {'print $1'}  | tr -d " " )"
+
+	indexContent="$( wget	--header='Connection: keep-alive' \
+				--header='User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.81 Safari/537.1' \
+				--header='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+				--header='Accept-Encoding: deflate,sdch' \
+				--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
+				--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
+				--header="Cookie: $khcookie;$PREF" -q -O- --server-response "http://maps.google.com/maps/vp?spn=$1&t=h&z=4&vpsrc=6&vp=$2"  2>&1  )"
+
+	NID="$( echo "$indexContent" | grep " Set-Cookie: NID" | cut -f 2- -d ":" | awk -F\; {'print $1'}  | tr -d " " )"
+
+	COOKIES="$khcookie;$PREF;$NID"
+
+}
+
+
+
 ewget(){
 	out="$1"
 	url="$2"
@@ -360,12 +374,16 @@ ewget(){
 		echo "ERROR: Utility missing, maybe BUG."
 		exit 3
 	fi
+
+
+	result="$( wget	--header='Connection: keep-alive' \
+			--header='User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.81 Safari/537.1' \
+			--header='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+			--header='Accept-Encoding: deflate,sdch' \
+			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
+			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
+			--header="Cookie: $COOKIES" -q -O "$out" "$url" )"
 	
-	if [ ! -z "$COOKIES_FILE" ] ; then
-		result="$( wget --user-agent="$USER_AGENT" --load-cookies="$COOKIES_FILE" -O "$out" "$url" 2>&1 )"
-	else
-		result="$( wget --user-agent="$USER_AGENT"  -O "$out" "$url" 2>&1 )"
-	fi
 	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
 		echo "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
 		exit 2
@@ -378,13 +396,30 @@ swget(){
 		echo "ERROR: Utility missing, maybe BUG."
 		exit 3
 	fi
+
+
+	result="$( wget	--header='Connection: keep-alive' \
+			--header='User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.81 Safari/537.1' \
+			--header='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+			--header='Accept-Encoding: deflate,sdch' \
+			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
+			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
+			--header="Cookie: $COOKIES" -q -S --spider "$url" )"
 	
-	if [ ! -z "$COOKIES_FILE" ] ; then
-		wget --user-agent=Firefox --load-cookies="$COOKIES_FILE" -S --spider "$url"
-	else
-		wget --user-agent=Firefox -S --spider "$url"
+	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
+		echo "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
+		exit 2
+	fi
+
+	if [ -z "$( which wget 2> /dev/null )" ] ; then
+		echo "ERROR: Utility missing, maybe BUG."
+		exit 3
 	fi
 }
+
+
+
+
 addLine(){                                                                                                                                                                       
         line="$1"
         [ -z "$line" ] && line=" "
@@ -530,19 +565,10 @@ middlePoint(){
         pos_two=( $( echo "${points[1]}" | awk {'print $3" "$4'} ) )
 
 
-        point_tree_lon="$( echo "scale = 8; ( ${point_one[0]} + ${point_two[0]} ) / 2" | bc )"
-        [ -z "$( echo "${point_tree_lon%.*}" | tr -d "-" )" ] && point_tree_lon="$( echo "$point_tree_lon" | sed -e s/"\."/"0\."/g )"
-
-        point_tree_lat="$( echo "scale = 8; ( ${point_one[1]} + ${point_two[1]} ) / 2" | bc )"
-        [ -z "$( echo "${point_tree_lat%.*}" | tr -d "-" )" ] && point_tree_lat="$( echo "$point_tree_lat" | sed -e s/"\."/"0\."/g )"
-
-        pos_tree_x="$( echo "scale = 8; ( ${pos_one[0]} + ${pos_two[0]} ) / 2" | bc )"
-        [ -z "$( echo "${pos_tree_x%.*}" | tr -d "-" )" ] && pos_tree_x="$( echo "$pos_tree_x" | sed -e s/"\."/"0\."/g )"
-        [ "$pos_tree_x" = "0" ] && pos_tree_x="0.00000000"
-
-        pos_tree_y="$( echo "scale = 8; ( ${pos_one[1]} + ${pos_two[1]} ) / 2" | bc )"
-        [ -z "$( echo "${pos_tree_y%.*}" | tr -d "-" )" ] && pos_tree_y="$( echo "$pos_tree_y" | sed -e s/"\."/"0\."/g )"
-        [ "$pos_tree_y" = "0" ] && pos_tree_y="0.00000000"
+        point_tree_lon="$( 	echo "scale = 8; ( ${point_one[0]} + ${point_two[0]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
+        point_tree_lat="$( 	echo "scale = 8; ( ${point_one[1]} + ${point_two[1]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
+        pos_tree_x="$( 		echo "scale = 8; ( ${pos_one[0]} + ${pos_two[0]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
+        pos_tree_y="$(		echo "scale = 8; ( ${pos_one[1]} + ${pos_two[1]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
 
         echo -n "${point_tree_lon},${point_tree_lat}_${pos_tree_x},${pos_tree_y};"
 }
@@ -589,9 +615,7 @@ pointsDist(){
         a=(  ${1#*,} ${1%,*} ) 
         b=(  ${2#*,} ${2%,*} ) 
                 
-        dist="$( echo "scale = 8; sqrt( ( ( ${b[1]} - ${a[1]} ) * ( ${b[1]} - ${a[1]} ) ) + ( ( ${b[0]} - ${a[0]} ) * ( ${b[0]} - ${a[0]} ) ) )" | bc -l )"
-
-        [ -z "$( echo "${dist%.*}" | tr -d "-" )" ] && dist="$( echo "$dist" | sed -e s/"\."/"0\."/g )"
+        dist="$( echo "scale = 8; sqrt( ( ( ${b[1]} - ${a[1]} ) * ( ${b[1]} - ${a[1]} ) ) + ( ( ${b[0]} - ${a[0]} ) * ( ${b[0]} - ${a[0]} ) ) )" | bc -l | awk {'printf "%.8f", $1'} )"
         echo -n "$dist"
 }
 
@@ -806,42 +830,61 @@ findWhereIcut(){
 # return: 	in 	-> inside
 #		out 	-> outside
 
+
+
 pointInPolygon(){
 	x="$1"
 	y="$2"
 	polvectorSides=( $( echo $3 ) )
-	oddNodes="out"
+
 	i="0"
 	for xy in  ${polvectorSides[*]} ; do
-		polvectorX[$i]="${xy%,*}" 
-		polvectorY[$i]="${xy#*,}"
+		polvectorX[$i]="polvectorx[$i]=${xy%,*};" 
+		polvectorY[$i]="polvectory[$i]=${xy#*,};"
 		i=$[ $i + 1 ]
 	done
 
-	i="0"
 	j="$[ ${#polvectorX[*]} - 1 ]"
-	if [ "${polvectorX[0]}" = "${polvectorX[$j]}" ] && [ "${polvectorY[0]}" = "${polvectorY[$j]}" ] ; then
+	if [ "${polvectorX[0]#*=}" = "${polvectorX[$j]#*=}" ] && [ "${polvectorY[0]#*=}" = "${polvectorY[$j]#*=}" ] ; then
 		unset polvectorX[$j]
 		unset polvectorY[$j]
 		j="$[ ${#polvectorX[*]} - 1 ]"
 
 	fi
-	
-	while [ $i -lt "${#polvectorX[*]}"  ] ;  do
-		if [ "$( echo "scale=16;  ${polvectorY[$i]} < $y && ${polvectorY[$j]} >= $y  || ${polvectorY[$j]} < $y && ${polvectorY[$i]} >= $y" | bc -l )" == 1 ] ; then
-			if [ "$( echo "scale=16; ${polvectorX[$i]} + ($y - ${polvectorY[$i]})/(${polvectorY[$j]} - ${polvectorY[$i]})*(${polvectorX[$j]} - ${polvectorX[$i]}) < $x" | bc -l )" == 1 ] ; then
-				if [ "$oddNodes" = "out" ] ; then
-					oddNodes="in"
-				else
-					oddNodes="out"
-				fi
-			fi
 
-		fi
-		j="$i";
-		i=$[ $i + 1 ]
-	done
-	echo "$oddNodes"
+cat << EOM | bc -l
+	scale 	 = 16;
+	x	 = $x;
+	y	 = $y;
+	oddnodes = 0;
+	j	 = ${#polvectorX[*]} - 1;
+
+	${polvectorX[*]}
+	${polvectorY[*]}
+
+	for (i = 0; i < ${#polvectorX[*]} ;) {
+		if ( polvectory[i] < y && polvectory[j] >= y  || polvectory[j] < y && polvectory[i] >= y ){
+			if ( polvectorx[i] + ( y - polvectory[i]) / ( polvectory[j] - polvectory[i] ) * ( polvectorx[j] - polvectorx[i] ) < x ) {
+				if ( oddnodes == 0 ) {
+					oddnodes = 1;
+				}else{
+					oddnodes = 0;
+				}
+
+			}
+
+		}
+		j = i;
+		i = i + 1;
+	}
+	if ( oddnodes == 0 ) {
+		print "out";
+	}else{
+		print "in";
+	}
+
+EOM
+	
 }
 
 #
@@ -1123,18 +1166,7 @@ getDSFName(){
 
 
 upDateServer(){
-	# http://mt1.google.com/mt/v=app.87&x=4893&y=3428&z=13
-	# server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/mt/v=app.87&" )
-	# server=( "http://${servers_tile[$server_index]}/kh?v=3&t=" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=45&" "http://${servers_maps[$server_index]}/vt/v=w2.97&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=48&" "http://${servers_maps[$server_index]}/vt/lyrs=m@112&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=55&" "http://${servers_maps[$server_index]}/vt/lyrs=m@118&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=76&" "http://${servers_maps[$server_index]}/vt/lyrs=m@142&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=88&" "http://${servers_maps[$server_index]}/vt/lyrs=m@156000000&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=93&" "http://${servers_maps[$server_index]}/vt/lyrs=m@161000000&style=3&" )
-	# server=( "http://${servers_tile[$server_index]}/kh/v=102&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
 	# server=( "http://${servers_tile[$server_index]}/kh/v=104&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
-	
 
 	if [ "${#MAPS_VERSION[*]}" -ne "2" ] ; then
 		echo "Downloading and update Map Version ..."
@@ -1203,6 +1235,8 @@ testImage(){
 
 #########################################################################3
 
+
+
 if [ -z "$output_dir" ] ; then
 	echo "Output directory missing..."
 	exit 1
@@ -1251,6 +1285,9 @@ if [ -f "$nfo_file" ] ; then
                 [ "$x" = "y" ] && RESTORE="yes" && break
         done
 fi
+
+echo "Getting Cookies from Google Maps ..."
+getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon"
 
 if [ "$RESTORE" = "no" ] ; then
 	if [ ! -z "$zoom_reference_lat" ] && [ ! -z "$zoom_reference_lon" ] ; then
@@ -1464,7 +1501,7 @@ if [ "$RESTORE" = "no" ] ; then
 				info=( $( GetCoordinatesFromAddress $c2 ) )
 				# $lon $lat $lon_min $lat_min $lon_max $lat_max
 
-				for j in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'} | tr "\n" " " ) ; do
+				time for j in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'}  | sort -u | tr "\n" " " ) ; do
 					tmp_poly="$( echo ${poly[*]} | tr " " "\n" | grep "^${j}," | awk -F, {'print $2","$3'} | tr "\n" " " )"
 					inout="$( pointInPolygon "${info[2]}" "${info[3]}" "$tmp_poly" )"
 					[ "$inout" = "out" ] && inout="$( pointInPolygon "${info[4]}" "${info[5]}" "$tmp_poly" )"
@@ -1493,6 +1530,9 @@ if [ "$RESTORE" = "no" ] ; then
 	echo
 	echo "good_tile=( ${good_tile[@]} )"  >> "$nfo_file"
 fi
+
+
+
 REMAKE_TILE="no"
 if [ "$RESTORE" = "yes" ] ; then
 	echo "Restoring section $nfo_file..."
