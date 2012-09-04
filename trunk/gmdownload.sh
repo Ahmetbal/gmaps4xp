@@ -166,19 +166,16 @@ if [ -f "$file" ] ; then
 	if [ "$lat_plane"     != "" ] && [ "$lon_plane"     != "" ]  && [ "$lon_runwa"     != "" ] && [ "$lon_runwa"     != "" ] && \
 	   [ "$lat_plane_rot" != "" ] && [ "$lon_plane_rot" != "" ]  && [ "$lon_runwa_rot" != "" ] && [ "$lon_runwa_rot" != "" ] ; then
 
-		lat_fix="$( echo "scale = 8; $lat_plane - $lat_runwa" | bc -l )"
-		lon_fix="$( echo "scale = 8; $lon_plane - $lon_runwa" | bc -l )"
+		lat_fix="$( echo "scale = 8; $lat_plane - $lat_runwa" | bc -l | awk {'printf "%.8f", $1'} )"
+		lon_fix="$( echo "scale = 8; $lon_plane - $lon_runwa" | bc -l | awk {'printf "%.8f", $1'} )"
 
-		[ "$( echo "scale = 8;  $lat_fix >= 0"    | bc -l )" == 1 ] && lat_fix="$( echo "scale = 8; $lat_runwa - $lat_plane" | bc -l )"
-		[ "$( echo "scale = 8;  $lon_fix >= 0"    | bc -l )" == 1 ] && lon_fix="$( echo "scale = 8; $lon_runwa - $lon_plane" | bc -l )"
-
-
-		m_plane="$( echo "scale = 8; ( $lat_plane + $lat_fix - $lat_plane_rot ) / ( $lon_plane + $lon_fix - $lon_plane_rot )" | bc -l  )"
-
-		m_runwa="$( echo "scale = 8; ( $lat_runwa + $lat_fix - $lat_runwa_rot ) / ( $lon_runwa + $lon_fix - $lon_runwa_rot )" | bc -l  )"
+		[ "$( echo "scale = 8;  $lat_fix >= 0"    | bc -l )" == 1 ] && lat_fix="$( echo "scale = 8; $lat_runwa - $lat_plane" | bc -l | awk {'printf "%.8f", $1'} )"
+		[ "$( echo "scale = 8;  $lon_fix >= 0"    | bc -l )" == 1 ] && lon_fix="$( echo "scale = 8; $lon_runwa - $lon_plane" | bc -l | awk {'printf "%.8f", $1'} )"
 
 
-		rot_fix="$( echo "scale = 8; (a( ($m_plane -  $m_runwa)/(1+($m_plane + $m_runwa)) ) * ( 180 / $pi ))" | bc -l  )"
+		m_plane="$( echo "scale = 8; ( $lat_plane + $lat_fix - $lat_plane_rot ) / ( $lon_plane + $lon_fix - $lon_plane_rot )" | bc -l | awk {'printf "%.8f", $1'} )"
+		m_runwa="$( echo "scale = 8; ( $lat_runwa + $lat_fix - $lat_runwa_rot ) / ( $lon_runwa + $lon_fix - $lon_runwa_rot )" | bc -l | awk {'printf "%.8f", $1'} )"
+		rot_fix="$( echo "scale = 8; (a( ($m_plane -  $m_runwa)/(1+($m_plane + $m_runwa)) ) * ( 180 / $pi ))" | bc -l | awk {'printf "%.8f", $1'} )"
 	else
 		rot_fix="$3"
 	fi
@@ -209,8 +206,8 @@ fi
 
 
 if [ "$lat_plane" != "" ] && [ "$lon_plane" != "" ]  && [ "$lon_runwa" != "" ] && [ "$lon_runwa" != "" ] ; then
-	lat_fix="$( echo "scale = 8; $lat_plane - $lat_runwa" | bc -l )"
-	lon_fix="$( echo "scale = 8; $lon_plane - $lon_runwa" | bc -l )"
+	lat_fix="$( echo "scale = 8; $lat_plane - $lat_runwa" | bc -l | awk {'printf "%.8f", $1'} )"
+	lon_fix="$( echo "scale = 8; $lon_plane - $lon_runwa" | bc -l | awk {'printf "%.8f", $1'} )"
 else
 	lat_plane="0"
 	lon_plane="0"
@@ -367,6 +364,10 @@ ewget(){
 		exit 3
 	fi
 
+	if [ -z "$COOKIES" ] ; then
+		echo "ERROR: Cookies not found!"
+		exit 3
+	fi
 
 	result="$( wget	--header='Connection: keep-alive' \
 			--header='User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.81 Safari/537.1' \
@@ -386,6 +387,11 @@ swget(){
 	url="$1"
 	if [ -z "$( which wget 2> /dev/null )" ] ; then
 		echo "ERROR: Utility missing, maybe BUG."
+		exit 3
+	fi
+
+	if [ -z "$COOKIES" ] ; then
+		echo "ERROR: Cookies not found!"
 		exit 3
 	fi
 
@@ -879,6 +885,41 @@ EOM
 	
 }
 
+MercatorToNormal(){
+	y="$1"
+# Start BC 
+bc -l << EOF
+scale   = 8
+y 	= $y
+y = s( -1 * y * 4*a(1) / 180 )
+y = (1 + y ) / ( 1 - y )
+y = 0.5 * l(y)
+y = y * 1.0 / (2 * 4*a(1))
+y + 0.5
+EOF
+
+}
+
+
+
+
+NormalToMercator(){
+	y="$1"
+# Start BC 
+bc -l << EOF
+scale 	= 8
+y 	= $y
+y = y - 0.5
+y = y * (2 * 4*a(1))
+y = e(y *2 )
+y = ( y - 1 ) / ( y  + 1 )
+y = a( y / sqrt( -1 * y * y + 1 ) )
+y * -180/(4*a(1))
+EOF
+# End BC
+
+}
+
 #
 # Conversion from lat lon to Google qrst-string
 #
@@ -891,14 +932,13 @@ GetQuadtreeAddress(){
 	x="$( echo "scale = 8 ; ( 180 + $lon ) / 360" | bc )"
 	y="$( MercatorToNormal $lat )"	
 	for i in $( seq 24 ) ; do
-		b=0
-		x="0.$( echo $x | awk -F. {'print $2'} )"
-		y="0.$( echo $y | awk -F. {'print $2'} )"
-		[ $( echo "$x >= 0.5" | bc ) = 1  ] && b=$[ $b + 1 ]
-		[ $( echo "$y >= 0.5" | bc ) = 1  ] && b=$[ $b + 2 ]
+		b="0"
+		b="$( awk 'BEGIN {  printf "%d", ( 0.'${x#*.}' >= 0.5 ) ? '$b' + 1 : '$b' }' )"
+		b="$( awk 'BEGIN {  printf "%d", ( 0.'${y#*.}' >= 0.5 ) ? '$b' + 2 : '$b' }' )"
+
 		quad="$quad${lookup[$b]}"
-		x=$( echo "$x * 2" | bc )
-		y=$( echo "$y * 2" | bc )
+		x="$( awk 'BEGIN {  printf "%.12f", 0.'${x#*.}' * 2 }' )"
+		y="$( awk 'BEGIN {  printf "%.12f", 0.'${y#*.}' * 2 }' )"
 	done
 	echo "$quad"
 }
@@ -971,40 +1011,7 @@ GetNextTileY(){
 	echo "$parent$last"
 }
 
-MercatorToNormal(){
-	y="$1"
-# Start BC 
-bc -l << EOF
-scale   = 8
-y 	= $y
-y = s( -1 * y * 4*a(1) / 180 )
-y = (1 + y ) / ( 1 - y )
-y = 0.5 * l(y)
-y = y * 1.0 / (2 * 4*a(1))
-y + 0.5
-EOF
 
-}
-
-
-
-
-NormalToMercator(){
-	y="$1"
-# Start BC 
-bc -l << EOF
-scale 	= 8
-y 	= $y
-y = y - 0.5
-y = y * (2 * 4*a(1))
-y = e(y *2 )
-y = ( y - 1 ) / ( y  + 1 )
-y = a( y / sqrt( -1 * y * y + 1 ) )
-y * -180/(4*a(1))
-EOF
-# End BC
-
-}
 
 qrst2xyz(){
 	str="$1"
@@ -1113,7 +1120,7 @@ getDirName(){
 
 
 	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "1" ] && lon="$( echo "$lon" | sed -e s/"+"/"+00"/g |  sed -e s/"-"/"-00"/g )"
-	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "2" ] && lon="$( echo "$lon" | sed -e s/"+"/"+0"/g |  sed -e s/"-"/"-0"/g )"
+	[ "$( echo -n "$lon" | tr -d "+-" | wc -c | awk {'print $1'} )" = "2" ] && lon="$( echo "$lon" | sed -e s/"+"/"+0"/g  |  sed -e s/"-"/"-0"/g  )"
 
 	[ "$lat" = "0" ] 	&& lat="+00"
 	[ -z "$lon" ] 		&& lon="+000"
@@ -1207,9 +1214,11 @@ tile_resolution(){
 
 
 abs(){
+
 	[ "$( echo "scale = 8; $1 < 0.0" | bc  )" = "1" ] && echo $1 | tr -d "-" && return		
 	echo "$1"
 }
+
 
 testImage(){
 	img="$1"
@@ -1465,20 +1474,7 @@ if [ "$RESTORE" = "no" ] ; then
 
 	echo "Randomizing tile list..."
 	echo "Step 1..."
-	in_order=( $( seq 0 $[ $tot - 1 ] | tr "\n" " " ) )
-	i="0"
-	cnt=1
-
-	while [ "${#in_order[*]}" != "0" ] ; do
-		echo "Step 2: $cnt / $tot..."
-		ran=$[ $RANDOM % ${#in_order[*]} ]
-		tile_index[$i]="${in_order[$ran]}"
-		unset in_order[$ran] 
-		in_order=( ${in_order[*]} )
-		i=$[ $i + 1 ]
-		cnt=$[ $cnt + 1 ]
-	done
-	echo
+	tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
 
 	i="0"
 	cnt=1
@@ -1488,12 +1484,12 @@ if [ "$RESTORE" = "no" ] ; then
 		cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
 		for y in $( seq 0 $dim_y  ) ; do
-			echo "Step 3: $cnt / $tot.."
+			echo "Step 2: $cnt / $tot.."
 			if [ ! -z "${poly[*]}" ] ; then	
 				info=( $( GetCoordinatesFromAddress $c2 ) )
 				# $lon $lat $lon_min $lat_min $lon_max $lat_max
 
-				time for j in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'}  | sort -u | tr "\n" " " ) ; do
+				for j in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'}  | sort -u | tr "\n" " " ) ; do
 					tmp_poly="$( echo ${poly[*]} | tr " " "\n" | grep "^${j}," | awk -F, {'print $2","$3'} | tr "\n" " " )"
 					inout="$( pointInPolygon "${info[2]}" "${info[3]}" "$tmp_poly" )"
 					[ "$inout" = "out" ] && inout="$( pointInPolygon "${info[4]}" "${info[5]}" "$tmp_poly" )"
@@ -1522,7 +1518,6 @@ if [ "$RESTORE" = "no" ] ; then
 	echo
 	echo "good_tile=( ${good_tile[@]} )"  >> "$nfo_file"
 fi
-
 
 
 REMAKE_TILE="no"
@@ -1880,8 +1875,8 @@ for x in $( seq 0 $dim_x ) ; do
 			# With rotation...
 			ul_lat="$( echo "scale = 8; $ori_ul_lat - $lat_plane" | bc -l )"
 			ul_lon="$( echo "scale = 8; $ori_ul_lon - $lon_plane" | bc -l )"
-			ul_lon="$( echo "scale = 8;  $ul_lon * c( ($pi/180) * $rot_fix ) - $ul_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-			ul_lat="$( echo "scale = 8;  $ul_lon * s( ($pi/180) * $rot_fix ) + $ul_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			ul_lon="$( echo "scale = 8; $ul_lon * c( ($pi/180) * $rot_fix ) - $ul_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			ul_lat="$( echo "scale = 8; $ul_lon * s( ($pi/180) * $rot_fix ) + $ul_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
 			ul_lat="$( echo "scale = 8; $ul_lat + $lat_plane" | bc -l )"
 			ul_lon="$( echo "scale = 8; $ul_lon + $lon_plane" | bc -l )"
 
