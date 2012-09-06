@@ -308,16 +308,6 @@ fi
 
 ################################################################################################################33
 
-#
-# Wrapper for wget command
-#
-# http://visualimages2.paginegialle.it/xml.php/europa-orto.imgi?cmd=tile&format=jpeg&x=2113&y=2658&z=32&extra=2&ts=256&q=65&rdr=0&sito=visual
-#
-# host: 
-# format=png
-# q= quality in % (1-100)
-#
-
 log(){
 	if [ -z "$1" ] ; then
 		log "Invalid paramters for function log (usage: log \"blabla...\""
@@ -325,6 +315,12 @@ log(){
 	fi	
 	echo "$(date) - $1" 1>&2
 }
+
+#
+# Wrapper for wget command
+#
+
+
 
 
 getCookies(){
@@ -360,12 +356,12 @@ ewget(){
 	out="$1"
 	url="$2"
 	if [ -z "$( which wget 2> /dev/null )" ] ; then
-		echo "ERROR: Utility missing, maybe BUG."
+		log "ERROR: Utility missing, maybe BUG."
 		exit 3
 	fi
 
 	if [ -z "$COOKIES" ] ; then
-		echo "ERROR: Cookies not found!"
+		log "ERROR: Cookies not found!"
 		exit 3
 	fi
 
@@ -378,7 +374,7 @@ ewget(){
 			--header="Cookie: $COOKIES" -q -O "$out" "$url" )"
 	
 	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
-		echo "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
+		log "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
 		exit 2
 	fi
 }
@@ -386,12 +382,12 @@ ewget(){
 swget(){
 	url="$1"
 	if [ -z "$( which wget 2> /dev/null )" ] ; then
-		echo "ERROR: Utility missing, maybe BUG."
+		log "ERROR: Utility missing, maybe BUG."
 		exit 3
 	fi
 
 	if [ -z "$COOKIES" ] ; then
-		echo "ERROR: Cookies not found!"
+		log "ERROR: Cookies not found!"
 		exit 3
 	fi
 
@@ -405,12 +401,12 @@ swget(){
 			--header="Cookie: $COOKIES" -q -S --spider "$url" )"
 	
 	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
-		echo "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
+		log "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
 		exit 2
 	fi
 
 	if [ -z "$( which wget 2> /dev/null )" ] ; then
-		echo "ERROR: Utility missing, maybe BUG."
+		log "ERROR: Utility missing, maybe BUG."
 		exit 3
 	fi
 }
@@ -425,6 +421,7 @@ addLine(){
         output[$output_index]="$line"
         output_index=$[ $output_index + 1 ]
 }
+
 
 isNumber(){
 	number="$1"
@@ -547,7 +544,7 @@ checkAltitude(){
 }
 
 #
-# This funciont reutun the middle point between two points
+# This funciont return the middle point between two points
 #
 
 middlePoint(){
@@ -647,7 +644,7 @@ createKMLoutput(){
 	ACT="$1"
 	file="$2"
 	if [ -z "$file" ] ; then
-		echo "ERROR: missing file name"
+		log "ERROR: missing file name"
 		return
 	fi
 	if [ "$ACT" = "HEAD" ] ; then
@@ -674,7 +671,7 @@ createKMLoutput(){
 	fi
 	if [ "$ACT" = "ADD" ] ; then
 		if [ "$#" -lt 7 ] ; then
-			echo "ERROR: missing arguments"
+			log "ERROR: missing arguments"
 		fi
 		image="$3"
 		north="$4"
@@ -719,7 +716,7 @@ createKMLoutput(){
 
         if [ "$ACT" = "TRI" ] ; then
                 if [ "$#" -lt 5 ] ; then
-                        echo "ERROR: missing arguments"
+                        log "ERROR: missing arguments"
                 fi
                 args=( $* )
 		last_arg="$[ ${#args[@]} - 1 ]"
@@ -796,7 +793,6 @@ findWhereIcut(){
 	while [ ! -z "${str:$cnt:1}" ] ; do
 		c="${str:$cnt:1}"
 
-
 		if [ "$c" = "t" ] ; then
 			y="$( echo "scale = 8; $y + 256/( 2^$i )" | bc -l | awk -F. {'print $1'} )"
 		fi
@@ -817,17 +813,19 @@ findWhereIcut(){
 	[ "$x" != "0" ] && x=$[ $x - 1 ]
 	[ "$y" != "0" ] && y=$[ $y - 1 ]
 
-
 	echo -n "${x_size}x${y_size}+$x+$y"
 
 }
+
+#intersectionPolygon(){
+#}
+
 
 #
 # Check if a point is in o out a ring of points
 # 
 # return: 	in 	-> inside
 #		out 	-> outside
-
 
 
 pointInPolygon(){
@@ -888,7 +886,7 @@ EOM
 MercatorToNormal(){
 	y="$1"
 # Start BC 
-bc -l << EOF
+bc -l << EOF | awk '{ printf "%.8f", $1 }'
 scale   = 8
 y 	= $y
 y = s( -1 * y * 4*a(1) / 180 )
@@ -906,7 +904,7 @@ EOF
 NormalToMercator(){
 	y="$1"
 # Start BC 
-bc -l << EOF
+bc -l << EOF | awk '{ printf "%.8f", $1 }'
 scale 	= 8
 y 	= $y
 y = y - 0.5
@@ -951,8 +949,9 @@ GetNextTileX(){
 	addr="$1"
 	forward="$2"
 	[ -z "$addr" ]	&& echo "$addr" && return
-	parent="${addr:0:$[ ${#addr} - 1 ]}"
-	last="${addr:$[ ${#addr} - 1 ]}"
+	i="$[ ${#addr} - 1 ]"
+	parent="${addr:0:$i}"
+	last="${addr:$i}"
 	
 	if [ "$last" = "q" ] ; then
 		last="r"
@@ -985,9 +984,9 @@ GetNextTileY(){
 	addr="$1"
 	forward="$2"
 	[ -z "$addr" ]	&& echo "$addr" && return
-
-	parent="${addr:0:$[ ${#addr} - 1 ]}"
-	last="${addr:$[ ${#addr} - 1 ]}"
+	i="$[ ${#addr} - 1 ]"
+	parent="${addr:0:$i}"
+	last="${addr:$i}"
 	
 	if [ "$last" = "q" ] ; then
 		last="t"
@@ -1040,7 +1039,7 @@ qrst2xyz(){
 		cnt=$[ $cnt + 1 ]
 
 	done
-	gal="$(echo "$gal" | cut -c -$[ (($x*3+$y)%8)+1 ] )"
+	gal="$( echo "$gal" | cut -c -$[ (($x*3+$y)%8)+1 ] )"
 
 	echo -n "x=$x&y=$y&z=$z&s=$gal"
 }
@@ -1050,6 +1049,7 @@ GetCoordinatesFromAddress(){
 
 	str="$1"
 	ori_str="tile-$str.crd" 
+
 	if [ -f "$tiles_dir/$ori_str" ] ; then
 		crd=( $( cat  "$tiles_dir/$ori_str" ) )
 
@@ -1059,36 +1059,35 @@ GetCoordinatesFromAddress(){
 		fi
 	fi
 	# get normalized coordinate first
-	x=0.0;
-	y=0.0;
-	scale=1.0;
+	x="0.0"
+	y="0.0"
+	scale="1.0"
 	str="${str:1}" # skip the first character
 	
 	prec="16"
-	while [  ${#str} != 0 ] ; do
-		scale="$( echo "scale = $prec ; $scale * 0.5" | bc -l )"
 
-		c="${str:0:1}" # remove first character
-		if [ $c = "r" ] || [ $c = "s" ] ; then
-			x="$( echo "scale = $prec ; $x + $scale" | bc -l )"
-		fi
-		if [ $c = "t" ] || [ $c = "s" ] ; then
-			y="$( echo "scale = $prec ; $y + $scale" | bc -l )"
-		fi
-		str="${str:1}" 
+	for c  in $( echo "$str" | sed 's/./& /g' ) ; do
+		scale="$( awk 'BEGIN { printf "%.'$prec'f", '$scale' * 0.5 }' )"
+
+		[ "$c" = "s" ] && x="$( awk 'BEGIN { printf "%.'$prec'f", '$x' + '$scale' }' )" && y="$( awk 'BEGIN { printf "%.'$prec'f", '$y' + '$scale' }' )" 	&& continue
+		[ "$c" = "r" ] && x="$( awk 'BEGIN { printf "%.'$prec'f", '$x' + '$scale' }' )"										&& continue
+		[ "$c" = "t" ] 								   	&& y="$( awk 'BEGIN { printf "%.'$prec'f", '$y' + '$scale' }' )" 	&& continue
+
 	done
-	
-	lon_min="$( echo "scale = $prec ; ($x - 0.5) * 360"  | bc -l 			| awk '{ printf "%.8f", $1 }' )"
-	lat_min="$( NormalToMercator $y 						| awk '{ printf "%.8f", $1 }' )"
-	lon_max="$( echo "scale = $prec ; ( $x + $scale - 0.5 ) * 360"  | bc -l 	| awk '{ printf "%.8f", $1 }' )"
-	lat_max="$( NormalToMercator $(  echo "scale = $prec ; $y + $scale" | bc -l ) 	| awk '{ printf "%.8f", $1 }' )"
-	lon="$( echo "scale = $prec ;  ($x + $scale * 0.5 - 0.5) * 360"  | bc -l 	| awk '{ printf "%.8f", $1 }' )"
-	lat="$( NormalToMercator $( echo "scale = $prec ;  $y + $scale * 0.5" | bc -l ) | awk '{ printf "%.8f", $1 }' )"
+
+	lon="$(		awk 'BEGIN { printf "%.8f", ( '$x' + '$scale' * 0.5 	- 0.5 ) * 360 }' )"	
+	lon_min="$( 	awk 'BEGIN { printf "%.8f", ( '$x' 		  	- 0.5 ) * 360 }' )"
+	lon_max="$( 	awk 'BEGIN { printf "%.8f", ( '$x' + '$scale' 		- 0.5 ) * 360 }' )"
+
+	lat_min="$( 	NormalToMercator $y )"
+	lat_max="$( 	NormalToMercator $(  awk 'BEGIN { printf "%.8f", '$y' + '$scale' }' ) )"
+	lat="$(		NormalToMercator $(  awk 'BEGIN { printf "%.8f", '$y' + '$scale' * 0.5 }' ) )"
 
 	#	0   1    2       3         4        5
 	echo "$lon $lat $lon_min $lat_min $lon_max $lat_max" > "$tiles_dir/$ori_str"
 	echo "$lon $lat $lon_min $lat_min $lon_max $lat_max"
 }
+
 
 getDirName(){
 	lat="$1"
@@ -1168,12 +1167,12 @@ upDateServer(){
 	# server=( "http://${servers_tile[$server_index]}/kh/v=104&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
 
 	if [ "${#MAPS_VERSION[*]}" -ne "2" ] ; then
-		echo "Downloading and update Map Version ..."
+		log "Downloading and update Map Version ..."
 		googleMainContent="$( wget -q -O- http://maps.google.com/ | tr ",\"\[\]" "\n" )"
 		MAPS_VERSION[0]="$( echo "$googleMainContent" | grep '/kh/v='		| head -n 1 | sed -e 's/&amp;/=/g' | sed -e 's/\\x26/=/g' | awk -F= {'print $2'} )"
 		MAPS_VERSION[1]="$( echo "$googleMainContent" | grep '/vt/lyrs=m@'	| head -n 1 | sed -e 's/&amp;/=/g' | sed -e 's/\\x26/=/g' | awk -F= {'print $2'} )"
-		echo "Image  Map version: ${MAPS_VERSION[0]}"
-		echo "Street Map version: ${MAPS_VERSION[1]}"
+		log "Image  Map version: ${MAPS_VERSION[0]}"
+		log "Street Map version: ${MAPS_VERSION[1]}"
 	fi
 
 	server=( "http://${servers_tile[$server_index]}/kh/v=${MAPS_VERSION[0]}&" "http://${servers_maps[$server_index]}/vt/lyrs=${MAPS_VERSION[1]}&style=3&" )
@@ -1239,20 +1238,20 @@ testImage(){
 
 
 if [ -z "$output_dir" ] ; then
-	echo "Output directory missing..."
+	log "Output directory missing..."
 	exit 1
 fi	
 
 if [ -d "$output_dir" ] ; then
-	echo "Directory \"$output_dir\" already exists..."
+	log "Directory \"$output_dir\" already exists..."
 else
-	echo "Create directory \"$output_dir\"..."
+	log "Create directory \"$output_dir\"..."
 	mkdir "$output_dir"
 fi
 if [ -d "$tiles_dir" ] ; then
-	echo "Directory \"$tiles_dir\" already exists..."
+	log "Directory \"$tiles_dir\" already exists..."
 else
-	echo "Create directory \"$tiles_dir\"..."
+	log "Create directory \"$tiles_dir\"..."
 	mkdir "$tiles_dir"
 fi
 
@@ -1261,9 +1260,9 @@ fi
 
 output_sub_dir="Earth nav data"
 if [ -d "$output_dir/$output_sub_dir" ] ; then
-	echo "Sub directory \"$output_sub_dir\" already exists..."
+	log "Sub directory \"$output_sub_dir\" already exists..."
 else
-	echo "Create sub directory \"$output_sub_dir\"..."
+	log "Create sub directory \"$output_sub_dir\"..."
 	mkdir "$output_dir/$output_sub_dir"
 fi
 
@@ -1271,7 +1270,7 @@ fi
 
 #########################################################################3
 
-echo "Creating path to coordinates..."
+log "Creating path to coordinates..."
 
 
 cursor="$( GetQuadtreeAddress $point_lon $point_lat )"
@@ -1287,7 +1286,7 @@ if [ -f "$nfo_file" ] ; then
         done
 fi
 
-echo "Getting Cookies from Google Maps ..."
+log "Getting Cookies from Google Maps ..."
 getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon"
 
 if [ "$RESTORE" = "no" ] ; then
@@ -1296,7 +1295,7 @@ if [ "$RESTORE" = "no" ] ; then
 		pnt_zoom_ref_lat="$zoom_reference_lat"
 		pnt_zoom_ref_lon="$zoom_reference_lon"
 		cursor_reference="$( GetQuadtreeAddress $pnt_zoom_ref_lon $pnt_zoom_ref_lat )"
-		echo "Point for zoom reference from KML file: $pnt_zoom_ref_lat Lat, $pnt_zoom_ref_lon Lon..."
+		log "Point for zoom reference from KML file: $pnt_zoom_ref_lat Lat, $pnt_zoom_ref_lon Lon..."
 
 		reference_test="out"
 		for i in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'} | tr "\n" " " ) ; do
@@ -1305,33 +1304,33 @@ if [ "$RESTORE" = "no" ] ; then
 			fi
 		done
 		if [ "$reference_test" = "out" ] ; then
-			echo "ERROR: Zoom reference point is outside of AOT!"
+			log "ERROR: Zoom reference point is outside of AOT!"
 			exit 2
 		fi
 	else
 		pnt_zoom_ref_lat="$( echo "scale = 8; ( $point_lat + $lowright_lat ) / 2" | bc )"
 		pnt_zoom_ref_lon="$( echo "scale = 8; ( $point_lon + $lowright_lon ) / 2" | bc )"
 		cursor_reference="$( GetQuadtreeAddress $pnt_zoom_ref_lon $pnt_zoom_ref_lat )"
-		echo "Point for zoom reference default center image: $pnt_zoom_ref_lat Lat, $pnt_zoom_ref_lon Lon..."
+		log "Point for zoom reference default center image: $pnt_zoom_ref_lat Lat, $pnt_zoom_ref_lon Lon..."
 	fi
 	while : ; do
 		upDateServer
 		remote="$( swget "${server[0]}$( qrst2xyz ${cursor_reference} )" 2>&1 )"
 		if [ ! -z "$( echo "$remote" | grep "403 Forbidden" )" ] || [ ! -z "$( echo "$remote" | grep "503 Service Unavailable" )" ]  ; then
-			echo "ERROR from Google Maps: Forbidden! You must wait one day!"
+			log "ERROR from Google Maps: Forbidden! You must wait one day!"
 			exit 4
 	
 		fi
 		[ -z "$( echo "$remote" | grep "404 Not Found" )" ] && break
-		echo "Layer does not exist, dezooming one step..."
+		log "Layer does not exist, dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 
 	done
 	
 	while : ; do
-		echo "-----------------------------------------------------------"
-		echo "Tile size: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
-		echo "Use this URL to view an example: ${server}$( qrst2xyz ${cursor_reference} )"
+		log "-----------------------------------------------------------"
+		log "Tile size: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
+		log "Use this URL to view an example: ${server}$( qrst2xyz ${cursor_reference} )"
 		echo
 		while : ; do
 			echo -n "Press [ENTER] to continue or \"-\" to decrease zoom (less tiles) [CTRL+C to abort]: "
@@ -1345,9 +1344,9 @@ if [ "$RESTORE" = "no" ] ; then
 		echo "Dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 	done
-	echo "Searching ROI size and calculating elaboration time..."
+	log "Searching ROI size and calculating elaboration time..."
 	while : ; do
-		echo "Getting upper left coordinates..."
+		log "Getting upper left coordinates..."
 		cursor="$( echo $cursor | cut -c -$( echo -n "$cursor_reference" | wc -c | awk {'print $1'} ) )"
 
 		info=( $( GetCoordinatesFromAddress $cursor ) )
@@ -1398,14 +1397,14 @@ if [ "$RESTORE" = "no" ] ; then
 		[ "$dim_x" -le "1" ] && dim_x="8"
 		[ "$dim_y" -le "1" ] && dim_y="8"
 	
-		echo "Size of tiles $dim_x x $dim_y ..."
+		log "Size of tiles $dim_x x $dim_y ..."
 
 		 [ "$( uname -s )" = "Linux" ]  && end_date="$( date --date=@$[ $(  date +%s ) +  ( $dim_x * $dim_y * $SLEEP_TIME ) ] )"
 		 [ "$( uname -s )" = "Darwin" ] && end_date="$( date -v+$[ $dim_x * $dim_y * $SLEEP_TIME ]S )"
 		
-		echo "Estimated end date for download tiles: $end_date..."
-		echo "Tile site: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
-		echo "Use this URL to view an example:  ${server}$( qrst2xyz ${cursor_reference} )"
+		log "Estimated end date for download tiles: $end_date..."
+		log "Tile site: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
+		log "Use this URL to view an example:  ${server}$( qrst2xyz ${cursor_reference} )"
 		echo
 	
 	
@@ -1418,7 +1417,7 @@ if [ "$RESTORE" = "no" ] ; then
 			
 		done
 		[ -z "$x" ] && break	
-		echo "Dezooming one step..."
+		log "Dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 	done
 	echo "dim_x=$dim_x" 	>  "$nfo_file"
@@ -1436,11 +1435,11 @@ if [ "$RESTORE" = "no" ] ; then
 	echo "MASH_SCENARY=$MASH_SCENARY" >> "$nfo_file"
 
 	if [ "$MASH_SCENARY" = "yes" ] ; then
-		echo "Force to use Water Mask..."
+		log "Force to use Water Mask..."
 		WATER_MASK="yes"
 
 		while : ; do
-			echo "Set MESH LEVEL: $MESH_LEVEL -> $( echo "(4^$MESH_LEVEL) * 2" | bc )  triangles for tile"
+			log "Set MESH LEVEL: $MESH_LEVEL -> $( echo "(4^$MESH_LEVEL) * 2" | bc )  triangles for tile"
 			echo -n "Press [ENTER] to continue or \"+/-\" to in/de-crease mesh level [CTRL+C to abort]: "
 			read -n 1 x
 			echo
@@ -1464,7 +1463,7 @@ if [ "$RESTORE" = "no" ] ; then
 
 	echo "MESH_LEVEL=$MESH_LEVEL" >> "$nfo_file"
 	echo "WATER_MASK=$WATER_MASK" >> "$nfo_file"
-	echo "Creating tiles list..."
+	log "Creating tiles list..."
 
 	tot=$[ $dim_x * $dim_y ]
 
@@ -1472,8 +1471,8 @@ if [ "$RESTORE" = "no" ] ; then
 	dim_y=$[ $dim_y - 1 ]
 
 
-	echo "Randomizing tile list..."
-	echo "Step 1..."
+	log "Randomizing tile list..."
+	log "Step 1 ..."
 	tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
 
 	i="0"
@@ -1483,31 +1482,24 @@ if [ "$RESTORE" = "no" ] ; then
 		c2="$cursor_tmp"
 		cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
+		log "Step 2: $cnt / $tot, found ${#good_tile[*]} good tiles ..."
 		for y in $( seq 0 $dim_y  ) ; do
-			echo "Step 2: $cnt / $tot.."
-			if [ ! -z "${poly[*]}" ] ; then	
-				info=( $( GetCoordinatesFromAddress $c2 ) )
-				# $lon $lat $lon_min $lat_min $lon_max $lat_max
+			tile_check="in"
 
+			if [ ! -z "${poly[*]}" ] ; then	
 				for j in $( echo ${poly[*]} | tr " " "\n" | awk -F, {'print $1'}  | sort -u | tr "\n" " " ) ; do
 					tmp_poly="$( echo ${poly[*]} | tr " " "\n" | grep "^${j}," | awk -F, {'print $2","$3'} | tr "\n" " " )"
-					inout="$( pointInPolygon "${info[2]}" "${info[3]}" "$tmp_poly" )"
-					[ "$inout" = "out" ] && inout="$( pointInPolygon "${info[4]}" "${info[5]}" "$tmp_poly" )"
-					[ "$inout" = "out" ] && inout="$( pointInPolygon "${info[2]}" "${info[5]}" "$tmp_poly" )"
-					[ "$inout" = "out" ] && inout="$( pointInPolygon "${info[4]}" "${info[3]}" "$tmp_poly" )"
-					[ "$inout" = "in"  ] && break
+						info=( $( GetCoordinatesFromAddress $c2 ) )
+						# $lon $lat $lon_min $lat_min $lon_max $lat_max
+	
+						tile_check="$( pointInPolygon "${info[2]}" "${info[3]}" "$tmp_poly" )"
+						if [ "$tile_check" = "out" ] ; then tile_check="$( pointInPolygon "${info[4]}" "${info[5]}" "$tmp_poly" )" ; else break ; fi
+						if [ "$tile_check" = "out" ] ; then tile_check="$( pointInPolygon "${info[2]}" "${info[5]}" "$tmp_poly" )" ; else break ; fi
+						if [ "$tile_check" = "out" ] ; then tile_check="$( pointInPolygon "${info[4]}" "${info[3]}" "$tmp_poly" )" ; else break ; fi
 				done
-
-				if  [ "$inout" = "out" ] ; then
-					tile_check="no"
-				else
-					tile_check="yes"
-				fi
-			else
-					tile_check="yes"
 			fi
 
-			[ "$tile_check" = "yes" ] && good_tile[${tile_index[$i]}]="$c2"
+			[ "$tile_check" = "in" ] && good_tile[${tile_index[$i]}]="$c2"
 
 			c_last="$c2"
 			c2="$( GetNextTileY $c2 1 )"
@@ -1515,6 +1507,7 @@ if [ "$RESTORE" = "no" ] ; then
 			i=$[ $i + 1 ]
 		done
 	done
+	
 	echo
 	echo "good_tile=( ${good_tile[@]} )"  >> "$nfo_file"
 fi
@@ -1522,7 +1515,7 @@ fi
 
 REMAKE_TILE="no"
 if [ "$RESTORE" = "yes" ] ; then
-	echo "Restoring section $nfo_file..."
+	log "Restoring section $nfo_file..."
 	. "$nfo_file"
 	if 	[ -z "$dim_x" ] 	|| \
 	 	[ -z "$dim_y" ] 	|| \
@@ -1531,7 +1524,7 @@ if [ "$RESTORE" = "yes" ] ; then
 		[ -z "$MASH_SCENARY" ]	|| \
 		[ -z "$MESH_LEVEL" ]	|| \
 	 	[ -z "$WATER_MASK" ] 	; then
-		echo "Input file is corrupted, I must remove it."
+		log "Input file is corrupted, I must remove it."
 		rm -f "$nfo_file"
 		exit 2
 	fi
@@ -1556,14 +1549,14 @@ if [ "$RESTORE" = "yes" ] ; then
 		fi
 	fi
 fi
-echo "Download tiles..."
+log "Download tiles..."
 cnt="1"
 tot="${#good_tile[@]}"
 
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	echo  "$cnt / $tot"
+	log  "$cnt / $tot"
 	if [ -f "$tiles_dir/tile-$c2.png" ] ; then
 		[ "$( testImage "$tiles_dir/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile-$c2.png"
 	fi
@@ -1571,7 +1564,7 @@ for c2 in ${good_tile[@]} ; do
 		upDateServer
 		ewget "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$c2" )" 
 		if [ ! -f "$tiles_dir/${TMPFILE}.jpg" ] ; then
-			echo "Elaboration problem!!"
+			log "Elaboration problem!!"
 			exit 6
 		fi
 		if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" != "0" ] ; then
@@ -1581,12 +1574,12 @@ for c2 in ${good_tile[@]} ; do
 			fi
 		fi
 		if [ "$( du -s "$tiles_dir/${TMPFILE}.jpg" | awk {'print $1'} )" = "0" ] ; then
-			echo "In this area I didn't find same tile for this zoom..."
+			log "In this area I didn't find same tile for this zoom..."
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 			upDateServer
 			subc2="$c2"
 			while [ ! -z "$subc2" ] ; do
-				echo "Try to zoom out one step..."
+				log "Try to zoom out one step..."
 				subc2="$( echo "$subc2" | rev | cut -c 2- | rev )"
 
 				ewget  "$tiles_dir/${TMPFILE}.jpg" "${server[0]}$( qrst2xyz "$subc2" )"
@@ -1600,12 +1593,7 @@ for c2 in ${good_tile[@]} ; do
 					fi
 				fi
 
-				echo -n "Wait: "
-				for i in $( seq $SLEEP_TIME ) ; do
-					echo -n "$i..."
-					sleep 1
-				done
-				echo
+				sleep 1
 				rm -f "$tiles_dir/${TMPFILE}.jpg"
 				upDateServer
 			done
@@ -1619,13 +1607,13 @@ for c2 in ${good_tile[@]} ; do
 			
 			if [ ! -z "$subc2" ] ; then
 				if  [ "$( du -s "$tiles_dir/tile-$subc2-ori.png" | awk {'print $1'} )" != "0" ]	; then
-					echo "Found tile with less zoom..."
+					log "Found tile with less zoom..."
 					convert "$tiles_dir/tile-$subc2-ori.png" -channel RGB -format PNG32 -crop $( findWhereIcut $c2 $subc2 )  -resize 256x256 "$tiles_dir/tile-$c2.png"
 				else
-					echo "Not found file with same zoom... Hole in scenery for tile ${server[0]}$( qrst2xyz "$c2") !"
+					log "Not found file with same zoom... Hole in scenery for tile ${server[0]}$( qrst2xyz "$c2") !"
 				fi
 			else
-				echo "Could dot find file with the same zoom... Hole in scenery for tile ${server[0]}$( qrst2xyz "$c2") !"
+				log "Could dot find file with the same zoom... Hole in scenery for tile ${server[0]}$( qrst2xyz "$c2") !"
 			fi
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		else
@@ -1633,21 +1621,16 @@ for c2 in ${good_tile[@]} ; do
 			rm -f "$tiles_dir/${TMPFILE}.jpg"
 		fi
 
-		echo -n "Wait: "
-		for i in $( seq $SLEEP_TIME ) ; do
-			echo -n "$i..."
-			sleep 1
-		done
-		echo
+		sleep 1
 	fi
 	cnt=$[ $cnt + 1 ]
 done
 
-echo "Screnary creation...."
-[ "$WATER_MASK" = "yes" ] && echo "Water mask Enabled..."
+log "Screnary creation...."
+[ "$WATER_MASK" = "yes" ] && log "Water mask Enabled..."
 good_tile=( $( echo "${good_tile[@]}" | tr " " "\n" | rev | cut -c 4- | rev | sort -u | tr "\n" " " ) )
 
-echo "Remove across images..."
+log "Remove across images..."
 cnt=0
 i=0
 while [ ! -z "${good_tile[$cnt]}" ] ; do
@@ -1690,9 +1673,9 @@ while [ ! -z "${good_tile[$cnt]}" ] ; do
 	cnt=$[ $cnt + 1 ]
 done
 split_tile=( $( echo "${split_tile[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
-echo "Removed ${#split_tile[@]} image(s)..."
+log "Removed ${#split_tile[@]} image(s)..."
 
-echo "Merging tiles into 2048x2048 texture..."
+log "Merging tiles into 2048x2048 texture..."
 tile_seq="$( seq 0 7 )"
 prog="1"
 tot="${#good_tile[@]}"
@@ -1803,12 +1786,12 @@ cursor_tmp="$( echo "$cursor"  | rev | cut -c 4- | rev )"
 
 TER_DIR="$output_dir/$TER_DIR"
 if [ "$MASH_SCENARY" = "yes" ] ; then
-	echo "Mesh level $MESH_LEVEL..."
+	log "Mesh level $MESH_LEVEL..."
 	if [ ! -d  "$TER_DIR" ] ; then
-	        echo "Creating directory $TER_DIR..."
+	        log "Creating directory $TER_DIR..."
 	        mkdir -p -- "$TER_DIR"
 	else
-	        echo "Directory $TER_DIR already exists..."
+	        log "Directory $TER_DIR already exists..."
 	fi
 fi
 
