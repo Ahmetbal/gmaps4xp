@@ -515,9 +515,9 @@ getAltitude(){
 
 	#echo -n "0.00000000"
 	#return
-	DEBUG="off"	
+	#DEBUG="off"	
 
-	#DEBUG="on"	
+	DEBUG="on"	
 	#[ -f "$tiles_dir/info_${ori_lon}_${ori_lat}.alt" ] && mv -f "$tiles_dir/info_${ori_lon}_${ori_lat}.alt"  "$tiles_dir/info_${lon}_${lat}.alt"
 
         if [ -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
@@ -603,9 +603,8 @@ checkAltitude(){
 
 middlePoint(){
         points=( $* )
-	awk 'BEGIN {  printf "%.8f,%.8f ", ( '${points[0]#*,}' + '${points[1]#*,}' ) / 2.0,  ( '${points[0]%,*}' + '${points[1]%,*}' ) / 2.0 }'
+	awk 'BEGIN {  printf "%.8f,%.8f ", ( '${points[0]%,*}' + '${points[1]%,*}' ) / 2.0, ( '${points[0]#*,}' + '${points[1]#*,}' ) / 2.0 }'
 }
-
 
 
 
@@ -616,26 +615,25 @@ middlePoint(){
 divideSquare(){
         coorners=( $* )
         
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[0]#*,}', '${coorners[0]%,*}' }'
-        middlePoint ${coorners[0]} ${coorners[1]}
-        middlePoint ${coorners[1]} ${coorners[3]}
-        middlePoint ${coorners[3]} ${coorners[0]}
-
-        middlePoint ${coorners[0]} ${coorners[1]}
-	
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[1]#*,}', '${coorners[1]%,*}' }'
-        middlePoint ${coorners[1]} ${coorners[2]}
-        middlePoint ${coorners[1]} ${coorners[3]}
-        
-        middlePoint ${coorners[1]} ${coorners[3]}
-        middlePoint ${coorners[1]} ${coorners[2]}
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[2]#*,}', '${coorners[2]%,*}' }'
-        middlePoint ${coorners[2]} ${coorners[3]}
-
-        middlePoint ${coorners[3]} ${coorners[0]}
-        middlePoint ${coorners[1]} ${coorners[3]}
-        middlePoint ${coorners[2]} ${coorners[3]}
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[3]#*,}', '${coorners[3]%,*}' }'
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[0]%,*}', '${coorners[0]#*,}' }'
+        middlePoint ${coorners[0]} ${coorners[1]}                                
+        middlePoint ${coorners[1]} ${coorners[3]}                                
+        middlePoint ${coorners[3]} ${coorners[0]}                                
+                                                                                 
+        middlePoint ${coorners[0]} ${coorners[1]}	                         
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[1]%,*}', '${coorners[1]#*,}' }'
+        middlePoint ${coorners[1]} ${coorners[2]}                                
+        middlePoint ${coorners[1]} ${coorners[3]}                                
+                                                                                 
+        middlePoint ${coorners[1]} ${coorners[3]}                                
+        middlePoint ${coorners[1]} ${coorners[2]}                                
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[2]%,*}', '${coorners[2]#*,}' }'
+        middlePoint ${coorners[2]} ${coorners[3]}                                
+                                                                                 
+        middlePoint ${coorners[3]} ${coorners[0]}                                
+        middlePoint ${coorners[1]} ${coorners[3]}                                
+        middlePoint ${coorners[2]} ${coorners[3]}                                
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[3]%,*}', '${coorners[3]#*,}' }'
 
 }
 
@@ -1708,7 +1706,6 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -2200,33 +2197,62 @@ for x in $( seq 0 $dim_x ) ; do
   				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
 				fi			
 
+				lon_dsf_size="$( awk 'BEGIN { printf "%.8f\n", '$lr_lon_dsf' - '$ll_lon_dsf' }' )"
+				lat_dsf_size="$( awk 'BEGIN { printf "%.8f\n", '$ul_lat_dsf' - '$ll_lat_dsf' }' )"
+				lon_px_size="$(  awk 'BEGIN { printf "%.8f\n", '$lr_lon_px'  - '$ll_lon_px'  }' )"
+				lat_px_size="$(  awk 'BEGIN { printf "%.8f\n", '$ul_lat_px'  - '$ll_lat_px'  }' )"
+
+				echo "BEGIN_PATCH $BEGIN_PATCH_CNT   0.0 -1.0     1 7"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				vex="0"
+				triangle_cnt="0"
+				primitive_cnt="1"
 				while [ ! -z "${PATCH_VERTEX[$vex]}" ] ; do
+					v0="$vex"; v1=$[ $vex + 1 ]; v2=$[ $vex + 2 ]
 
 
+					pLon[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v0]%,*}' }' )"
+					pLon[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v1]%,*}' }' )"
+					pLon[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v2]%,*}' }' )"
 
-					echo "BEGIN_PATCH $BEGIN_PATCH_CNT   0.0 -1.0     1 7"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf  0 0 0  $ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf  0 0 0  $ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX $lr_lon_dsf $lr_lat_dsf  0 0 0  $lr_lon_px	$lr_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf  0 0 0  $ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX $ul_lon_dsf $ul_lat_dsf  0 0 0  $ul_lon_px	$ul_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf  0 0 0  $ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-				
+					pLat[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v0]#*,}' }' )"
+					pLat[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
+					pLat[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
+
+					pX[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v0]%,*}' }' )"
+					pX[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v1]%,*}' }' )"
+					pX[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v2]%,*}' }' )"
+
+					pY[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v0]#*,}' }' )"
+					pY[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
+					pY[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
+
+					#getAltitude "${pLon[0]}" "${pLat[0]}"
+
+
+					echo "PATCH_VERTEX ${pLon[0]} ${pLat[0]} 10 0 0 ${pX[0]} ${pY[0]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX ${pLon[1]} ${pLat[1]} 10 0 0 ${pX[1]} ${pY[1]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX ${pLon[2]} ${pLat[2]} 10 0 0 ${pX[2]} ${pY[2]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+			
+					if [ "$triangle_cnt" -ge  "84" ] ; then
+						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+						echo "BEGIN_PRIMITIVE $primitive_cnt"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+						triangle_cnt="0"
+						primitive_cnt=$[ $primitive_cnt + 1 ]
+					fi
+					triangle_cnt=$[ $triangle_cnt + 1 ]
 					vex=$[ $vex + 3 ]
-					exit 0
 				done
-
+				echo "END_PRIMITIVE"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 
 				echo "TERRAIN_DEF $( basename -- $TER_DIR)/$TER" >> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-
 				BEGIN_PATCH_CNT=$[ $BEGIN_PATCH_CNT + 1 ]
 
 			fi
 		done
+		
 		prog=$[ $prog + 1 ]
 
                 c_last="$c2"
