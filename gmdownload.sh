@@ -36,9 +36,11 @@ AIRPORT_LABEL_ROT="AIRPORT_ROT"
 ZOOM_REFERENCE_LABEL="ZOOM_REFERENCE"
 MAPS_VERSION=()
 XPLANE_CMD_VERSION="920"
-TER_DIR="terrain" 
+TER_DIR="terrain"
+TEX_DIR="texture"
 MESH_LEVEL="2"
 output_index="0"
+REMAKE_TILE="no"
 TMPFILE="tmp$$"
 output=()
 COOKIES=""
@@ -601,24 +603,10 @@ checkAltitude(){
 
 middlePoint(){
         points=( $* )
-
-        points[0]="$( echo "${points[0]}" | tr "_" " " | tr "," "\t" )"
-        points[1]="$( echo "${points[1]}" | tr "_" " " | tr "," "\t" )"
-
-        point_one=( $( echo "${points[0]}" | awk {'print $1" "$2'} ) )
-        point_two=( $( echo "${points[1]}" | awk {'print $1" "$2'} ) )
-
-        pos_one=( $( echo "${points[0]}" | awk {'print $3" "$4'} ) )
-        pos_two=( $( echo "${points[1]}" | awk {'print $3" "$4'} ) )
-
-
-        point_tree_lon="$( 	echo "scale = 8; ( ${point_one[0]} + ${point_two[0]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
-        point_tree_lat="$( 	echo "scale = 8; ( ${point_one[1]} + ${point_two[1]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
-        pos_tree_x="$( 		echo "scale = 8; ( ${pos_one[0]} + ${pos_two[0]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
-        pos_tree_y="$(		echo "scale = 8; ( ${pos_one[1]} + ${pos_two[1]} ) / 2" 	| bc | awk {'printf "%.8f", $1'} )"
-
-        echo -n "${point_tree_lon},${point_tree_lat}_${pos_tree_x},${pos_tree_y};"
+	awk 'BEGIN {  printf "%.8f,%.8f ", ( '${points[0]#*,}' + '${points[1]#*,}' ) / 2.0,  ( '${points[0]%,*}' + '${points[1]%,*}' ) / 2.0 }'
 }
+
+
 
 
 #
@@ -628,30 +616,29 @@ middlePoint(){
 divideSquare(){
         coorners=( $* )
         
-        echo -n "${coorners[0]};"
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[0]#*,}', '${coorners[0]%,*}' }'
         middlePoint ${coorners[0]} ${coorners[1]}
         middlePoint ${coorners[1]} ${coorners[3]}
         middlePoint ${coorners[3]} ${coorners[0]}
-        echo -n " "
 
         middlePoint ${coorners[0]} ${coorners[1]}
-        echo -n "${coorners[1]};"
+	
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[1]#*,}', '${coorners[1]%,*}' }'
         middlePoint ${coorners[1]} ${coorners[2]}
         middlePoint ${coorners[1]} ${coorners[3]}
         
-        echo -n " "
         middlePoint ${coorners[1]} ${coorners[3]}
         middlePoint ${coorners[1]} ${coorners[2]}
-        echo -n "${coorners[2]};"
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[2]#*,}', '${coorners[2]%,*}' }'
         middlePoint ${coorners[2]} ${coorners[3]}
 
-        echo -n " "
         middlePoint ${coorners[3]} ${coorners[0]}
         middlePoint ${coorners[1]} ${coorners[3]}
         middlePoint ${coorners[2]} ${coorners[3]}
-        echo -n "${coorners[3]};"
+	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[3]#*,}', '${coorners[3]%,*}' }'
 
 }
+
 
 
 #
@@ -1281,19 +1268,6 @@ pointDist(){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 tile_resolution(){
 	echo "scale=16; $( tile_size $1 ) / 256" | bc | awk '{ printf "%.8f", $1 }'
 }
@@ -1600,7 +1574,6 @@ if [ "$RESTORE" = "no" ] ; then
 fi
 
 
-REMAKE_TILE="no"
 if [ "$RESTORE" = "yes" ] ; then
 	log "Restoring section $nfo_file..."
 	. "$nfo_file"
@@ -1636,6 +1609,11 @@ if [ "$RESTORE" = "yes" ] ; then
 		fi
 	fi
 fi
+
+
+#########################################################################3
+
+
 log "Download tiles..."
 cnt="1"
 tot="${#good_tile[@]}"
@@ -1717,7 +1695,9 @@ log "Screnary creation...."
 good_tile=( $( echo "${good_tile[@]}" | tr " " "\n" | rev | cut -c 4- | rev | sort -u | tr "\n" " " ) )
 
 
+
 ####################################################################################################################
+
 
 log "Merging tiles into 2048x2048 texture..."
 [ "$WATER_MASK" = "yes" ] && log "Water mask Enabled..."
@@ -1739,27 +1719,31 @@ for cursor_huge in ${good_tile[@]} ; do
 
 	if  [ ! -f "$tiles_dir/tile-$cursor_huge.png" ] ; then
 		if [ "$WATER_MASK" = "yes" ] ; then
-			[ "$REMAKE_TILE" = "yes" ] && [ -f "${tiles_dir}/map-${cursor_huge}.png" ]	&& rm -f "${tiles_dir}/map-${cursor_huge}.png"
-			[ "$( testImage "${tiles_dir}/map-${cursor_huge}.png" )" != "good" ]		&& rm -f "${tiles_dir}/map-${cursor_huge}.png"
+			[ "$REMAKE_TILE" = "yes" ] && [ -f "${tiles_dir}/mask-${cursor_huge}.png" ] && rm -f "${tiles_dir}/mask-${cursor_huge}.png"
 
-			if  [ ! -f "${tiles_dir}/map-${cursor_huge}.png" ] ; then
-				upDateServer
-				ewget "${tiles_dir}/${TMPFILE}.png" "${server[1]}$( qrst2xyz "$cursor_huge" )"
-
-				if [ "$( du -s "$tiles_dir/${TMPFILE}.png" | awk {'print $1'} )" = "0" ] ; then
-					echo -n ""  >  "$tiles_dir/map-$cursor_huge.png"
-				else
-					echo -n "Analizing tiles... "
-					content="$( convert  "${tiles_dir}/${TMPFILE}.png"   txt:- | grep -v "^#" | grep -vi "#99b3cc"  | wc -l )"
-					if [  "$( echo "scale = 8; ( ${content} / (256*256) * 100 ) <= $MAX_PERC_COVER" | bc )" = 1 ] ; then
-						echo -n ""  >  "${tiles_dir}/map-${cursor_huge}.png"	
-					else
-						convert  -fuzz 8%  "${tiles_dir}/${TMPFILE}.png" -format PNG32 -transparent "#99b3cc" -filter Cubic -resize 2048x2048 "${tiles_dir}/map-${cursor_huge}.png"
-					fi
-					echo -n "Done "
+			if  [ ! -f "${tiles_dir}/mask-${cursor_huge}.png" ] ; then
+				if [ ! -f "${tiles_dir}/map-${cursor_huge}.png" ] ; then
+					upDateServer
+					ewget "${tiles_dir}/map-${cursor_huge}.png" "${server[1]}$( qrst2xyz "$cursor_huge" )"
+		                	sleep 1
 				fi
-				rm -f "${tiles_dir}/${TMPFILE}.png"
-		                sleep 1
+
+				echo -n "Analizing tiles ... "
+				# WATER_COLOR="#99b3cc"
+				WATER_COLOR="#a5bfdd"
+				content="$( convert  "${tiles_dir}/map-${cursor_huge}.png" txt:- | grep -v "^#" | grep -i "$WATER_COLOR" | wc -l | tr -d "\n" )" ; [ -z "$content" ] && content="0"
+
+				water_percent="$( awk 'BEGIN { printf "%.2f",  ( '${content}' /  ( 256 * 256 ) ) * 100 }' )"
+		
+				if [  "$( echo "scale = 8; $water_percent >= $MAX_PERC_COVER" | bc )" = 1 ] ; then
+					echo -n " Water found (${water_percent}%) ... "
+					convert  -fuzz 8%  "${tiles_dir}/map-${cursor_huge}.png" -format PNG32 -transparent "$WATER_COLOR" -filter Cubic -resize 2048x2048 "${tiles_dir}/mask-${cursor_huge}.png"
+				else
+					echo -n ""  >  "${tiles_dir}/mask-${cursor_huge}.png"	
+				fi
+
+				echo -n "Done "
+				
 
 			fi
 		fi
@@ -1784,9 +1768,9 @@ for cursor_huge in ${good_tile[@]} ; do
 		        done
 		done
 		if [ "$WATER_MASK" = "yes" ] ;then
-			if [ "$( du -k  "$tiles_dir/map-$cursor_huge.png" | awk {'print $1'} )" != "0" ] ; then
-				convert  -layers mosaic "$tiles_dir/{$( echo ${texture_tile[@]} | tr " " ",")}"  -format PNG32 -background transparent "$tiles_dir/tile-ww-$cursor_huge.png"
-				composite -compose Dst_In "$tiles_dir/map-$cursor_huge.png" "$tiles_dir/tile-ww-$cursor_huge.png" "$tiles_dir/${TMPFILE}.png"
+			if [ "$( du -k  "$tiles_dir/mask-$cursor_huge.png" | awk {'print $1'} )" != "0" ] ; then
+				convert  -background transparent -layers mosaic "$tiles_dir/{$( echo ${texture_tile[@]} | tr " " ",")}"  -format PNG32 "$tiles_dir/tile-ww-$cursor_huge.png"
+				composite -compose Dst_In "$tiles_dir/mask-$cursor_huge.png" "$tiles_dir/tile-ww-$cursor_huge.png" "$tiles_dir/${TMPFILE}.png"
 				rm -f "$tiles_dir/tile-ww-$cursor_huge.png"
 				convert "$tiles_dir/${TMPFILE}.png" -format PNG32 -transparent "#000000" "$tiles_dir/tile-$cursor_huge.png"
 				rm -f "$tiles_dir/${TMPFILE}.png"
@@ -1824,6 +1808,16 @@ cursor_tmp="$( echo "$cursor"  | rev | cut -c 4- | rev )"
 
 
 TER_DIR="$output_dir/$TER_DIR"
+TEX_DIR="$output_dir/$TEX_DIR"
+
+if [ ! -d  "$TEX_DIR" ] ; then
+        log "Creating directory $TEX_DIR..."
+        mkdir -p -- "$TEX_DIR"
+else
+        log "Directory $TEX_DIR already exists..."
+fi
+
+
 if [ "$MASH_SCENARY" = "yes" ] ; then
 	log "Mesh level $MESH_LEVEL..."
 	if [ ! -d  "$TER_DIR" ] ; then
@@ -1832,6 +1826,24 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 	else
 	        log "Directory $TER_DIR already exists..."
 	fi
+
+
+	log "Creating MESH grid ..."
+	square=( $( divideSquare "0,0  1,0  1,1  0,1" ) )
+	for i in $( seq $MESH_LEVEL ) ; do
+		square=( $( cnt="0"; while [ ! -z "${square[$cnt]}" ] ; do a=$[ $cnt + 1 ]; b=$[ $cnt + 2 ]; c=$[ $cnt + 3 ]; divideSquare "${square[$cnt]} ${square[$a]} ${square[$b]} ${square[$c]}"; cnt=$[ $cnt + 4 ]; done ) )
+	done
+
+	cnt="0"
+	PATCH_VERTEX=( $( while [ ! -z "${square[$cnt]}" ] ; do
+		ll="$cnt"; lr=$[ $cnt + 1 ]; ur=$[ $cnt + 2 ]; ul=$[ $cnt + 3 ]
+
+		echo -n "${square[$ll]} ${square[$ur]} ${square[$lr]} ${square[$ll]} ${square[$ul]} ${square[$ur]} "
+	
+		cnt=$[ $cnt + 4 ];
+	done ) )
+	log "Found ${#PATCH_VERTEX[*]} vertex ..."
+	
 fi
 
 
@@ -1843,7 +1855,6 @@ tot="${#good_tile[@]}"
 dfs_index="0"
 dfs_file=""
 index_triangle="0"
-BEGIN_POLYGON_CNT="0"
 for x in $( seq 0 $dim_x ) ; do
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
@@ -1929,17 +1940,13 @@ for x in $( seq 0 $dim_x ) ; do
 		TEXTURE="img_${point_lat}_${point_lon}.dds"
 		TER="ter_${point_lat}_${point_lon}.ter"
 
-		TARGET_IMG_DIR="$output_dir"
 
 		[ "$REMAKE_TILE" = "yes" ] && [ -f "$tiles_dir/tile-$c2.dds" ] && rm -f "$tiles_dir/tile-$c2.dds"
 
-	        if [ ! -f "$TARGET_IMG_DIR/$TEXTURE" ] ; then
-			if [ ! -f "$tiles_dir/tile-$c2.dds" ] ; then
-				"$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$TARGET_IMG_DIR/$TEXTURE"
-				cp -f "$TARGET_IMG_DIR/$TEXTURE" "$tiles_dir/tile-$c2.dds"
-			else
-				cp -f "$tiles_dir/tile-$c2.dds" "$TARGET_IMG_DIR/$TEXTURE"
-			fi
+	        if [ ! -f "$TEX_DIR/$TEXTURE" ] ; then
+			[ ! -f "$tiles_dir/tile-$c2.dds" ] && "$ddstool" --png2dxt "$tiles_dir/tile-$c2.png" "$tiles_dir/tile-$c2.dds"
+			cp -f "$tiles_dir/tile-$c2.dds" "$TEX_DIR/$TEXTURE"
+			
 	        fi
 
 
@@ -1989,25 +1996,30 @@ for x in $( seq 0 $dim_x ) ; do
 			if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
 				echo "Creating file $dfs_file ..."
 
-				echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "850" 							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "$XPLANE_CMD_VERSION" 					>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "DSF2TEXT" 						>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
+				echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "850" 							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "$XPLANE_CMD_VERSION" 					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "DSF2TEXT" 						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+                                                                                                                                                       
+				echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/planet earth" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+[ "$MASH_SCENARY" = "no" ]  && 	echo "PROPERTY sim/overlay 1" 					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+                                                                                                                                                       
+				echo "PROPERTY sim/west $min_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/east $max_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/north $max_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/south $min_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+[ "$MASH_SCENARY" = "yes" ] &&	echo "TERRAIN_DEF terrain_Water" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 
-				echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "PROPERTY sim/planet earth" 				>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "PROPERTY sim/overlay 1" 					>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt
 
-				echo "PROPERTY sim/west $min_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "PROPERTY sim/east $max_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "PROPERTY sim/north $max_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo "PROPERTY sim/south $min_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt 
-				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt
-				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file".txt
 				BEGIN_POLYGON_CNT="0"
+				BEGIN_PATCH_CNT="1"
 			else
-				BEGIN_POLYGON_CNT="$( cat "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" | grep "BEGIN_POLYGON" | tail -n 1 | awk {'print $2'} )"
-				BEGIN_POLYGON_CNT="$[ $BEGIN_POLYGON_CNT + 1 ]"	
+[ "$MASH_SCENARY" = "no" ]  &&	BEGIN_POLYGON_CNT="$( 	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt" 	| grep "BEGIN_POLYGON" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_POLYGON_CNT="$[ $BEGIN_POLYGON_CNT + 1 ]"	
+[ "$MASH_SCENARY" = "yes" ] && 	BEGIN_PATCH_CNT="$(	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt" | grep "BEGIN_PATCH" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_PATCH_CNT="$[   $BEGIN_PATCH_CNT   + 1 ]"
+
 			fi
 
 
@@ -2116,11 +2128,11 @@ for x in $( seq 0 $dim_x ) ; do
 			ll_lat_px="$( awk 'BEGIN { printf "%.8f", '$ll_lat_px' }' )"
 			ll_lon_px="$( awk 'BEGIN { printf "%.8f", '$ll_lon_px' }' )"
 
+			
 
-
-			echo "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"..."
 	
-			if [ ! -f "$output_dir/$POL_FILE" ] ; then
+			if [ "$MASH_SCENARY" = "no" ] && [ ! -f "$output_dir/$POL_FILE" ] ; then
+				echo "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"..."
 				LC_lat_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lat' + '$lr_lat' ) / 2 }' )"
 				LC_lon_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lon' + '$lr_lon' ) / 2 }' )"
 				LC_dim="$(  tile_size $c2 | awk -F. {'print $1'} )"
@@ -2131,27 +2143,89 @@ for x in $( seq 0 $dim_x ) ; do
 				echo "DRAPED_POLYGON"							>> "$output_dir/$POL_FILE"
 				echo 									>> "$output_dir/$POL_FILE"
 				echo "LAYER_GROUP airports -1"						>> "$output_dir/$POL_FILE"
-				echo "TEXTURE_NOWRAP $TEXTURE"						>> "$output_dir/$POL_FILE"
+				echo "TEXTURE_NOWRAP $( basename -- $TEX_DIR)/$TEXTURE"			>> "$output_dir/$POL_FILE"
 				echo "SCALE 25 25"							>> "$output_dir/$POL_FILE"
 				echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$output_dir/$POL_FILE"	
 			fi
 
-			################################
+			if [ "$MASH_SCENARY" = "yes" ] && [ ! -f "$TER_DIR/$TER" ] ; then
+				echo "$prog / $tot: Creating terrain (.ter) file \"$TER\"..."
+				LC_lat_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lat' + '$lr_lat' ) / 2 }' )"
+				LC_lon_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lon' + '$lr_lon' ) / 2 }' )"
+				LC_dim="$(  tile_size $c2 | awk -F. {'print $1'} )"
+				LC_size="$( identify "$tiles_dir/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
 
-			# create dsf file ....
-			echo "POLYGON_DEF $POL_FILE"							>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "BEGIN_POLYGON $BEGIN_POLYGON_CNT 65535 4"					>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "BEGIN_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "POLYGON_POINT $lr_lon_dsf	$lr_lat_dsf	$lr_lon_px	$lr_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "POLYGON_POINT $ur_lon_dsf	$ur_lat_dsf	$ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "POLYGON_POINT $ul_lon_dsf	$ul_lat_dsf	$ul_lon_px	$ul_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "POLYGON_POINT $ll_lon_dsf	$ll_lat_dsf	$ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "END_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo "END_POLYGON"								>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			echo  										>> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-			################################
-		
-			BEGIN_POLYGON_CNT=$[ $BEGIN_POLYGON_CNT + 1 ]
+				echo "A"                                                                >  "$TER_DIR/$TER"
+				echo "800"                                                              >> "$TER_DIR/$TER"
+				echo "TERRAIN"                                                          >> "$TER_DIR/$TER"
+				echo                                                                    >> "$TER_DIR/$TER"
+				echo "BASE_TEX_NOWRAP ../$( basename -- $TEX_DIR)/$TEXTURE"		>> "$TER_DIR/$TER"
+				echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$TER_DIR/$TER"
+
+                        
+                        fi
+
+
+
+			if [ "$MASH_SCENARY" = "no" ] ; then			
+				################################
+				# create dsf file ....
+				echo "POLYGON_DEF $POL_FILE"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "BEGIN_POLYGON $BEGIN_POLYGON_CNT 65535 4"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "BEGIN_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "POLYGON_POINT $lr_lon_dsf	$lr_lat_dsf	$lr_lon_px	$lr_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "POLYGON_POINT $ur_lon_dsf	$ur_lat_dsf	$ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "POLYGON_POINT $ul_lon_dsf	$ul_lat_dsf	$ul_lon_px	$ul_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "POLYGON_POINT $ll_lon_dsf	$ll_lat_dsf	$ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "END_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "END_POLYGON"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo  										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				BEGIN_POLYGON_CNT=$[ $BEGIN_POLYGON_CNT + 1 ]
+				################################
+			fi
+
+
+			if [ "$MASH_SCENARY" = "yes" ] ; then
+				if [ "$( du -k  "$tiles_dir/mask-$c2.png" | awk {'print $1'} )" != "0" ] ; then
+  				echo "BEGIN_PATCH 0   0.0 -1.0    1   5"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "PATCH_VERTEX $lr_lon_dsf $lr_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "PATCH_VERTEX $ul_lon_dsf $ul_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "END_PRIMITIVE"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+				fi			
+
+				vex="0"
+				while [ ! -z "${PATCH_VERTEX[$vex]}" ] ; do
+
+
+
+					echo "BEGIN_PATCH $BEGIN_PATCH_CNT   0.0 -1.0     1 7"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf  0 0 0  $ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf  0 0 0  $ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX $lr_lon_dsf $lr_lat_dsf  0 0 0  $lr_lon_px	$lr_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf  0 0 0  $ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX $ul_lon_dsf $ul_lat_dsf  0 0 0  $ul_lon_px	$ul_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf  0 0 0  $ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				
+					vex=$[ $vex + 3 ]
+					exit 0
+				done
+
+				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+
+				echo "TERRAIN_DEF $( basename -- $TER_DIR)/$TER" >> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
+
+				BEGIN_PATCH_CNT=$[ $BEGIN_PATCH_CNT + 1 ]
+
+			fi
 		done
 		prog=$[ $prog + 1 ]
 
@@ -2161,18 +2235,7 @@ for x in $( seq 0 $dim_x ) ; do
 done
 
 
-echo
-if [ "$MASH_SCENARY" = "yes" ] ; then
-	cnt="0"
-	( while [ ! -z "${output[$cnt]}" ] ; do
-	        echo "${output[$cnt]}"
-	        cnt=$[ $cnt + 1 ]
-	done ) >> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
-fi
-
-
 ################################################################################################################################
-
 #
 # Uncomment from following code to enable compatibility with X-Plane 8 (Thanks to Matt)
 #
@@ -2186,314 +2249,30 @@ fi
 
 ################################################################################################################################
 
-
-
-if [ "$MASH_SCENARY" = "yes" ] ; then
-
-	j="0"
-	while [ ! -z "${dfs_list[$j]}" ] ; do
-		output_index="0"
-		output=()
-
-		echo "Filling mesh triangle for file ${dfs_list[$j]} ..."
-		cnt="$( cat "$output_dir/$output_sub_dir/${dfs_list[$j]}.txt" | grep "BEGIN_PATCH" | tail -n 1 | awk {'print $2'} )"
-		[ -z "$cnt" ] && cnt="0"
-	
-
-		tot=( ${dfs_triangle[$j]} )
-		tot="$[ ${#tot[@]} + $cnt ]"
-		for trix in ${dfs_triangle[$j]} ; do
-			triangle="${FINAL_TRIANGLES[$trix]}"
-		        addLine "BEGIN_PATCH $[ $cnt + 1 ]   0.0 -1.0     1 7"
-
-		        addLine "BEGIN_PRIMITIVE 0"
-		        mesh="$( echo "$triangle" | tr "#" " " )"
-		        echo -n "$[ $cnt + 1 ] / $tot Create triangles "
-			pcount="1"
-			ptri="0"
-		        for square in $mesh ; do
-
-		                vertex=( $( echo "$square" | tr ";" " " ) )
-
-		                vertex[0]="$( echo "${vertex[0]}" | tr "_" " " | tr "," "\t" )"
-		                vertex[1]="$( echo "${vertex[1]}" | tr "_" " " | tr "," "\t" )"
-		                vertex[2]="$( echo "${vertex[2]}" | tr "_" " " | tr "," "\t" )"
-		                vertex[3]="$( echo "${vertex[3]}" | tr "_" " " | tr "," "\t" )"
-
-		                # fetch coordinates
-		                COORD[0]="$( echo "${vertex[0]}" | awk {'print $1" "$2'} )"
-		                COORD[1]="$( echo "${vertex[1]}" | awk {'print $1" "$2'} )"
-		                COORD[2]="$( echo "${vertex[2]}" | awk {'print $1" "$2'} )"
-		                COORD[3]="$( echo "${vertex[3]}" | awk {'print $1" "$2'} )"     
-
-
-        		        # Search altitude
-        		        ALT[0]="$( getAltitude ${COORD[0]} )"
-        		        ALT[1]="$( getAltitude ${COORD[1]} )"
-        		        ALT[2]="$( getAltitude ${COORD[2]} )"
-        		        ALT[3]="$( getAltitude ${COORD[3]} )"
-	
-	        	        # fetch position
-	        	        POS[0]=$( echo "${vertex[0]}" | awk {'print $3" "$4'} )
-	        	        POS[1]=$( echo "${vertex[1]}" | awk {'print $3" "$4'} )
-	        	        POS[2]=$( echo "${vertex[2]}" | awk {'print $3" "$4'} )
-	        	        POS[3]=$( echo "${vertex[3]}" | awk {'print $3" "$4'} )
-
-	                	addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0 ${POS[3]}"
-	                	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0 ${POS[1]}"
-	                	addLine "PATCH_VERTEX ${COORD[0]} ${ALT[0]} 0 0 ${POS[0]}"
-
-
-				if [ "$ptri" = "84" ] ; then
-					addLine "END_PRIMITIVE"
-				        addLine "BEGIN_PRIMITIVE $pcount"
-					pcount="$[ $pcount + 1 ]"
-					ptri="0"
-				fi
-				ptri="$[ $ptri + 1 ]"
-
-
-
-	                	addLine "PATCH_VERTEX ${COORD[3]} ${ALT[3]} 0 0 ${POS[3]}"
-	                	addLine "PATCH_VERTEX ${COORD[2]} ${ALT[2]} 0 0 ${POS[2]}"
-	                	addLine "PATCH_VERTEX ${COORD[1]} ${ALT[1]} 0 0 ${POS[1]}"
-				if [ "$ptri" = "84" ] ; then
-					addLine "END_PRIMITIVE"
-				        addLine "BEGIN_PRIMITIVE $pcount"
-					pcount="$[ $pcount + 1 ]"
-					ptri="0"
-				fi
-				ptri="$[ $ptri + 1 ]"
-
-
-		                echo -n "."
-		        done
-		        echo
-		        cnt=$[ $cnt + 1 ]
-		        addLine "END_PRIMITIVE"
-		        addLine "END_PATCH"
-		        addLine
-		done
-		echo
-
-		cnt="0"
-		( while [ ! -z "${output[$cnt]}" ] ; do
-		        echo "${output[$cnt]}"
-		        cnt=$[ $cnt + 1 ]
-		done ) >> "$output_dir/$output_sub_dir/${dfs_list[$j]}.txt" 
-		j=$[ $j + 1 ]
-	done
-
-fi
-
-
-
-
 createKMLoutput END  "$KML_FILE"  #&& exit
 
 # Sorting DSF file and remove the duplicate
 dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 
-#########################################################################3
-
-if [ "$OSM" = "yes" ] ; then
-	echo
-	echo "Adding roads from OpenStreetMap..."
-
-	#BASE_URL="http://xapi.openstreetmap.org/api/0.5"
-	#BASE_URL="http://www.informationfreeway.org/api/0.6"
-	BASE_URL="http://api.openstreetmap.org/api/0.6" # /map?bbox=11.54,48.14,11.543,48.145"
-
-# ROAD DEFINITION
-
-ROAD_TYPE="
-railway-rail            56
-highway-residential     13
-highway-secondary       44
-highway-tertiary        47
-highway-trunk		13
-highway-unclassified    51
-highway-trunk_link	50
-highway-motorway_link	50
-highway-service		47
-highway-motorway	1
-"
-# To define:
-# highway-primary
-
-	osm_left="$( 	echo "scale = 8; $osm_center_lon 	- 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
-	osm_right="$(	echo "scale = 8; $osm_center_lon 	+ 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
-
-	osm_bottom="$(	echo "scale = 8; $osm_center_lat        - 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
-	osm_top="$( 	echo "scale = 8; $osm_center_lat        + 0.05" | bc | awk '{ printf "%0.4f\n", $1 }' )"
-
-	QUERY_URL="${BASE_URL}/map?bbox=$osm_left,$osm_bottom,$osm_right,$osm_top"
-	md5road="$( echo "$osm_left,$osm_bottom,$osm_right,$osm_top" | md5sum | awk {'print $1'} )"
-	road_file="$tiles_dir/$md5road.osm"	
-
-	[ -f "$road_file" ] && [ "$( du -k  "$road_file" | awk {'print $1'} )" = "0" ] && rm -f "$road_file"
-
-	if [ ! -f "$road_file" ] ; then
-		echo "Download roads information..."
-		echo "$QUERY_URL"
-		wget --user-agent=Firefox -O "$road_file" "$QUERY_URL"
-		echo "Store road in file $road_file ..."
-	fi
-
-
-	echo "Load road file $road_file ..."
-	XML_OUTPUT="$( cat "$road_file" | tr "\"" "\'"  )"
-
-	echo "Get ways list..." 
-	WAYS_START=( $( echo "$XML_OUTPUT" | grep -n "<way id=" | awk -F:  {'print $1'} | tr "\n" " " ) )
-	WAYS_END=(   $( echo "$XML_OUTPUT" | grep -n "</way>"   | awk -F:  {'print $1'} | tr "\n" " " ) )
-	echo "Found ${#WAYS_START[@]} ways ..."
-
-	echo "Get nodes list..."
-	NODES="$(       echo "$XML_OUTPUT" | grep "node id="    | awk -F\' '{ printf "%020d %f %f\n", $2, $4, $6 }' )"
-
-	for f in ${dfs_list[@]} ; do
-		[ "$MASH_SCENARY" = "no"  ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "BEGIN_POLYGON" | tail -n 1 | awk {'print $2'} )"
-	        [ "$MASH_SCENARY" = "yes" ] && begin="$( cat "$output_dir/$output_sub_dir/${f}.txt" | grep "TERRAIN_DEF"   | grep -v "terrain_Water" | wc -l | awk {'print $1'} )"
-
-		begin="$[ $begin + 1 ]"
-
-		dsf_cont="$( cat "$output_dir/$output_sub_dir/${f}.txt" | sed -e s/"\/"/":"/g )"
-
-		# PROPERTY sim/exclude_net 13.000/40.000/14.000/41.000
-		k="0"
-		for coord in west south east north ; do
-			val[$k]="$( echo "$dsf_cont" | grep "PROPERTY sim:$coord"  | awk {'print $3'}).000"
-			k=$[ $k + 1 ]
-		done
-		exclude_string="PROPERTY sim:exclude_net $( echo "${val[@]}" | tr " " ":" )"
-
-		[ "$( uname -s )" = "Linux" ]   && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent\n$exclude_string\n"/g )"
-		[ "$( uname -s )" = "Darwin" ]  && dsf_cont="$( echo "$dsf_cont" | sed -e s/"PROPERTY sim:creation_agent $( basename -- "$0" )"/"PROPERTY sim:creation_agent;$exclude_string;"/g )"
-
-
-		# NETWORK_DEF lib/g8/roads.net
-		if [ "$MASH_SCENARY" = "yes" ] ; then
-			last_ter="$( echo "$dsf_cont" | grep "TERRAIN_DEF" | tail -n 1 | sed -e s/"\/"/":"/g )"
-			[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter\nNETWORK_DEF lib:g8:roads.net\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
-			[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$last_ter"/"$last_ter;NETWORK_DEF lib:g8:roads.net;"/g 		| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
-		fi
-		if [ "$MASH_SCENARY" = "no" ] ; then
-			first_pol="$( echo "$dsf_cont" | grep "POLYGON_DEF" | head -n 1 | sed -e s/"\/"/":"/g )"
-			[ "$( uname -s )" = "Linux" ]   && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net\n$first_pol\n"/g 	| sed -e s/":"/"\/"/g 			> "$output_dir/$output_sub_dir/${f}.txt"
-			[ "$( uname -s )" = "Darwin" ]  && echo "$dsf_cont" | sed -e s/"$first_pol"/"NETWORK_DEF lib:g8:roads.net;$first_pol;"/g 	| sed -e s/":"/"\/"/g | tr ";" "\n" 	> "$output_dir/$output_sub_dir/${f}.txt"
-		fi
-		unset dsf_cont
-
-
-		i="0"
-		while [ ! -z "${WAYS_START[$i]}" ]  ; do
-
-			way_file="$tiles_dir/$md5road-${WAYS_START[$i]}-${WAYS_END[$i]}.osm"     
-			if [ ! -f "$way_file" ] ; then
-				CONTENT="$( echo "$XML_OUTPUT"  | head -n "${WAYS_END[$i]}" | tail -n $[ ${WAYS_END[$i]} - ${WAYS_START[$i]} + 1 ] )" 
-				echo "$CONTENT" > "$way_file"
-			else
-				CONTENT="$( cat "$way_file" )"
-			fi
-
-			TAG_KEY=( $(    echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $2'} | tr "\n" " " ) )
-			TAG_VALUE=( $(  echo "$CONTENT" | grep "<tag k=" | tr -d " "  | awk -F\' {'print $4'} | tr "\n" " " ) )
-	
-			s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "highway" | awk -F: {'print $1'} )" 
-			[ -z "$s" ] && s="$( echo "${TAG_KEY[@]}" | tr " " "\n"  | grep -ni "railway" | awk -F: {'print $1'} )" 
-
-
-			if [ -z "$s" ] ; then
-			        echo "Not highway or railway, skip..."
-			        i="$[ $i + 1 ]"
-			        continue
-			fi
-			s="$[ $s  - 1 ]" 
-
-
-			[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-footway" ] 	&& echo "$i - highway-footway skip..." && i="$[ $i + 1 ]" 	&& continue
-			[ "${TAG_KEY[$s]}-${TAG_VALUE[$s]}" = "highway-pedestrian" ] 	&& echo "$i - highway-pedestrian skip..." && i="$[ $i + 1 ]" 	&& continue
-
-
-			rtype="$( echo "$ROAD_TYPE" | awk {'print $1"- "$2'} | grep "^${TAG_KEY[$s]}-${TAG_VALUE[$s]}-" | awk {'print $2'} )"
-
-			if [ -z "$rtype" ] ; then
-			        echo "Road ${TAG_KEY[$s]}-${TAG_VALUE[$s]} unknown"
-				i="$[ $i + 1 ]"
-				continue
-			        #exit
-			fi
-			echo -n "$i - Add ${TAG_KEY[$s]}-${TAG_VALUE[$s]} "
-
-			REF="$(     echo "$CONTENT"     | grep "<nd ref=" | awk -F\' '{ printf "%020d\n", $2 }' | tr "\n" " " )"
-
-			cnt="0"
-			WAY=()
-			ALT=()
-			for r in $REF ; do
-			        echo -n "." 
-			        WAY[$cnt]="$( echo "$NODES" | grep "^$r" | awk '{ printf "%.7f %.7f", $3, $2 }')"
-				ori_lat="$( echo "${WAY[$cnt]}" | awk {'print $2'} )"
-				ori_lon="$( echo "${WAY[$cnt]}" | awk {'print $1'} )"
-
-				ori_lat="$( echo "scale = 8; $ori_lat + $lat_fix" | bc -l )"	
-				ori_lon="$( echo "scale = 8; $ori_lon + $lon_fix" | bc -l )"
-
-
-				if [ "$rot_fix" = "0" ] ; then
-					lat="$ori_lat"
-					lon="$ori_lon"
-				else
-					# With rotation...
-					lat="$( echo "scale = 8; $ori_lat - $lat_plane" | bc -l )"
-					lon="$( echo "scale = 8; $ori_lon - $lon_plane" | bc -l )"
-					lon="$( echo "scale = 8; $lon * c( ($pi/180) * $rot_fix ) - $lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-					lat="$( echo "scale = 8; $lon * s( ($pi/180) * $rot_fix ) + $lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-					lat="$( echo "scale = 8; $lat + $lat_plane" | bc -l )"
-					lon="$( echo "scale = 8; $lon + $lon_plane" | bc -l )"
-
-				fi
-				lat="$( echo "$lat" | awk '{ printf "%.8f", $1 }')"
-				lon="$( echo "$lon" | awk '{ printf "%.8f", $1 }')"
-				
-				[ "$( echo "scale = 6; ( ( $lon < ${val[0]} ) || ( $lon > ${val[2]} ) )" | bc )" = "1" ] && continue
-				[ "$( echo "scale = 6; ( ( $lat < ${val[1]} ) || ( $lat > ${val[3]} ) )" | bc )" = "1" ] && continue
-
-				WAY[$cnt]="$lon $lat"	
-				ALT[$cnt]="$( echo "scale = 8; $( getAltitude ${WAY[$cnt]} ) + 1" | bc -l )"
-			        cnt=$[ $cnt + 1 ]
-			done
-			echo
-
-			cnt="1"
-			echo "BEGIN_SEGMENT 0 $rtype $begin ${WAY[0]} ${ALT[0]}"	>> "$output_dir/$output_sub_dir/${f}.txt"
-			while [ "$cnt" -lt $[ ${#WAY[@]} - 1 ] ] ; do           
-			        echo "SHAPE_POINT ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
-			        cnt=$[ $cnt + 1 ]
-			done
-			begin=$[ $begin + 1 ]
-			echo "END_SEGMENT $begin ${WAY[$cnt]} ${ALT[$cnt]}"		>> "$output_dir/$output_sub_dir/${f}.txt"
-			begin=$[ $begin + 1 ]
-	
-
-			i="$[ $i + 1 ]"
-		done
-	done
-fi
-
-
-
-
-#########################################################################3
-
-
 
 if [  ! -z "$dsftool" ] ; then
+
+
 	for i in ${dfs_list[@]} ; do
-		echo "Create DSF file \"$i\"..."
+
+		if [ "$MASH_SCENARY" = "yes" ]  ; then
+			log "Merging DSF temporary file ..."
+			[ -f "$output_dir/$output_sub_dir/${i}_body_water.txt" ] && cat "$output_dir/$output_sub_dir/${i}_body_water.txt" 	>> "$output_dir/$output_sub_dir/${i}.txt"
+			[ -f "$output_dir/$output_sub_dir/${i}_body.txt" ]	 && cat "$output_dir/$output_sub_dir/${i}_body.txt" 		>> "$output_dir/$output_sub_dir/${i}.txt"
+
+			rm -f "$output_dir/$output_sub_dir/${i}_body.txt"
+			rm -f "$output_dir/$output_sub_dir/${i}_body_water.txt"
+		fi
+
+
+		log "Create DSF file \"$i\"..."
 		"$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i"
-		echo "-------------------------------------------------------"
+		log "-------------------------------------------------------"
 	done
 fi
 
