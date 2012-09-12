@@ -43,6 +43,8 @@ output_index="0"
 REMAKE_TILE="no"
 TMPFILE="tmp$$"
 output=()
+padfTransform=()
+padfTransformInv=()
 COOKIES=""
 COOKIES_FILE="$( dirname -- "$0" )/cookies.txt"
 
@@ -431,25 +433,6 @@ isNumber(){
 	[ "$bctest" = "$number" ] && echo -n "$number"
 }
 
-fastAltitude(){
-	lon="$1"
-	lat="$2"
-	who="$[ $RANDOM % 3 ]"
-	if [ "$who" = "0" ] ; then
-		tmp="$( wget --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://www.earthtools.org/height/${lat}/${lon}" )"
-		alt="$( echo "$tmp" | sed -e s/"<meters>"/"%"/g | sed -e s/"<\/meters>"/"%"/g | awk -F% {'print $2'} | tr "[a-z][A-Z]" " " | tr -d "\n " )"
-	fi
-	if [ "$who" = "1" ] ; then
-		alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/srtm3?lat=${lat}&lng=${lon}&style=full" )"
-	fi
-	if [ "$who" = "2" ] ; then
-		alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/gtopo30?lat=${lat}&lng=${lon}"  )"
-	fi
-	sleep 1
-	alt="$( isNumber "$alt" )"		
-	echo -n "$alt"
-}
-
 
 # 
 # Convert Lat lon to UTM
@@ -493,109 +476,6 @@ EOM
 }
 
 
-
-
-
-
-
-
-
-
-
-
-#
-# getAltitude lartitude longitude -> altitude in meter
-#
-
-getAltitude(){
-        ori_lon="$1"
-       	ori_lat="$2"
-	lon="$( echo "$1" | awk '{ printf "%.4f", $1 }')"
-	lat="$( echo "$2" | awk '{ printf "%.4f", $1 }')"
-
-	#echo -n "0.00000000"
-	#return
-	#DEBUG="off"	
-
-	DEBUG="on"	
-	#[ -f "$tiles_dir/info_${ori_lon}_${ori_lat}.alt" ] && mv -f "$tiles_dir/info_${ori_lon}_${ori_lat}.alt"  "$tiles_dir/info_${lon}_${lat}.alt"
-
-        if [ -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
-                out=( $( cat "$tiles_dir/info_${lon}_${lat}.alt" ) )
-                if [ -z "$out" ] ; then
-			rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
-		else
-			[ "${out[1]}" != "FIX" ] 		&& [ "${out[0]}" = "0" ] && out="$( checkAltitude $lon $lat $out )"
-			[ "${out[0]}"  = "FIX" ] 		&& rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
-			[ ${#out[@]} -gt 2 ] 	 		&& rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
-			[ -z  "$( isNumber ${out[0]} )" ] 	&& rm -f  "$tiles_dir/info_${lon}_${lat}.alt"
-		fi
-        fi
-        if [ ! -f "$tiles_dir/info_${lon}_${lat}.alt" ] ; then
-		if [ "$DEBUG" = "off" ] ; then
-			alt_url="http://gisdata.usgs.gov/xmlwebservices2/elevation_service.asmx/getElevation?X_Value=${lon}&Y_Value=${lat}&Elevation_Units=METERS&Source_Layer=-1&Elevation_Only=true"
-	       		tmp="$( wget --timeout=10 --tries=1 --user-agent=Firefox -q -O- "$alt_url" )"
-        	        out="$( echo "$tmp" | sed -e s/"<double>"/":"/g | sed -e s/"<\/double>"/":"/g | awk -F: {'print $2'} | tr "[a-z][A-Z]" " " | tr -d "\n " )"
-			out="$( isNumber "$out" )"		
-		else
-			out="$( fastAltitude $lon_$lat )"
-		fi
-                if [ -z "$out" ] ; then
-			out="$( checkAltitude $lon $lat $out )"
-		else
-	                echo -n "$out" > "$tiles_dir/info_${lon}_${lat}.alt" 
-		fi
-        fi
-        if [ "$out" != "${out#*.}" ] ; then
-                # out="${out%.*}.$( echo "${out#*.}" | cut -c -8 )"
-                # out="$( echo "$out" | awk '{ printf "%.8f", $1 }')"
-		out="${out%.*}.00000000"
-        else
-                out="$out.00000000" 
-        fi
-        echo -n "$out"
-}
-
-#
-#  Check if altitude is good. If good return the same altitude, otherwise the use other altitude server
-#
-#  http://www.earthtools.org/height/46.25870118/9.44685945
-
-checkAltitude(){
-        lon="$1"
-        lat="$2"
-        alt="$3"
-
-	tmp="$( wget --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://www.earthtools.org/height/${lat}/${lon}" )"
-	new_alt="$( echo "$tmp" | sed -e s/"<meters>"/"%"/g | sed -e s/"<\/meters>"/"%"/g | awk -F% {'print $2'} | tr "[a-z][A-Z]" " " | grep "^[0-9]*$" | tr -d "\n " )"
-	new_alt="$( isNumber "$new_alt" )"		
-	if [ -z "$new_alt" ] ; then 
-		new_alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/srtm3?lat=${lat}&lng=${lon}&style=full" )"
-		new_alt="$( isNumber "$new_alt" )"		
-		if [ "$new_alt" = "-32768" ] ; then
-			new_alt="$( wget  --timeout=10 --tries=1 --user-agent=Firefox -q -O- "http://ws.geonames.org/gtopo30?lat=${lat}&lng=${lon}"  )"
-			new_alt="$( isNumber "$new_alt" )"
-		fi
-
-		[ -z "$new_alt" ]		&& new_alt="0"
-	fi
-	if [ "$new_alt" = "0" ] ; then
-		echo -n "$new_alt"
-		echo -n "$new_alt FIX"  > "$tiles_dir/info_${lon}_${lat}.alt"
-		return
-	fi
-	
-        disc="$( echo "scale=8; ( $alt - $new_alt ) / $new_alt * 100" | bc )"
-
-        if [ "$new_alt" != "-9999" ] && [ "$( echo "scale = 6; ( ( $disc < 10.0 ) || ( $disc > 10.0 ) )" | bc )" = "1" ] ; then
-		echo -n "$new_alt"
-                echo -n "$new_alt FIX" 	> "$tiles_dir/info_${lon}_${lat}.alt"
-        else
-		echo -n "$alt"
-                echo -n "$alt FIX" 	> "$tiles_dir/info_${lon}_${lat}.alt"
-        fi
-
-}
 
 #
 # This funciont return the middle point between two points
@@ -1291,10 +1171,99 @@ testImage(){
 	fi
 }
 
+InvGeoTransform(){
+        args=( $* )
+bc << EOM | tr "\n" " "
+        scale    = 16;
+        gt_in[0] = ${args[0]};
+        gt_in[1] = ${args[1]};
+        gt_in[2] = ${args[2]};
+        gt_in[3] = ${args[3]};
+        gt_in[4] = ${args[4]};
+        gt_in[5] = ${args[5]};
+
+
+        det     = gt_in[1] * gt_in[5] - gt_in[2] * gt_in[4];
+        inv_det = 1.0 / det;
+
+        gt_out[1] =  gt_in[5] * inv_det;
+        gt_out[4] = -gt_in[4] * inv_det;
+        gt_out[2] = -gt_in[2] * inv_det;
+        gt_out[5] =  gt_in[1] * inv_det;
+        gt_out[0] = ( gt_in[2] * gt_in[3] - gt_in[0] * gt_in[5]) * inv_det;
+        gt_out[3] = (-gt_in[1] * gt_in[3] + gt_in[0] * gt_in[4]) * inv_det;
+
+        gt_out[0]
+        gt_out[1]
+        gt_out[2]
+        gt_out[3]
+        gt_out[4]
+        gt_out[5]
+EOM
+}
+
+
+getAltitude(){
+	lon="$1"
+	lat="$2"
+
+	if [ "${#padfTransform[*]}" -eq "6" ] ; then
+		lon="$( awk 'BEGIN { printf "%f", int('$lon' / '${padfTransform[1]}') * '${padfTransform[1]}' }' )"
+		lat="$( awk 'BEGIN { printf "%f", int('$lat' / '${padfTransform[5]}') * '${padfTransform[5]}' }' )"
+		[ -f "$tiles_dir/alt_${lon}_${lat}.info" ] && cat "$tiles_dir/alt_${lon}_${lat}.info" && return 
+	fi
+
+	DEM_SERVER="ftp://xftp.jrc.it/pub/srtmV4/arcasci/"
+
+	srtm_x="$( awk 'BEGIN { printf "%02d", int( ( 180 + '$lon'  		  ) / ( 360 / 72 ) ) + 1 }' )"
+	srtm_y="$( awk 'BEGIN { printf "%02d", int( ( 60  - '$lat' + ( 120 / 24 ) ) / ( 120 / 24 ) )	 }' )"
+
+	dem="srtm_${srtm_x}_${srtm_y}"
+	if [ ! -f "$tiles_dir/${dem}.asc" ] ; then
+		log "Missing DEM file $dem ..."
+
+		cnt="1"
+		while [  "$( unzip -t -q "$tiles_dir/${dem}.zip" &> /dev/null ; echo -n $? )" -ne "0" ] ; do
+			log "Downloading attempt $cnt ..."
+			wget  --timeout 10 -c "ftp://xftp.jrc.it/pub/srtmV4/arcasci/${dem}.zip" -O "$tiles_dir/${dem}.zip"
+			cnt=$[ $cnt + 1 ]
+		done
+		log "Uncompress the Zip archive ..."
+		unzip -o -q "$tiles_dir/${dem}.zip" -d "$tiles_dir"
+
+	fi
+
+	if [ "${#padfTransformInv[*]}" -ne "6" ] ; then
+		LINE_OFFSET="6"
+		info=( $( cat "$tiles_dir/${dem}.asc" | head -n "$LINE_OFFSET" | tr -d "\r" | awk '{ print $2 }' | tr "\n" " " ) )
+		info[3]="$( awk 'BEGIN { printf "%d", '${info[3]}' + ( 120 / 24 ) }' )"
+		padfTransform=( ${info[2]} ${info[4]} 0 ${info[3]} 0 -${info[4]}  )
+
+                padfTransform[1]="${info[4]}"  	# Pixel X size 
+                padfTransform[5]="-${info[4]}"	# Pixel Y size
+                padfTransform[0]="${info[2]}"	# Lon upper left
+                padfTransform[3]="${info[3]}"	# Lat upper left
+                padfTransform[2]="0"		# Rotation zero
+		padfTransform[4]="0"
+		padfTransformInv=( $( InvGeoTransform ${padfTransform[*]} ) )
+	fi
+
+
+
+	Xp="$( awk 'BEGIN { printf "%.0f", '${padfTransformInv[0]}' + '$lon' * '${padfTransformInv[1]}' + '$lat' * '${padfTransformInv[2]}' + 1 }' )"
+	Yp="$( awk 'BEGIN { printf "%.0f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' + 1 }' )"
+
+	Yp="$[ $Yp + $LINE_OFFSET ]"
+	
+	alt="$( sed -n ${Yp}p "$tiles_dir/${dem}.asc" | tr -d "\r" | awk '{ print $'$Xp'}' )"
+	[ -z "$alt" ] 		&& return
+	[  "$alt" = "-9999" ] 	&& alt="0"
+
+	awk 'BEGIN { printf "%d", '$alt' }' 
+	awk 'BEGIN { printf "%d", '$alt' }' > "$tiles_dir/alt_${lon}_${lat}.info"
+}
 
 #########################################################################3
-
-
 
 if [ -z "$output_dir" ] ; then
 	log "Output directory missing..."
@@ -1839,8 +1808,9 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 	
 		cnt=$[ $cnt + 4 ];
 	done ) )
-	log "Found ${#PATCH_VERTEX[*]} vertex ..."
-	
+	log "Found ${#PATCH_VERTEX[*]} vertex, $[ ${#PATCH_VERTEX[*]} / 3 ] triangles ..."
+
+
 fi
 
 
@@ -2146,7 +2116,7 @@ for x in $( seq 0 $dim_x ) ; do
 			fi
 
 			if [ "$MASH_SCENARY" = "yes" ] && [ ! -f "$TER_DIR/$TER" ] ; then
-				echo "$prog / $tot: Creating terrain (.ter) file \"$TER\"..."
+				log "$prog / $tot: Creating terrain (.ter) file \"$TER\"..."
 				LC_lat_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lat' + '$lr_lat' ) / 2 }' )"
 				LC_lon_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lon' + '$lr_lon' ) / 2 }' )"
 				LC_dim="$(  tile_size $c2 | awk -F. {'print $1'} )"
@@ -2183,27 +2153,25 @@ for x in $( seq 0 $dim_x ) ; do
 
 
 			if [ "$MASH_SCENARY" = "yes" ] ; then
-				if [ "$( du -k  "$tiles_dir/mask-$c2.png" | awk {'print $1'} )" != "0" ] ; then
-  				echo "BEGIN_PATCH 0   0.0 -1.0    1   5"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "PATCH_VERTEX $lr_lon_dsf $lr_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "PATCH_VERTEX $ll_lon_dsf $ll_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "PATCH_VERTEX $ul_lon_dsf $ul_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "PATCH_VERTEX $ur_lon_dsf $ur_lat_dsf 0   0 0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "END_PRIMITIVE"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-  				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
-				fi			
 
 				lon_dsf_size="$( awk 'BEGIN { printf "%.8f\n", '$lr_lon_dsf' - '$ll_lon_dsf' }' )"
 				lat_dsf_size="$( awk 'BEGIN { printf "%.8f\n", '$ul_lat_dsf' - '$ll_lat_dsf' }' )"
 				lon_px_size="$(  awk 'BEGIN { printf "%.8f\n", '$lr_lon_px'  - '$ll_lon_px'  }' )"
 				lat_px_size="$(  awk 'BEGIN { printf "%.8f\n", '$ul_lat_px'  - '$ll_lat_px'  }' )"
 
+				ADD_WATER="false"
+				[ "$( du -k  "$tiles_dir/mask-$c2.png" | awk {'print $1'} )" != "0" ] && ADD_WATER="true"
+
+
+
 				echo "BEGIN_PATCH $BEGIN_PATCH_CNT   0.0 -1.0     1 7"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+
+				if [ "$ADD_WATER" = "true" ] ; then
+  				echo "BEGIN_PATCH 0   0.0 -1.0    1   5"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+				fi
+
 				vex="0"
 				triangle_cnt="0"
 				primitive_cnt="1"
@@ -2219,6 +2187,10 @@ for x in $( seq 0 $dim_x ) ; do
 					pLat[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
 					pLat[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
 
+					pAlt[0]="$( 	getAltitude "${pLon[0]}" "${pLat[0]}" )"
+					pAlt[1]="$( 	getAltitude "${pLon[1]}" "${pLat[1]}" )"
+					pAlt[2]="$( 	getAltitude "${pLon[2]}" "${pLat[2]}" )"
+
 					pX[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v0]%,*}' }' )"
 					pX[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v1]%,*}' }' )"
 					pX[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v2]%,*}' }' )"
@@ -2227,16 +2199,30 @@ for x in $( seq 0 $dim_x ) ; do
 					pY[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
 					pY[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
 
-					#getAltitude "${pLon[0]}" "${pLat[0]}"
+
+	
 
 
-					echo "PATCH_VERTEX ${pLon[0]} ${pLat[0]} 10 0 0 ${pX[0]} ${pY[0]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX ${pLon[1]} ${pLat[1]} 10 0 0 ${pX[1]} ${pY[1]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
-					echo "PATCH_VERTEX ${pLon[2]} ${pLat[2]} 10 0 0 ${pX[2]} ${pY[2]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX ${pLon[0]} ${pLat[0]} ${pAlt[0]} 0 0 ${pX[0]} ${pY[0]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX ${pLon[1]} ${pLat[1]} ${pAlt[1]} 0 0 ${pX[1]} ${pY[1]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+					echo "PATCH_VERTEX ${pLon[2]} ${pLat[2]} ${pAlt[2]} 0 0 ${pX[2]} ${pY[2]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+
+					if [ "$ADD_WATER" = "true" ] ; then				
+	  				echo "PATCH_VERTEX  ${pLon[0]} ${pLat[0]} ${pAlt[0]} 0 0"			>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+	  				echo "PATCH_VERTEX  ${pLon[1]} ${pLat[1]} ${pAlt[1]} 0 0"			>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+	  				echo "PATCH_VERTEX  ${pLon[2]} ${pLat[2]} ${pAlt[2]} 0 0"			>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+					fi			
+
 			
 					if [ "$triangle_cnt" -ge  "84" ] ; then
 						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 						echo "BEGIN_PRIMITIVE $primitive_cnt"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+
+						if [ "$ADD_WATER" = "true" ] ; then
+						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+						echo "BEGIN_PRIMITIVE $primitive_cnt"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+						fi
+
 						triangle_cnt="0"
 						primitive_cnt=$[ $primitive_cnt + 1 ]
 					fi
@@ -2246,6 +2232,12 @@ for x in $( seq 0 $dim_x ) ; do
 				echo "END_PRIMITIVE"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				if [ "$ADD_WATER" = "true" ] ; then
+				echo "END_PRIMITIVE"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+				echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+				echo										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+				fi
+
 
 				echo "TERRAIN_DEF $( basename -- $TER_DIR)/$TER" >> "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt"
 				BEGIN_PATCH_CNT=$[ $BEGIN_PATCH_CNT + 1 ]
