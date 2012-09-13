@@ -43,8 +43,14 @@ output_index="0"
 REMAKE_TILE="no"
 TMPFILE="tmp$$"
 output=()
+
+
+DEM_SERVER="ftp://xftp.jrc.it/pub/srtmV4/arcasci/"
+DemInMemory=""
+DEM_LINE_OFFSET="6"
 padfTransform=()
 padfTransformInv=()
+
 COOKIES=""
 COOKIES_FILE="$( dirname -- "$0" )/cookies.txt"
 
@@ -1203,39 +1209,34 @@ EOM
 }
 
 
-getAltitude(){
+setAltitudeEnv(){
 	lon="$1"
 	lat="$2"
-
-	if [ "${#padfTransform[*]}" -eq "6" ] ; then
-		lon="$( awk 'BEGIN { printf "%f", int('$lon' / '${padfTransform[1]}') * '${padfTransform[1]}' }' )"
-		lat="$( awk 'BEGIN { printf "%f", int('$lat' / '${padfTransform[5]}') * '${padfTransform[5]}' }' )"
-		[ -f "$tiles_dir/alt_${lon}_${lat}.info" ] && cat "$tiles_dir/alt_${lon}_${lat}.info" && return 
-	fi
-
-	DEM_SERVER="ftp://xftp.jrc.it/pub/srtmV4/arcasci/"
-
 	srtm_x="$( awk 'BEGIN { printf "%02d", int( ( 180 + '$lon'  		  ) / ( 360 / 72 ) ) + 1 }' )"
 	srtm_y="$( awk 'BEGIN { printf "%02d", int( ( 60  - '$lat' + ( 120 / 24 ) ) / ( 120 / 24 ) )	 }' )"
-
 	dem="srtm_${srtm_x}_${srtm_y}"
-	if [ ! -f "$tiles_dir/${dem}.asc" ] ; then
-		log "Missing DEM file $dem ..."
 
-		cnt="1"
-		while [  "$( unzip -t -q "$tiles_dir/${dem}.zip" &> /dev/null ; echo -n $? )" -ne "0" ] ; do
-			log "Downloading attempt $cnt ..."
-			wget  --timeout 10 -c "ftp://xftp.jrc.it/pub/srtmV4/arcasci/${dem}.zip" -O "$tiles_dir/${dem}.zip"
-			cnt=$[ $cnt + 1 ]
-		done
-		log "Uncompress the Zip archive ..."
-		unzip -o -q "$tiles_dir/${dem}.zip" -d "$tiles_dir"
+	if [ "${DemInMemory}" != "$dem" ] ; then
+		if [ ! -f "$tiles_dir/${dem}.asc" ] ; then
+			log "Missing DEM file $dem ..."
 
-	fi
+			cnt="1"
+			while [  "$( unzip -t -q "$tiles_dir/${dem}.zip" &> /dev/null ; echo -n $? )" -ne "0" ] ; do
+				log "Downloading attempt $cnt ..."
+				wget  --timeout 10 -c "ftp://xftp.jrc.it/pub/srtmV4/arcasci/${dem}.zip" -O "$tiles_dir/${dem}.zip"
+				cnt=$[ $cnt + 1 ]
+			done
+			log "Uncompress $dem Zip archive ..."
+			unzip -o -q "$tiles_dir/${dem}.zip" -d "$tiles_dir"
 
-	if [ "${#padfTransformInv[*]}" -ne "6" ] ; then
-		LINE_OFFSET="6"
-		info=( $( cat "$tiles_dir/${dem}.asc" | head -n "$LINE_OFFSET" | tr -d "\r" | awk '{ print $2 }' | tr "\n" " " ) )
+		fi
+
+		DemInMemory="${dem}"
+		log "Load DEM $dem in memory ..."
+		cnt="0"
+		while read DEM[$cnt] ; do cnt="$[ $cnt + 1 ]"; done < "$tiles_dir/${dem}.asc"
+
+		info=( $( cat "$tiles_dir/${dem}.asc" | head -n "$DEM_LINE_OFFSET" | tr -d "\r" | awk '{ print $2 }' | tr "\n" " " ) )
 		info[3]="$( awk 'BEGIN { printf "%d", '${info[3]}' + ( 120 / 24 ) }' )"
 		padfTransform=( ${info[2]} ${info[4]} 0 ${info[3]} 0 -${info[4]}  )
 
@@ -1247,20 +1248,33 @@ getAltitude(){
 		padfTransform[4]="0"
 		padfTransformInv=( $( InvGeoTransform ${padfTransform[*]} ) )
 	fi
+}
 
 
+getAltitude(){
+	lon="$1"
+	lat="$2"
 
-	Xp="$( awk 'BEGIN { printf "%.0f", '${padfTransformInv[0]}' + '$lon' * '${padfTransformInv[1]}' + '$lat' * '${padfTransformInv[2]}' + 1 }' )"
-	Yp="$( awk 'BEGIN { printf "%.0f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' + 1 }' )"
+	Xp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[0]}' + '$lon' * '${padfTransformInv[1]}' + '$lat' * '${padfTransformInv[2]}' + 1 				}' )"
+	Yp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' + 1 + '$DEM_LINE_OFFSET' 	}' )"
 
-	Yp="$[ $Yp + $LINE_OFFSET ]"
-	
-	alt="$( sed -n ${Yp}p "$tiles_dir/${dem}.asc" | tr -d "\r" | awk '{ print $'$Xp'}' )"
-	[ -z "$alt" ] 		&& return
-	[  "$alt" = "-9999" ] 	&& alt="0"
+	xCoords=( $( awk 'BEGIN { printf "%d,%d %d,%d", '$Xp', '$Yp', '$Xp' + 1, '$Yp' + 1 }' ) )
+	# ${a%,*} First
+	# ${a#*,} Second
 
-	awk 'BEGIN { printf "%d", '$alt' }' 
-	awk 'BEGIN { printf "%d", '$alt' }' > "$tiles_dir/alt_${lon}_${lat}.info"
+	x0=( $( echo "${DEM[${xCoords[0]#*,}]}" | awk '{ print $'${xCoords[0]%,*}'" "$'${xCoords[1]%,*}' }' ) )
+	x1=( $( echo "${DEM[${xCoords[1]#*,}]}" | awk '{ print $'${xCoords[0]%,*}'" "$'${xCoords[1]%,*}' }' ) )
+
+
+	alt="$( awk 'BEGIN { printf "%f", '${x0[0]}' + 0.'${Xp#*.}' * ('${x0[1]}' - '${x0[0]}') + 0.'${Yp#*.}' * ('${x1[0]}' - '${x0[0]}') + 0.'${Xp#*.}' * 0.'${Yp#*.}' * ('${x1[1]}' + '${x0[0]}' - '${x1[0]}' - '${x0[1]}') }' )"
+
+	if [ -z "$alt" ] ; then
+		log "SEVERE ERROR! This is a BUG!"
+		exit 5
+
+	fi
+
+	awk 'BEGIN { printf "%f", '$alt' }' 
 }
 
 #########################################################################3
@@ -1588,6 +1602,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
+	break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile-$c2.png"
@@ -1675,6 +1690,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
+	break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -1961,7 +1977,7 @@ for x in $( seq 0 $dim_x ) ; do
 
 
 			if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
-				echo "Creating file $dfs_file ..."
+				log "Creating file $dfs_file ..."
 
 				echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 				echo "850" 							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
@@ -2178,7 +2194,6 @@ for x in $( seq 0 $dim_x ) ; do
 				while [ ! -z "${PATCH_VERTEX[$vex]}" ] ; do
 					v0="$vex"; v1=$[ $vex + 1 ]; v2=$[ $vex + 2 ]
 
-
 					pLon[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v0]%,*}' }' )"
 					pLon[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v1]%,*}' }' )"
 					pLon[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v2]%,*}' }' )"
@@ -2187,9 +2202,11 @@ for x in $( seq 0 $dim_x ) ; do
 					pLat[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
 					pLat[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
 
-					pAlt[0]="$( 	getAltitude "${pLon[0]}" "${pLat[0]}" )"
-					pAlt[1]="$( 	getAltitude "${pLon[1]}" "${pLat[1]}" )"
-					pAlt[2]="$( 	getAltitude "${pLon[2]}" "${pLat[2]}" )"
+					
+					setAltitudeEnv "${pLon[0]}" "${pLat[0]}" ; pAlt[0]="$( 	getAltitude "${pLon[0]}" "${pLat[0]}" )"
+					setAltitudeEnv "${pLon[1]}" "${pLat[1]}" ; pAlt[1]="$( 	getAltitude "${pLon[1]}" "${pLat[1]}" )"
+					setAltitudeEnv "${pLon[2]}" "${pLat[2]}" ; pAlt[2]="$( 	getAltitude "${pLon[2]}" "${pLat[2]}" )"
+					
 
 					pX[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v0]%,*}' }' )"
 					pX[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size'  * '${PATCH_VERTEX[$v1]%,*}' }' )"
@@ -2228,6 +2245,7 @@ for x in $( seq 0 $dim_x ) ; do
 					fi
 					triangle_cnt=$[ $triangle_cnt + 1 ]
 					vex=$[ $vex + 3 ]
+
 				done
 				echo "END_PRIMITIVE"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				echo "END_PATCH"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
