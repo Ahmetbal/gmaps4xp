@@ -1677,7 +1677,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1766,7 +1766,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -1978,17 +1978,17 @@ for x in $( seq 0 $dim_x ) ; do
 
 		fi
 
-		ul_lat="$( awk 'BEGIN { printf "%.8f", '$ul_lat' }' )"
-		ul_lon="$( awk 'BEGIN { printf "%.8f", '$ul_lon' }' )"
-                                                        
-		ur_lat="$( awk 'BEGIN { printf "%.8f", '$ur_lat' }' )"
-		ur_lon="$( awk 'BEGIN { printf "%.8f", '$ur_lon' }' )"
-                                                        
-		lr_lat="$( awk 'BEGIN { printf "%.8f", '$lr_lat' }' )"
-		lr_lon="$( awk 'BEGIN { printf "%.8f", '$lr_lon' }' )"
-                                                        
-		ll_lat="$( awk 'BEGIN { printf "%.8f", '$ll_lat' }' )"
-		ll_lon="$( awk 'BEGIN { printf "%.8f", '$ll_lon' }' )"
+		ul_lat="$( awk 'BEGIN { printf "%f", '$ul_lat' }' )"
+		ul_lon="$( awk 'BEGIN { printf "%f", '$ul_lon' }' )"
+                                                      
+		ur_lat="$( awk 'BEGIN { printf "%f", '$ur_lat' }' )"
+		ur_lon="$( awk 'BEGIN { printf "%f", '$ur_lon' }' )"
+                                                      
+		lr_lat="$( awk 'BEGIN { printf "%f", '$lr_lat' }' )"
+		lr_lon="$( awk 'BEGIN { printf "%f", '$lr_lon' }' )"
+                                                      
+		ll_lat="$( awk 'BEGIN { printf "%f", '$ll_lat' }' )"
+		ll_lon="$( awk 'BEGIN { printf "%f", '$ll_lon' }' )"
 
 		
 		POL_FILE="poly_${point_lat}_${point_lon}.pol"
@@ -2019,7 +2019,7 @@ for x in $( seq 0 $dim_x ) ; do
 			dfs_dir="$(  getDirName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )"
 			[ -z "$( echo "$DSF_LIST" | grep "$dfs_file" )" ] && continue
 
-			[ "$dfs_file" != "+45+011.dsf" ] && continue # TO BE REMOVED
+			# [ "$dfs_file" != "+44+011.dsf" ] && continue # TO BE REMOVED
 			########################################################3
 
 			if [ ! -d "$output_dir/$output_sub_dir/$dfs_dir" ] ; then
@@ -2052,11 +2052,6 @@ for x in $( seq 0 $dim_x ) ; do
 
 			if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
 				log "Creating file $dfs_file ..."
-
-#				echo "A" 							>  "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-#				echo "850" 							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-#				echo "$XPLANE_CMD_VERSION" 					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-#				echo "DSF2TEXT" 						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 
  				echo "PROPERTY sim/west $min_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 				echo "PROPERTY sim/east $max_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
@@ -2105,13 +2100,14 @@ for x in $( seq 0 $dim_x ) ; do
 					if [ "$corner" = "ll" ] ; then
 						if [ "$( echo "$ll_lat < $min_lat" | bc )" = 1  ] ; then
 							ll_lat_px="$( echo "scale = 8; $( pointDist $ll_lon $ll_lat $ll_lon $min_lat ) / $( pointDist $ll_lon $ll_lat $ul_lon $ul_lat  )" | bc )"
-							ll_lat_dsf="${min_lat}.00000000"
+							ll_lat_dsf="${min_lat}.000000"
+							[ "$MASH_SCENARY" = "yes" ] &&  ll_lat_dsf="${min_lat}.000002"
 							CROSS_CHECK_FIXED="yes"
 						fi
 						
 						if [ "$( echo "$ll_lon < $min_lon" | bc )" = 1  ] ; then
 							ll_lon_px="$( echo "scale = 8; $( pointDist $ll_lon $ll_lat $min_lon $ll_lat ) / $( pointDist $ll_lon $ll_lat $lr_lon $lr_lat  )" | bc )"
-							ll_lon_dsf="${min_lon}.00000000"
+							ll_lon_dsf="${min_lon}.000000"
 							CROSS_CHECK_FIXED="yes"
 						fi
 						
@@ -2121,13 +2117,14 @@ for x in $( seq 0 $dim_x ) ; do
 					if [ "$corner" = "lr" ] ; then
 						if [ "$( echo "$lr_lat < $min_lat" | bc )" = 1  ] ; then
 							lr_lat_px="$( echo "scale = 8; $( pointDist $lr_lon $lr_lat $lr_lon $min_lat ) / $( pointDist $lr_lon $lr_lat $ur_lon $ur_lat  )" | bc )"
-							lr_lat_dsf="${min_lat}.00000000"
+							lr_lat_dsf="${min_lat}.000000"
+							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="${min_lat}.000002"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
 						if [ "$( echo "$lr_lon > $max_lon" | bc )" = 1  ] ; then
 							lr_lon_px="$( echo "scale = 8; 1.0 - $( pointDist $lr_lon $lr_lat $max_lon $lr_lat ) / $( pointDist $lr_lon $lr_lat $ll_lon $ll_lat  )" | bc )"
-							lr_lon_dsf="${max_lon}.00000000"
+							lr_lon_dsf="${max_lon}.000000"
 							CROSS_CHECK_FIXED="yes"
 						fi
 	
@@ -2135,15 +2132,15 @@ for x in $( seq 0 $dim_x ) ; do
 
 					if [ "$corner" = "ul" ] ; then
 						 if [ "$( echo "$ul_lat > $max_lat" | bc )" = 1  ] ; then
-							ul_lat_px="$( echo "scale = 8; $( pointDist $ul_lon $ul_lat $ul_lon $max_lat ) / $( pointDist $ul_lon $ul_lat $ll_lon $ll_lat  )" | bc )"
-							ul_lat_dsf="${max_lat}.00000000"
+							ul_lat_px="$( echo "scale = 8; 1.0 - $( pointDist $ul_lon $ul_lat $ul_lon $max_lat ) / $( pointDist $ul_lon $ul_lat $ll_lon $ll_lat  )" | bc )"
+							ul_lat_dsf="${max_lat}.000000"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
 
 						if [ "$( echo "$ul_lon < $min_lon" | bc )" = 1  ] ; then
 							ul_lon_px="$( echo "scale = 8; $( pointDist $ul_lon $ul_lat $min_lon $ul_lat ) / $( pointDist $ul_lon $ul_lat $ur_lon $ur_lat  )" | bc )"
-							ul_lon_dsf="${min_lon}.00000000"
+							ul_lon_dsf="${min_lon}.000000"
 							CROSS_CHECK_FIXED="yes"
 						fi
 					fi
@@ -2151,13 +2148,13 @@ for x in $( seq 0 $dim_x ) ; do
 					if [ "$corner" = "ur" ] ; then
 						 if [ "$( echo "$ur_lat > $max_lat" | bc )" = 1  ] ; then
 							ur_lat_px="$( echo "scale = 8; 1.0 - $( pointDist $ur_lon $ur_lat $ur_lon $max_lat ) / $( pointDist $ur_lon $ur_lat $lr_lon $lr_lat  )" | bc )"
-							ur_lat_dsf="${max_lat}.00000000"
+							ur_lat_dsf="${max_lat}.000000"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
 						if [ "$( echo "$ur_lon > $max_lon" | bc )" = 1  ] ; then
 							ur_lon_px="$( echo "scale = 8; 1.0 - $( pointDist $ur_lon $ur_lat $max_lon $ur_lat ) / $( pointDist $ur_lon $ur_lat $ul_lon $ul_lat  )" | bc )"
-							ur_lon_dsf="${max_lon}.00000000"
+							ur_lon_dsf="${max_lon}.000000"
 							CROSS_CHECK_FIXED="yes"
 						fi
 	
@@ -2224,8 +2221,8 @@ for x in $( seq 0 $dim_x ) ; do
 				echo "800"                                                              >> "$TER_DIR/$TER"
 				echo "TERRAIN"                                                          >> "$TER_DIR/$TER"
 				echo                                                                    >> "$TER_DIR/$TER"
-				echo "BASE_TEX_NOWRAP ../$( basename -- $TEX_DIR)/$TEXTURE"		>> "$TER_DIR/$TER"
 				echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$TER_DIR/$TER"
+				echo "BASE_TEX_NOWRAP ../$( basename -- $TEX_DIR)/$TEXTURE"		>> "$TER_DIR/$TER"
 
                         
                         fi
@@ -2260,11 +2257,11 @@ for x in $( seq 0 $dim_x ) ; do
 				ADD_WATER="false"; [ "$( du -k  "$tiles_dir/mask/mask-$c2.png" | awk {'print $1'} )" != "0" ] && ADD_WATER="true"
 
 
-				echo "BEGIN_PATCH $BEGIN_PATCH_CNT 0 -1  1 7"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "BEGIN_PATCH $BEGIN_PATCH_CNT 0.000000 -1.000000  1 7"			>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 
 				if [ "$ADD_WATER" = "true" ] ; then
-  				echo "BEGIN_PATCH 0   0.0 -1.0    1   5"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  				echo "BEGIN_PATCH 0 0.000000 -1.000000   1   5"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
   				echo "BEGIN_PRIMITIVE 0"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
 				fi
 
@@ -2274,19 +2271,18 @@ for x in $( seq 0 $dim_x ) ; do
 				while [ ! -z "${PATCH_VERTEX[$vex]}" ] ; do
 					v0="$vex"; v1=$[ $vex + 1 ]; v2=$[ $vex + 2 ]
 
-					pLon[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v0]%,*}' }' )"
-					pLon[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v1]%,*}' }' )"
-					pLon[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v2]%,*}' }' )"
+					pLon[0]="$(	awk 'BEGIN { printf "%f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v0]%,*}' }' )"
+					pLon[1]="$(	awk 'BEGIN { printf "%f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v1]%,*}' }' )"
+					pLon[2]="$(	awk 'BEGIN { printf "%f\n", '$ll_lon_dsf' + '$lon_dsf_size' * '${PATCH_VERTEX[$v2]%,*}' }' )"
 
-					pLat[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v0]#*,}' }' )"
-					pLat[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
-					pLat[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
+					pLat[0]="$(	awk 'BEGIN { printf "%f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v0]#*,}' }' )"
+					pLat[1]="$(	awk 'BEGIN { printf "%f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
+					pLat[2]="$(	awk 'BEGIN { printf "%f\n", '$ll_lat_dsf' + '$lat_dsf_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
 
 					
-					#setAltitudeEnv "${pLon[0]}" "${pLat[0]}" ; pAlt[0]="$( 	getAltitude "${pLon[0]}" "${pLat[0]}" )"
-					#setAltitudeEnv "${pLon[1]}" "${pLat[1]}" ; pAlt[1]="$( 	getAltitude "${pLon[1]}" "${pLat[1]}" )"
-					#setAltitudeEnv "${pLon[2]}" "${pLat[2]}" ; pAlt[2]="$( 	getAltitude "${pLon[2]}" "${pLat[2]}" )"
-					pAlt=( 0 0 0 )
+					setAltitudeEnv "${pLon[0]}" "${pLat[0]}" ; pAlt[0]="$( 	getAltitude "${pLon[0]}" "${pLat[0]}" )"
+					setAltitudeEnv "${pLon[1]}" "${pLat[1]}" ; pAlt[1]="$( 	getAltitude "${pLon[1]}" "${pLat[1]}" )"
+					setAltitudeEnv "${pLon[2]}" "${pLat[2]}" ; pAlt[2]="$( 	getAltitude "${pLon[2]}" "${pLat[2]}" )"
 
 					pX[0]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size' * '${PATCH_VERTEX[$v0]%,*}' }' )"
 					pX[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lon_px'  + '$lon_px_size' * '${PATCH_VERTEX[$v1]%,*}' }' )"
@@ -2296,8 +2292,11 @@ for x in $( seq 0 $dim_x ) ; do
 					pY[1]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v1]#*,}' }' )"
 					pY[2]="$(	awk 'BEGIN { printf "%.8f\n", '$ll_lat_px'  + '$lat_px_size' * '${PATCH_VERTEX[$v2]#*,}' }' )"
 
+					# 0.86745204
 
 
+
+					# -0.000015259 -0.000015259
 					echo "PATCH_VERTEX ${pLon[0]} ${pLat[0]} ${pAlt[0]} 0 0 ${pX[0]} ${pY[0]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 					echo "PATCH_VERTEX ${pLon[1]} ${pLat[1]} ${pAlt[1]} 0 0 ${pX[1]} ${pY[1]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 					echo "PATCH_VERTEX ${pLon[2]} ${pLat[2]} ${pAlt[2]} 0 0 ${pX[2]} ${pY[2]}"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
@@ -2310,18 +2309,18 @@ for x in $( seq 0 $dim_x ) ; do
 					fi			
 
 			
- 					if [ "$triangle_cnt" -ge  "84" ] ; then
- 						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
- 						echo "BEGIN_PRIMITIVE 0"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
- 
- 						if [ "$ADD_WATER" = "true" ] ; then
- 						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
- 						echo "BEGIN_PRIMITIVE 0"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
- 						fi
- 
- 						triangle_cnt="0"
- 						#primitive_cnt=$[ $primitive_cnt + 1 ]
- 					fi
+  					if [ "$triangle_cnt" -ge  "84" ] ; then
+  						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+  						echo "BEGIN_PRIMITIVE 0"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+  
+  						if [ "$ADD_WATER" = "true" ] ; then
+  						echo "END_PRIMITIVE"						>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  						echo "BEGIN_PRIMITIVE 0"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body_water.txt"
+  						fi
+  
+  						triangle_cnt="0"
+  						#primitive_cnt=$[ $primitive_cnt + 1 ]
+  					fi
 
 
 					triangle_cnt=$[ $triangle_cnt + 1 ]
