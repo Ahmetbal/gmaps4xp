@@ -1292,6 +1292,9 @@ getAltitude(){
 	awk 'BEGIN { printf "%f", '$alt' }' 
 }
 
+# setAltitudeEnv 12.000000 44.995882
+# getAltitude 12.000000 44.995882
+# exit 0
 
 #########################################################################3
 
@@ -1999,7 +2002,8 @@ for x in $( seq 0 $dim_x ) ; do
 		[ "$REMAKE_TILE" = "yes" ] && [ -f "$tiles_dir/dds/tile-$c2.dds" ] && rm -f "$tiles_dir/dds/tile-$c2.dds"
 
 	        if [ ! -f "$TEX_DIR/$TEXTURE" ] ; then
-			[ ! -f "$tiles_dir/dds/tile-$c2.dds" ] && "$ddstool" --png2dxt "$tiles_dir/tile/tile-$c2.png" "$tiles_dir/dds/tile-$c2.dds"
+			[ ! -f "$tiles_dir/dds/tile-$c2.dds" ] && "$ddstool" --png2dxt args1 args2 "$tiles_dir/tile/tile-$c2.png" "$tiles_dir/dds/tile-$c2.dds"
+			#"$ddstool" --png2dxt "$tiles_dir/tile/tile-$c2.png" "$tiles_dir/dds/tile-$c2.dds"
 			cp -f "$tiles_dir/dds/tile-$c2.dds" "$TEX_DIR/$TEXTURE"
 			
 		fi
