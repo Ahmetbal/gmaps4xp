@@ -78,6 +78,7 @@ for i in $list3D ; do
 		cnt="0"
 		while read line ; do
 			[ -z "$line" ] && continue
+			line="$( echo "$line" | awk '{ printf "%f %f %f",  $1/10, $3/10, $2/10 }' )"
 			position_array[$cnt]="$line"
 			cnt=$[ $cnt + 1 ]
 		done <<< "$( getTagContent "$geometry" "source id=\"$POSITION\"" | grep "<float_array" | sed 's/<[^>]*>//g' | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" )"
@@ -113,43 +114,46 @@ for i in $list3D ; do
 				cnt=$[ $cnt + 1 ]
 			done <<< "$( echo "$triangles" | grep "<p>" | sed 's/<[^>]*>//g' | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" )"
 	
-			cnt="0"
-
-	
-			VT="$( while read line ; do
+		
+			VT="$(	while read line ; do
 					p=( $line );
 					echo -ne "$line,VT ${position_array[${p[0]}]}\t${normal_array[${p[1]}]}\t${uv_array[${p[2]}]}\n";
-				done <<< "$( echo "${array[*]}" | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" | sort -u )"
+				done <<< "$( echo "${array[*]}" | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" | sort -u  )"
 			)"
 
 
 			cnt="0"
 			IDX=()
+			
 			while [ ! -z "${array[$cnt]}" ] ; do
-				IDX[$cnt]="$( echo "$VT" | grep -n "${array[$cnt]}" | awk -F: {'print $1'} )"
+				IDX[$cnt]="$( echo "$VT" | grep -n "${array[$cnt]},VT " | awk -F: {'print $1-1'} )"
 				cnt=$[ $cnt + 1 ]
 			done
 
 			texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep "${material}," | awk -F, {'print $2'}  )"
 			texture="$( basename -- $texture )"
-			[ ! -f "$OUTPUT/textures/$texture" ] && cp "$images_dir/$texture" "$OUTPUT/textures/$texture"
+			texturepng="$( echo "$texture" | awk -F. {'print $1'}  ).png"
+			[ ! -f "$OUTPUT/textures/$texturepng" ] && convert "$images_dir/$texture" "$OUTPUT/textures/$texturepng"
 		
 			echo -n								>  "$objFile"
 			echo "I"							>> "$objFile"
 			echo "800"							>> "$objFile"
 			echo "OBJ"							>> "$objFile"
 			echo								>> "$objFile"
-			echo "TEXTURE ../textures/$texture"				>> "$objFile"
+			echo "TEXTURE ../textures/$texturepng"				>> "$objFile"
 			echo								>> "$objFile"
 			echo "POINT_COUNTS $( echo "$VT" | wc -l ) 0 0 ${#IDX[*]}"	>> "$objFile"
 			echo								>> "$objFile"
 			echo "$VT" | awk -F, '{ print $2}'				>> "$objFile"
 			echo								>> "$objFile"
-			for idx in ${IDX[*]} ; do echo "IDX $idx" ; done		>> "$objFile"
+			for idx in ${IDX[*]} ; do echo "IDX $idx"; done			>> "$objFile"
+			echo								>> "$objFile"
+			echo "ATTR_no_blend"						>> "$objFile"
+			echo "TRIS 0 ${#IDX[*]}"					>> "$objFile" 
+
 			obj_index=$[ $obj_index + 1 ]
 		done
 	done
-
 	break
 done
 
