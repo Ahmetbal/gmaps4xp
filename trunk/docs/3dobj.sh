@@ -75,29 +75,32 @@ for i in $list3D ; do
 
 
 			
-		cnt="0"
-		while read line ; do
-			[ -z "$line" ] && continue
-			line="$( echo "$line" | awk '{ printf "%f %f %f",  $1/10, $3/10, $2/10 }' )"
-			position_array[$cnt]="$line"
+		cnt="0"; i="0"
+		for e in $( getTagContent "$geometry" "source id=\"$POSITION\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
+			line[$i]="$e"; i=$[ $i + 1 ]
+			[ "${#line[*]}" -lt "3" ] && continue
+			position_array[$cnt]="${line[0]} ${line[2]} ${line[1]}"
+			unset line; i="0"
 			cnt=$[ $cnt + 1 ]
-		done <<< "$( getTagContent "$geometry" "source id=\"$POSITION\"" | grep "<float_array" | sed 's/<[^>]*>//g' | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" )"
+		done
 
-		cnt="0"
-		while read line ; do
-			[ -z "$line" ] && continue
-			normal_array[$cnt]="$line"
+		cnt="0"; i="0"
+		for e in $( getTagContent "$geometry" "source id=\"$NORMAL\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
+			line[$i]="$e"; i=$[ $i + 1 ]
+			[ "${#line[*]}" -lt "3" ] && continue
+			normal_array[$cnt]="${line[*]}"
+			unset line; i="0"
 			cnt=$[ $cnt + 1 ]
-		done <<< "$( getTagContent "$geometry" "source id=\"$NORMAL\"" | grep "<float_array" | sed 's/<[^>]*>//g' | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" )"
+		done
 
-
-		cnt="0"
-		while read line ; do
-			[ -z "$line" ] && continue
-			uv_array[$cnt]="$line"
+		cnt="0"; i="0"
+		for e in $( getTagContent "$geometry" "source id=\"$TEXCOORD\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
+			line[$i]="$e"; i=$[ $i + 1 ]
+			[ "${#line[*]}" -lt "2" ] && continue
+			uv_array[$cnt]="${line[*]}"
+			unset line; i="0"
 			cnt=$[ $cnt + 1 ]
-		done <<< "$( getTagContent "$geometry" "source id=\"$TEXCOORD\"" | grep "<float_array" | sed 's/<[^>]*>//g' | sed -e "s/\([^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" )"
-
+		done
 
 		for material in ${materials[*]}	; do
 			echo "Output for material $material ..."
@@ -107,14 +110,18 @@ for i in $list3D ; do
 
 
 			triangles="$( 	getTagContent "$geometry"  "triangles material=\"${material}\"" )"
-			cnt="0"
-			while read line ; do
-				[ -z "$line" ] && continue
-				array[$cnt]="$line"
+
+			cnt="0"; i="0"
+			for e in $( echo "$triangles" | grep "<p>" | sed 's/<[^>]*>//g' ) ; do
+				line[$i]="$e"; i=$[ $i + 1 ]
+				[ "${#line[*]}" -lt "3" ] && continue
+				array[$cnt]="${line[*]}"
+				unset line; i="0"
 				cnt=$[ $cnt + 1 ]
-			done <<< "$( echo "$triangles" | grep "<p>" | sed 's/<[^>]*>//g' | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" )"
+			done
 	
-		
+
+			
 			VT="$(	while read line ; do
 					p=( $line );
 					echo -ne "$line,VT ${position_array[${p[0]}]}\t${normal_array[${p[1]}]}\t${uv_array[${p[2]}]}\n";
@@ -126,7 +133,7 @@ for i in $list3D ; do
 			IDX=()
 			
 			while [ ! -z "${array[$cnt]}" ] ; do
-				IDX[$cnt]="$( echo "$VT" | grep -n "${array[$cnt]},VT " | awk -F: {'print $1-1'} )"
+				IDX[$cnt]="$( echo "$VT" | grep -n "${array[$cnt]},VT " | awk -F: {'print $1 - 1'} )"
 				cnt=$[ $cnt + 1 ]
 			done
 
@@ -146,7 +153,20 @@ for i in $list3D ; do
 			echo								>> "$objFile"
 			echo "$VT" | awk -F, '{ print $2}'				>> "$objFile"
 			echo								>> "$objFile"
-			for idx in ${IDX[*]} ; do echo "IDX $idx"; done			>> "$objFile"
+			end="$[ ( ${#IDX[*]} / 10 ) * 10 ]"
+			i="0"
+			while [ "$i" -lt "$end" ] ; do
+				[ "$[ $i % 10 ]" -eq "0" ] && [ "$i" -ne "0" ] && echo 	>> "$objFile"
+				[ "$[ $i % 10 ]" -eq "0" ] && echo -ne "IDX10 "		>> "$objFile"
+				echo -n "${IDX[$i]} "					>> "$objFile"
+				i="$[ $i + 1 ]"
+			done
+			echo								>> "$objFile"
+			while [ ! -z "${IDX[$i]}" ] ; do
+				echo "IDX ${IDX[$i]}"					>> "$objFile"
+				i="$[ $i + 1 ]"
+			done
+
 			echo								>> "$objFile"
 			echo "ATTR_no_blend"						>> "$objFile"
 			echo "TRIS 0 ${#IDX[*]}"					>> "$objFile" 
