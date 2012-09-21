@@ -75,16 +75,16 @@ for i in $list3D ; do
 
 
 			
-		cnt="0"; i="0"
+		cnt="0"; i="0"; unset position_array;
 		for e in $( getTagContent "$geometry" "source id=\"$POSITION\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
 			line[$i]="$e"; i=$[ $i + 1 ]
 			[ "${#line[*]}" -lt "3" ] && continue
-			position_array[$cnt]="${line[0]} ${line[2]} ${line[1]}"
+			position_array[$cnt]="${line[1]} ${line[2]} ${line[0]}"
 			unset line; i="0"
 			cnt=$[ $cnt + 1 ]
 		done
 
-		cnt="0"; i="0"
+		cnt="0"; i="0"; unset normal_array
 		for e in $( getTagContent "$geometry" "source id=\"$NORMAL\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
 			line[$i]="$e"; i=$[ $i + 1 ]
 			[ "${#line[*]}" -lt "3" ] && continue
@@ -93,7 +93,7 @@ for i in $list3D ; do
 			cnt=$[ $cnt + 1 ]
 		done
 
-		cnt="0"; i="0"
+		cnt="0"; i="0"; unset uv_array
 		for e in $( getTagContent "$geometry" "source id=\"$TEXCOORD\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
 			line[$i]="$e"; i=$[ $i + 1 ]
 			[ "${#line[*]}" -lt "2" ] && continue
@@ -104,14 +104,10 @@ for i in $list3D ; do
 
 		for material in ${materials[*]}	; do
 			echo "Output for material $material ..."
-			objFile="$OUTPUT/objects/${id}-${material}.obj"
-			echo "OBJECT_DEF objects/${id}-${material}.obj" 			>> "$OUTPUT/$obj_list"
-			echo "OBJECT $obj_index 11.621277611922 44.842663276817 0.000000000000" >> "$OUTPUT/$dsf_body"
-
 
 			triangles="$( 	getTagContent "$geometry"  "triangles material=\"${material}\"" )"
 
-			cnt="0"; i="0"
+			cnt="0"; i="0"; unset array
 			for e in $( echo "$triangles" | grep "<p>" | sed 's/<[^>]*>//g' ) ; do
 				line[$i]="$e"; i=$[ $i + 1 ]
 				[ "${#line[*]}" -lt "3" ] && continue
@@ -120,20 +116,38 @@ for i in $list3D ; do
 				cnt=$[ $cnt + 1 ]
 			done
 	
+			cnt="0";
+			array_uniq="$( while [ ! -z "${array[$cnt]}" ] ; do
+						echo "${array[$cnt]}"
+						cnt=$[ $cnt + 1 ]
+					done | sort -u 
+			)" 
 
-			
-			VT="$(	while read line ; do
+	
+			VT="$( while read line ; do
 					p=( $line );
 					echo -ne "$line,VT ${position_array[${p[0]}]}\t${normal_array[${p[1]}]}\t${uv_array[${p[2]}]}\n";
-				done <<< "$( echo "${array[*]}" | sed -e "s/\([^\ ]*\ [^\ ]*\ [^\ ]*\)\ /\1\\`echo -e '\n\r'`/g" | tr -d "\r" | sort -u  )"
+				done <<< "$( echo "$array_uniq" )"
 			)"
+
+			cnt="0"; 
+			while [ ! -z "${array[$cnt]}" ] ; do
+				a="$cnt"
+				b="$[ $cnt + 1 ]"
+				c="$[ $cnt + 2 ]"
+				array_mod[$a]="${array[$c]}"
+				array_mod[$b]="${array[$b]}"
+				array_mod[$c]="${array[$a]}"
+				
+				cnt=$[ $cnt + 3 ]
+			done
 
 
 			cnt="0"
-			IDX=()
+			unset IDX
 			
-			while [ ! -z "${array[$cnt]}" ] ; do
-				IDX[$cnt]="$( echo "$VT" | grep -n "${array[$cnt]},VT " | awk -F: {'print $1 - 1'} )"
+			while [ ! -z "${array_mod[$cnt]}" ] ; do
+				IDX[$cnt]="$( echo "$VT" | grep -n "${array_mod[$cnt]},VT " | awk -F: {'print $1 - 1'} )"
 				cnt=$[ $cnt + 1 ]
 			done
 
@@ -141,7 +155,13 @@ for i in $list3D ; do
 			texture="$( basename -- $texture )"
 			texturepng="$( echo "$texture" | awk -F. {'print $1'}  ).png"
 			[ ! -f "$OUTPUT/textures/$texturepng" ] && convert "$images_dir/$texture" "$OUTPUT/textures/$texturepng"
-		
+	
+			objFile="$OUTPUT/objects/${id}-${material}.obj"
+			echo "OBJECT_DEF objects/${id}-${material}.obj" 			>> "$OUTPUT/$obj_list"
+			echo "OBJECT $obj_index 11.621277611922 44.842663276817 0.000000000000" >> "$OUTPUT/$dsf_body"
+
+
+	
 			echo -n								>  "$objFile"
 			echo "I"							>> "$objFile"
 			echo "800"							>> "$objFile"
@@ -158,7 +178,7 @@ for i in $list3D ; do
 			while [ "$i" -lt "$end" ] ; do
 				[ "$[ $i % 10 ]" -eq "0" ] && [ "$i" -ne "0" ] && echo 	>> "$objFile"
 				[ "$[ $i % 10 ]" -eq "0" ] && echo -ne "IDX10 "		>> "$objFile"
-				echo -n "${IDX[$i]} "					>> "$objFile"
+				echo -ne "${IDX[$i]}\t"					>> "$objFile"
 				i="$[ $i + 1 ]"
 			done
 			echo								>> "$objFile"
@@ -168,8 +188,11 @@ for i in $list3D ; do
 			done
 
 			echo								>> "$objFile"
-			echo "ATTR_no_blend"						>> "$objFile"
-			echo "TRIS 0 ${#IDX[*]}"					>> "$objFile" 
+			echo "GLOBAL_no_blend"						>> "$objFile"
+			echo "ATTR_no_cull"						>> "$objFile"
+			#echo "ATTR_no_blend"						>> "$objFile"
+			echo "TRIS 0 ${#IDX[*]}"					>> "$objFile"
+			
 
 			obj_index=$[ $obj_index + 1 ]
 		done
