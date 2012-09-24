@@ -51,7 +51,7 @@ mkdir -p "$OUTPUT/Earth nav data/+40+010/"
 for i in $list3D ; do
 	info=( $( echo "$i" | tr "?&" " " ) )
 	name="${info[3]#*=}.kmz"
-	#[ "$name" != "bloccoB.kmz" ] && continue
+	[ "$name" != "bloccoB.kmz" ] && continue
 	echo "Elaborating $name file ..."
 	
 	[ ! -d "$overLayDir/kmz" ]	 && mkdir -p "$overLayDir/kmz"
@@ -85,7 +85,10 @@ for i in $list3D ; do
 	library_effects="$(	  getTagContent "$model_dae" "<library_effects>" 	)"
 	library_visual_scenes="$( getTagContent "$model_dae" "<library_visual_scenes>"	)"
 
-	matrixTrans="$( getTagContent "$library_visual_scenes"  "<matrix>" | tr "\n" " " )"
+	unset matrixTrans
+	[ ! -z "$( echo "$library_visual_scenes" | grep "<matrix>" )" ] && matrixTrans="$( getTagContent "$library_visual_scenes"  "<matrix>" | tr "\n" " " )"
+
+
 	materials=( $( echo "$library_materials"  | grep "<material id=\"" | awk -F\" {'print $2","$4'} | tr -d "#" | tr "\n" " " ) )
 
 	cnt="0"; unset texture_list;
@@ -114,6 +117,31 @@ for i in $list3D ; do
 		materials=( $(	echo "$geometry" | grep "triangles material=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 
 		for material in ${materials[*]}	; do
+
+			texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep "${material}," | awk -F, {'print $2'}  )"
+			[ -z "$texture" ] && echo "TEXTURE ERROR $texture" && exit 3
+
+			texture="$( basename -- "$texture" )"; unset texturepng
+			[ "$texture" != "transparent" ] && texturepng="$( echo "$texture" | awk -F. {'print $1'}  ).png"
+			
+			[ -z "$texturepng" ] &&	continue
+
+			sizeOriImg="$( identify "$images_dir/$texture" | awk {'print $3'} )"
+			outSizeImg="256"
+			if [ "${sizeOriImg%x*}" -gt "${sizeOriImg#*x}" ] ; then
+				size="${sizeOriImg%x*}"
+			else
+				size="${sizeOriImg#*x}"
+			fi
+
+			while [ "$size" -gt "$outSizeImg" ] ; do outSizeImg=$[ $outSizeImg * 2 ] ; done
+			[ ! -f "$OUTPUT/textures/$texturepng" ] && convert  "$images_dir/$texture" -resize ${outSizeImg}x${outSizeImg}\!  "$OUTPUT/textures/$texturepng"
+		
+
+
+
+
+
 			triangles="$( 	getTagContent "$geometry"  "triangles material=\"${material}\"" )"
 			[ -z "$triangles" ] && continue
 
@@ -127,7 +155,7 @@ for i in $list3D ; do
 			for e in $( getTagContent "$geometry" "source id=\"$POSITION\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
 				line[$i]="$e"; i=$[ $i + 1 ]
 				[ "${#line[*]}" -lt "3" ] && continue
-				line=( $( matrixApply "$matrixTrans" "${line[*]}" ) )
+				[ ! -z "$matrixTrans" ] && line=( $( matrixApply "$matrixTrans" "${line[*]}" ) )
 
 				position_array[$cnt]="$( awk 'BEGIN { printf "%f %f %f", '${line[1]}', '${line[2]}', '${line[0]}' }'  )"
 				unset line; i="0"
@@ -147,6 +175,7 @@ for i in $list3D ; do
 			[ ! -z "$TEXCOORD" ] && for e in $( getTagContent "$geometry" "source id=\"$TEXCOORD\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
 				line[$i]="$e"; i=$[ $i + 1 ]
 				[ "${#line[*]}" -lt "2" ] && continue
+
 				uv_array[$cnt]="${line[*]}"
 				unset line; i="0"
 				cnt=$[ $cnt + 1 ]
@@ -216,25 +245,6 @@ for i in $list3D ; do
 
 
 
-			texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep "${material}," | awk -F, {'print $2'}  )"
-
-			[ -z "$texture" ] && echo "TEXTURE ERROR $texture" && exit 3
-
-			texture="$( basename -- "$texture" )"; unset texturepng
-			[ "$texture" != "transparent" ] && texturepng="$( echo "$texture" | awk -F. {'print $1'}  ).png"
-			if [ "$texture" != "transparent" ] && [ ! -f "$OUTPUT/textures/$texturepng" ] ; then
-				size="$( identify "$images_dir/$texture" | awk {'print $3'} )"
-				if [ "${size%x*}" -gt "${size#*x}" ] ; then
-					size="${size%x*}"
-				else
-					size="${size#*x}"
-				fi
-				outSize="256"
-				while [ "$size" -gt "$outSize" ] ; do outSize=$[ $outSize * 2 ] ; done
-				convert  "$images_dir/$texture" -resize ${outSize}x${outSize}\!  "$OUTPUT/textures/$texturepng"
-			fi
-			[ -z "$texturepng" ] &&	continue
-
 
 			cnt="0"; unset IDX
 			while [ ! -z "${array_mod[$cnt]}" ] ; do
@@ -256,7 +266,7 @@ for i in $list3D ; do
 			echo "800"								>> "$objFile"
 			echo "OBJ"								>> "$objFile"
 			echo									>> "$objFile"
-			[ ! -z "$texturepng" ] && echo "TEXTURE ../textures/$texturepng"	>> "$objFile"
+			echo "TEXTURE ../textures/$texturepng"					>> "$objFile"
 			echo									>> "$objFile"
 			echo "POINT_COUNTS $( echo "$VT" | wc -l ) 0 0 ${#IDX[*]}"		>> "$objFile"
 			echo									>> "$objFile"
@@ -278,8 +288,6 @@ for i in $list3D ; do
 
 			echo									>> "$objFile"
 			echo "GLOBAL_no_blend"							>> "$objFile"
-			#echo "ATTR_no_cull"							>> "$objFile"
-			#echo "ATTR_no_blend"							>> "$objFile"
 			echo "ATTR_LOD 0.000000 6000.000000"					>> "$objFile"
 			echo "TRIS 0 ${#IDX[*]}"						>> "$objFile"
 			
@@ -288,7 +296,6 @@ for i in $list3D ; do
 		
 		done
 	done
-	break
 done
 
 
