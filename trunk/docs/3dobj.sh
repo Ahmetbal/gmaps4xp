@@ -58,8 +58,6 @@ obj_index="0"
 for i in $list3D ; do
 	info=( $( echo "$i" | tr "?&" " " ) )
 	name="${info[3]#*=}.kmz"
-	[ "$name" != "castello+estense+ferrara.kmz" ] && continue
-#	[ "$name" != "bloccoB.kmz" ] && continue
 	echo "Elaborating $name file ..."
 	
 	[ ! -d "$overLayDir/kmz" ]	 && mkdir -p "$overLayDir/kmz"
