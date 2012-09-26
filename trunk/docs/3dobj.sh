@@ -34,14 +34,14 @@ matrixApply(){
 }
 
 
+
+
 url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%2244.8357%2C+11.627%22&scoring=d&max-results=100"
-
-
+lat="45.4385"
+lon="12.3291"
+url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%22${lat}+${lon}%22&scoring=p&max-results=100"
 
 list3D="$( wget -O- -q "$url"  | xmllint --format - | grep "application/vnd.google-earth.kmz" | awk -F\" {'print $2'} | recode html/.. )"
-
-#echo "http://sketchup.google.com/3dwarehouse/download?mid=7a59bdf06bd3a99eb6e43a42b4402e82&rtyp=ks&fn=Palazzo+Prosperi-Sacrati&ctyp=other&ts=1296745285000"
-
 
 
 overLayDir="/home/cavicchi/Documents/Repository/gmaps4xp/docs/overlay"
@@ -57,6 +57,8 @@ mkdir -p "$OUTPUT/Earth nav data/+40+010/"
 obj_index="0"
 for i in $list3D ; do
 	info=( $( echo "$i" | tr "?&" " " ) )
+	# [ "${info[3]#*=}" != "castello+estense+ferrara" ] && continue
+
 	name="${info[3]#*=}.kmz"
 	echo "Elaborating $name file ..."
 	
@@ -95,37 +97,11 @@ for i in $list3D ; do
 	scale_factor="$( echo "$model_dae" | grep "<unit name=\"" | awk -F\" {'print $4'} )"
 	[ -z "$scale_factor" ] && scale_factor="1.0"
 
-#	echo "Loading library_nodes ..."
-# 	library_nodes="$( 	  getTagContent "$model_dae" "<library_nodes>"		)"
-#
-# 
-# 	unset components
-#  	if [ ! -z  "$library_nodes" ] ; then
-#  		node_list="$( echo "$library_nodes" | grep "<node id=\"" | awk -F\" {'print $2'} )"
-#  		cnt="0"	
-#  		for node in $node_list ; do
-#  			node_mesh="$( getTagContent "$library_nodes" "<node id=\"$node\"" )"
-#  			#[ -z "$( echo "$node_mesh" | grep "<node id=\"" )" ] && continue
-#  			[ -z "$( getTagContent  "$node_mesh" "<node id=\"" )" ] && continue
-#  			components[$cnt]="$node" 
-#  			cnt=$[ $cnt + 1 ]
-#  		done
-# 
-# 		for comp in ${components[*]} ; do
-# 			echo -n "$comp "
-# 			getTagContent "$library_nodes" "<node id=\"$comp\"" | grep "<instance_geometry url=\"" | awk -F\" {'print $2'} | tr -d "#"
-# 			echo "----"
-# 		done
-# 
-# 
-#  	fi
- 
 	unset geometries
 	geometries=( $( echo "$library_geometries" | grep "geometry id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 
 	unset matrixTrans
-	components="cacca"
-	[ -z "${components[*]}" ] && [ ! -z "$( echo "$library_visual_scenes" | grep "<matrix>" )" ] && matrixTrans="$( getTagContent "$library_visual_scenes"  "<matrix>" | tr "\n" " " )"
+	[ "$( echo "$library_visual_scenes" | grep "<matrix>" | wc -l  )" -eq "1" ] && matrixTrans="$( getTagContent "$library_visual_scenes"  "<matrix>" | tr "\n" " " )"
 
 
 	materials=( $( echo "$library_materials"  | grep "<material id=\"" | awk -F\" {'print $2","$4'} | tr -d "#" | tr "\n" " " ) )
