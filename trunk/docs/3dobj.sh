@@ -36,12 +36,19 @@ matrixApply(){
 
 
 
-url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%2244.8357%2C+11.627%22&scoring=d&max-results=100"
-lat="45.4385"
-lon="12.3291"
+# url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%2244.8357%2C+11.627%22&scoring=d&max-results=100"
+
+
+# Ferrara
+lat="44.8357"
+lon="11.627"
+
+# New York
+lat="40.7400"
+lon="-73.9902"
 url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%22${lat}+${lon}%22&scoring=p&max-results=100"
 
-list3D="$( wget -O- -q "$url"  | xmllint --format - | grep "application/vnd.google-earth.kmz" | awk -F\" {'print $2'} | recode html/.. )"
+list3D="$( wget -O- -q "$url"   | tr "<>" "\n"  | grep "type='application/vnd.google-earth.kmz'" | recode html/.. | tr "'" "\n" | grep "http://" )"
 
 
 overLayDir="/home/cavicchi/Documents/Repository/gmaps4xp/docs/overlay"
@@ -57,7 +64,8 @@ mkdir -p "$OUTPUT/Earth nav data/+40+010/"
 obj_index="0"
 for i in $list3D ; do
 	info=( $( echo "$i" | tr "?&" " " ) )
-	# [ "${info[3]#*=}" != "castello+estense+ferrara" ] && continue
+#	[ "${info[3]#*=}" != "castello+estense+ferrara" ] && continue
+#	[ "${info[3]#*=}" != "bloccoB" ] && continue
 
 	name="${info[3]#*=}.kmz"
 	echo "Elaborating $name file ..."
@@ -181,12 +189,13 @@ for i in $list3D ; do
 				cnt=$[ $cnt + 1 ]
 			done
 
+
+
 			cnt="0"; i="0"; unset uv_array
 			[ ! -z "$TEXCOORD" ] && for e in $( getTagContent "$geometry" "source id=\"$TEXCOORD\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
 				line[$i]="$e"; i=$[ $i + 1 ]
 				[ "${#line[*]}" -lt "2" ] && continue
 				uv_array[$cnt]="${line[*]}"
-
 				unset line; i="0"
 				cnt=$[ $cnt + 1 ]
 			done
