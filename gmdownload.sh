@@ -38,6 +38,7 @@ MAPS_VERSION=()
 XPLANE_CMD_VERSION="920"
 TER_DIR="terrain"
 TEX_DIR="texture"
+POL_DIR="pol"
 MESH_LEVEL="2"
 output_index="0"
 REMAKE_TILE="no"
@@ -573,137 +574,6 @@ mostNearPoint(){
         echo -n "${list[$index]}"
 }
 
-
-#
-# Function to create KML file for debug the code
-#
-
-createKMLoutput(){
-	ACT="$1"
-	file="$2"
-	if [ -z "$file" ] ; then
-		log "ERROR: missing file name"
-		return
-	fi
-	if [ "$ACT" = "HEAD" ] ; then
-		title="$3"
-		[ -z "$title" ] && title="Untitled"
-		echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > "$file"
-		echo "<kml xmlns=\"http://www.opengis.net/kml/2.2\" xmlns:gx=\"http://www.google.com/kml/ext/2.2\" xmlns:kml=\"http://www.opengis.net/kml/2.2\" xmlns:atom=\"http://www.w3.org/2005/Atom\">" >> "$file" 
-		echo "<Folder>" >> "$file" 
-		echo -ne "\t<name>$title</name>\n" >> "$file" 
-
-		echo -ne "\t<Style id=\"yellowLineGreenPoly\">\n" >> "$file"
-		echo -ne "\t\t<LineStyle>\n" >> "$file"
-		echo -ne "\t\t\t<color>7f00ffff</color>\n" >> "$file"
-		echo -ne "\t\t\t<width>4</width>\n" >> "$file"
-		echo -ne "\t\t</LineStyle>\n" >> "$file"
-		echo -ne "\t\t<PolyStyle>\n" >> "$file"
-		echo -ne "\t\t\t<color>7f00ff00</color>\n" >> "$file"
-		echo -ne "\t\t</PolyStyle>\n" >> "$file"
-		echo -ne "\t</Style>\n" >> "$file"
-
-
-		#echo -ne "\t<open>1</open>\n" >> "$file" 
-
-	fi
-	if [ "$ACT" = "ADD" ] ; then
-		if [ "$#" -lt 7 ] ; then
-			log "ERROR: missing arguments"
-		fi
-		image="$3"
-		north="$4"
-		south="$5"
-		east="$6"
-		west="$7"
-
-		rotation="$8" 
-		[ -z "$rotation" ] && rotation="0"
-
-		name="$( basename -- "$image" | sed -e s/".png"/""/g )"
-
-		echo -ne "\t<GroundOverlay>\n" >> "$file"
-		echo -ne "\t\t<name>$name</name>\n" >> "$file"
-		#echo -ne "\t\t<Icon>\n"  >> "$file"
-		#echo -ne "\t\t\t<href>$image</href>\n"  >> "$file"
-				#<viewBoundScale>0.75</viewBoundScale>
-		#echo -ne "\t\t</Icon>\n"  >> "$file"
-
-		echo -ne "\t\t<LatLonBox>\n"  >> "$file"
-
-		echo -ne "\t\t\t<north>$north</north>\n"  >> "$file"
-		echo -ne "\t\t\t<south>$south</south>\n"  >> "$file"
-		echo -ne "\t\t\t<east>$east</east>\n"  >> "$file"
-		echo -ne "\t\t\t<west>$west</west>\n"  >> "$file"
-		echo -ne "\t\t\t<rotation>$rotation</rotation>\n"  >> "$file"
-
-
-		echo -ne "\t\t</LatLonBox>\n"  >> "$file"
-		echo -ne "\t</GroundOverlay>\n">> "$file"
-		echo -ne "\t<Placemark>\n"  >> "$file"
-		echo -ne "\t\t<name>$name</name>\n" >> "$file"
-      		echo -ne "\t\t<styleUrl>#yellowLineGreenPoly</styleUrl>\n"  >> "$file"
-		echo -ne "\t\t<LineString>\n"  >> "$file"
-        	echo -ne "\t\t\t<coordinates>$west,$north,100 $east,$north,100 $east,$south,100 $west,$south,100 $west,$north,100</coordinates>\n"  >> "$file"
-
-		echo -ne "\t\t</LineString>\n"  >> "$file"
-		echo -ne "\t</Placemark>\n"  >> "$file"
-
-
-	fi
-
-        if [ "$ACT" = "TRI" ] ; then
-                if [ "$#" -lt 5 ] ; then
-                        log "ERROR: missing arguments"
-                fi
-                args=( $* )
-		last_arg="$[ ${#args[@]} - 1 ]"
-		tri_color="yellowLineGreenPoly"
-		if [ "$( echo "${args[$last_arg]}" | awk -F: {'print $1'} )" = "color" ] ; then
-			tri_color="$( echo "${args[$last_arg]}" | awk -F: {'print $2'} )"
-			unset args[$last_arg]
-		fi
-                i="2"
-                j="0"
-                while [ ! -z "${args[$i]}" ] ; do
-                        k="$[ $i + 1 ]"
-                        gmapspoly[$j]="${args[$i]},${args[$k]},0"
-                        j="$[ $j + 1 ]"
-                        i="$[ $i + 2 ]"
-                done
-                echo -ne "\t<Placemark>\n"  >> "$file"
-                echo -ne "\t\t<name>Triangle</name>\n" >> "$file"
-                echo -ne "\t\t<styleUrl>#$tri_color</styleUrl>\n"  >> "$file"
-                echo -ne "\t\t<LineString>\n"  >> "$file"
-                echo -ne "\t\t\t<coordinates>${gmapspoly[@]} ${gmapspoly[0]}</coordinates>\n"  >> "$file"
-
-                echo -ne "\t\t</LineString>\n"  >> "$file"
-                echo -ne "\t</Placemark>\n"  >> "$file"
-
-
-        fi
-
-        if [ "$ACT" = "PNT" ] ; then
-                lat="${3#*,}" 
-                lon="${3%,*}"
-
-                echo -ne "\t<Placemark>\n"  >> "$file"
-                #echo -ne "\t\t<name>Point</name>\n" >> "$file"
-                echo -ne "\t\t<Point>\n"  >> "$file"
-                echo -ne "\t\t\t<coordinates>$lon,$lat,0</coordinates>\n"  >> "$file"
-                echo -ne "\t\t</Point>\n"  >> "$file"
-                echo -ne "\t</Placemark>\n"  >> "$file"
-
-
-        fi
-
-	if [ "$ACT" = "END" ] ; then
-	
-		echo "</Folder>"  >> "$file"
-		echo "</kml>"  >> "$file" 
-	fi
-
-}
 
 #
 # Function return  -crop arguments for convert utility 
@@ -1681,7 +1551,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1770,7 +1640,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -1858,6 +1728,7 @@ rm -f "$tiles_dir/${TMPFILE}.png"
 
 TER_DIR="$output_dir/$TER_DIR"
 TEX_DIR="$output_dir/$TEX_DIR"
+POL_DIR="$output_dir/$POL_DIR"
 
 if [ ! -d  "$TEX_DIR" ] ; then
         log "Creating directory $TEX_DIR..."
@@ -1865,6 +1736,16 @@ if [ ! -d  "$TEX_DIR" ] ; then
 else
         log "Directory $TEX_DIR already exists..."
 fi
+
+if [ "$MASH_SCENARY" = "no" ] ; then
+	if [ ! -d  "$POL_DIR" ] ; then
+	        log "Creating directory $POL_DIR..."
+	        mkdir -p -- "$POL_DIR"
+	else
+	        log "Directory $POL_DIR already exists..."
+	fi
+fi
+
 
 
 if [ "$MASH_SCENARY" = "yes" ] ; then
@@ -1893,10 +1774,6 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 			done ) )
 	log "Found ${#PATCH_VERTEX[*]} vertex, $[ ${#PATCH_VERTEX[*]} / 3 ] triangles ..."
 fi
-
-
-KML_FILE="$output_dir/scenary.kml"
-createKMLoutput HEAD "$KML_FILE" "$( echo "$output_dir" | tr -d "/" )"
 
 
 dim_x=$[  ( $dim_x + ( 8 % $dim_x ) ) / 8 ]
@@ -2031,10 +1908,6 @@ for x in $( seq 0 $dim_x ) ; do
 		fi
 
 
-		createKMLoutput ADD  "$KML_FILE" "$TEXTURE" $ori_ul_lat $ori_lr_lat $ori_lr_lon $ori_ul_lon $rot_fix
-
-
-
 		for REFERENCE_POINT in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do
 			REFERENCE_POINT_LON="${REFERENCE_POINT%,*}"
 			REFERENCE_POINT_LAT="${REFERENCE_POINT#*,}"
@@ -2077,14 +1950,16 @@ for x in $( seq 0 $dim_x ) ; do
 			if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
 				log "Creating file $dfs_file ..."
 
+				echo "PROPERTY sim/planet earth" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+[ "$MASH_SCENARY" = "no" ]  && 	echo "PROPERTY sim/overlay 1" 					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/require_object 1/0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/require_facade 1/0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+
  				echo "PROPERTY sim/west $min_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 				echo "PROPERTY sim/east $max_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 				echo "PROPERTY sim/north $max_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 				echo "PROPERTY sim/south $min_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "PROPERTY sim/planet earth" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-[ "$MASH_SCENARY" = "no" ]  && 	echo "PROPERTY sim/overlay 1" 					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
                                                                                                                                                        
 				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
 [ "$MASH_SCENARY" = "yes" ] &&	echo "TERRAIN_DEF terrain_Water" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
@@ -2094,7 +1969,7 @@ for x in $( seq 0 $dim_x ) ; do
 				BEGIN_POLYGON_CNT="0"
 				BEGIN_PATCH_CNT="1"
 			else
-[ "$MASH_SCENARY" = "no" ]  &&	BEGIN_POLYGON_CNT="$( 	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt" 	| grep "BEGIN_POLYGON" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_POLYGON_CNT="$[ $BEGIN_POLYGON_CNT + 1 ]"	
+[ "$MASH_SCENARY" = "no" ]  &&	BEGIN_POLYGON_CNT="$( 	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"	| grep "BEGIN_POLYGON" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_POLYGON_CNT="$[ $BEGIN_POLYGON_CNT + 1 ]"	
 [ "$MASH_SCENARY" = "yes" ] && 	BEGIN_PATCH_CNT="$(	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt" | grep "BEGIN_PATCH" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_PATCH_CNT="$[   $BEGIN_PATCH_CNT   + 1 ]"
 
 			fi
@@ -2213,24 +2088,21 @@ for x in $( seq 0 $dim_x ) ; do
 			
 
 	
-			if [ "$MASH_SCENARY" = "no" ] && [ ! -f "$output_dir/$POL_FILE" ] ; then
-				echo "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"..."
+			if [ "$MASH_SCENARY" = "no" ] && [ ! -f "$POL_DIR/$POL_FILE" ] ; then
+				log "$prog / $tot: Creating polygon (.pol) file \"$POL_FILE\"..."
 				LC_lat_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lat' + '$lr_lat' ) / 2 }' )"
 				LC_lon_center="$( awk 'BEGIN { printf "%.8f", ( '$ul_lon' + '$lr_lon' ) / 2 }' )"
 				LC_dim="$(  tile_size $c2 | awk -F. {'print $1'} )"
 				LC_size="$( identify "$tiles_dir/tile/tile-$c2.png" | awk {'print $3'} | awk -Fx {'print $1'} )"
 
-				echo "A"								>  "$output_dir/$POL_FILE"
-				echo "850"								>> "$output_dir/$POL_FILE"
-				echo "DRAPED_POLYGON"							>> "$output_dir/$POL_FILE"
-				echo 									>> "$output_dir/$POL_FILE"
-				echo "LAYER_GROUP airports -1"						>> "$output_dir/$POL_FILE"
-				echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$output_dir/$POL_FILE"	
-				echo "TEXTURE_NOWRAP $( basename -- $TEX_DIR)/$TEXTURE"			>> "$output_dir/$POL_FILE"
-				echo "SCALE 25 25"							>> "$output_dir/$POL_FILE"
-
-
-
+				echo "A"								>  "$POL_DIR/$POL_FILE"
+				echo "850"								>> "$POL_DIR/$POL_FILE"
+				echo "DRAPED_POLYGON"							>> "$POL_DIR/$POL_FILE"
+				echo 									>> "$POL_DIR/$POL_FILE"
+				echo "LAYER_GROUP airports -1"						>> "$POL_DIR/$POL_FILE"
+				echo "TEXTURE_NOWRAP ../$( basename -- $TEX_DIR)/$TEXTURE"		>> "$POL_DIR/$POL_FILE"
+				echo "SCALE 25 25"							>> "$POL_DIR/$POL_FILE"
+				echo "LOAD_CENTER $LC_lat_center $LC_lon_center $LC_dim $LC_size"       >> "$POL_DIR/$POL_FILE"	
 
 			fi
 
@@ -2256,16 +2128,16 @@ for x in $( seq 0 $dim_x ) ; do
 			if [ "$MASH_SCENARY" = "no" ] ; then			
 				################################
 				# create dsf file ....
-				echo "POLYGON_DEF $POL_FILE"							>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "BEGIN_POLYGON $BEGIN_POLYGON_CNT 65535 4"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "BEGIN_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "POLYGON_POINT $lr_lon_dsf	$lr_lat_dsf	$lr_lon_px	$lr_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "POLYGON_POINT $ur_lon_dsf	$ur_lat_dsf	$ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "POLYGON_POINT $ul_lon_dsf	$ul_lat_dsf	$ul_lon_px	$ul_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "POLYGON_POINT $ll_lon_dsf	$ll_lat_dsf	$ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "END_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo "END_POLYGON"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
-				echo  										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "POLYGON_DEF $( basename -- $POL_DIR)/$POL_FILE"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "BEGIN_POLYGON $BEGIN_POLYGON_CNT 65535 4"					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "BEGIN_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "POLYGON_POINT $lr_lon_dsf	$lr_lat_dsf	$lr_lon_px	$lr_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "POLYGON_POINT $ur_lon_dsf	$ur_lat_dsf	$ur_lon_px	$ur_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "POLYGON_POINT $ul_lon_dsf	$ul_lat_dsf	$ul_lon_px	$ul_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "POLYGON_POINT $ll_lon_dsf	$ll_lat_dsf	$ll_lon_px	$ll_lat_px"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "END_WINDING"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo "END_POLYGON"								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+				echo  										>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
 				BEGIN_POLYGON_CNT=$[ $BEGIN_POLYGON_CNT + 1 ]
 				################################
 			fi
@@ -2374,6 +2246,24 @@ for x in $( seq 0 $dim_x ) ; do
         done
 done
 
+################################################################################################################################
+
+# log "Adding building over scenery ..."
+# 
+# # New York
+# lat="40.7400"
+# lon="-73.9902"
+# url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%22${lat}+${lon}%22&scoring=p&max-results=100"
+# 
+# list3D="$( wget -O- -q "$url"   | tr "<>" "\n"  | grep "type='application/vnd.google-earth.kmz'" | recode html/.. | tr "'" "\n" | grep "http://" )"
+# 
+# 
+# overLayDir="$tiles_dir/overlay"
+# OUTPUT="$output_dir"
+# 
+# 
+# 
+
 
 ################################################################################################################################
 #
@@ -2389,24 +2279,21 @@ done
 
 ################################################################################################################################
 
-createKMLoutput END  "$KML_FILE"  #&& exit
-
 # Sorting DSF file and remove the duplicate
 dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 
 
 if [  ! -z "$dsftool" ] ; then
 	for i in ${dfs_list[@]} ; do
+		log "Merging DSF temporary file ..."
 
 		if [ "$MASH_SCENARY" = "yes" ]  ; then
-			log "Merging DSF temporary file ..."
-			[ -f "$output_dir/$output_sub_dir/${i}_body_water.txt" ] && cat "$output_dir/$output_sub_dir/${i}_body_water.txt" 	>> "$output_dir/$output_sub_dir/${i}.txt"
-			[ -f "$output_dir/$output_sub_dir/${i}_body.txt" ]	 && cat "$output_dir/$output_sub_dir/${i}_body.txt" 		>> "$output_dir/$output_sub_dir/${i}.txt"
-
-			rm -f "$output_dir/$output_sub_dir/${i}_body.txt"
+			[ -f "$output_dir/$output_sub_dir/${i}_body_water.txt" ] && cat "$output_dir/$output_sub_dir/${i}_body_water.txt" >> "$output_dir/$output_sub_dir/${i}.txt"
 			rm -f "$output_dir/$output_sub_dir/${i}_body_water.txt"
 		fi
 
+		[ -f "$output_dir/$output_sub_dir/${i}_body.txt" ] && cat "$output_dir/$output_sub_dir/${i}_body.txt" >> "$output_dir/$output_sub_dir/${i}.txt"
+		rm -f "$output_dir/$output_sub_dir/${i}_body.txt"
 
 		log "Create DSF file \"$i\"..."
 		"$dsftool" --text2dsf "$output_dir/$output_sub_dir/${i}.txt" "$output_dir/$output_sub_dir/$i"
