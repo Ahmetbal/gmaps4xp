@@ -1593,7 +1593,8 @@ if [ "$RESTORE" = "no" ] ; then
 
 	log "Randomizing tile list..."
 	log "Step 1 ..."
-	tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
+	[ "$( uname -s )" = "Darwin" ] && tile_index=( $( seq 0 $[ $tot - 1 ] | awk 'BEGIN { srand() } { print rand() "\t" $0 }' | sort -n | cut -f2- | tr "\n" " " ) )
+	[ "$( uname -s )" = "Linuc"  ] && tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
 
 	i="0"
 	cnt=1
