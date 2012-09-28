@@ -1449,7 +1449,7 @@ if [ "$RESTORE" = "no" ] ; then
 	
 	while : ; do
 		log "-----------------------------------------------------------"
-		log "Tile size: $( tile_resolution $cursor_reference ) meters ( Level: $( echo -n "$cursor_reference" | wc -c ) )..."
+		log "Tile resolution: $( tile_resolution $cursor_reference ) meters/pixel ( Level: $( echo -n "$cursor_reference" | wc -c ) ) ..."
 		log "Use this URL to view an example: ${server}$( qrst2xyz ${cursor_reference} )"
 		echo
 		while : ; do
@@ -1912,6 +1912,10 @@ cnt="0"
 prog="1"
 cursor_tmp="$( echo "$cursor"  | rev | cut -c 4- | rev )"
 
+if [  "$DSF_CREATION" = "true" ] ; then
+	DSF_TARGET_FILE="$( getDSFName $lowright_lat $point_lon  )"
+	log "Creation $DSF_TARGET_FILE file only ..."
+fi
 
 for x in $( seq 0 $dim_x ) ; do
         c2="$cursor_tmp"
@@ -1998,6 +2002,23 @@ for x in $( seq 0 $dim_x ) ; do
 		TEXTURE="img_${point_lat}_${point_lon}.dds"
 		TER="ter_${point_lat}_${point_lon}.ter"
 
+		DSF_LIST="$( for p in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do getDSFName "${p#*,}" "${p%,*}" ; done | sort -u  )"
+
+
+		if [  "$DSF_CREATION" = "true" ] && [ ! -z "$DSF_TARGET_FILE" ] ; then
+			
+			to_elaborate="false"
+			for dsf in $DSF_LIST ; do
+				[ "$dsf" = "$DSF_TARGET_FILE" ] && to_elaborate="true" && break
+			done
+			if [ "$to_elaborate" = "true" ] ; then
+				DSF_LIST="$DSF_TARGET_FILE"
+			else
+	                	c_last="$c2"
+	                	c2="$( GetNextTileY $c2 1 )"
+				contine
+			fi
+		fi
 
 		[ "$REMAKE_TILE" = "yes" ] && [ -f "$tiles_dir/dds/tile-$c2.dds" ] && rm -f "$tiles_dir/dds/tile-$c2.dds"
 
@@ -2011,7 +2032,6 @@ for x in $( seq 0 $dim_x ) ; do
 
 		createKMLoutput ADD  "$KML_FILE" "$TEXTURE" $ori_ul_lat $ori_lr_lat $ori_lr_lon $ori_ul_lon $rot_fix
 
-		DSF_LIST="$( for p in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do getDSFName "${p#*,}" "${p%,*}" ; done | sort -u  )"
 
 
 		for REFERENCE_POINT in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do
@@ -2023,7 +2043,6 @@ for x in $( seq 0 $dim_x ) ; do
 			dfs_dir="$(  getDirName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )"
 			[ -z "$( echo "$DSF_LIST" | grep "$dfs_file" )" ] && continue
 
-			# [ "$dfs_file" != "+44+011.dsf" ] && continue # TO BE REMOVED
 			########################################################3
 
 			if [ ! -d "$output_dir/$output_sub_dir/$dfs_dir" ] ; then
@@ -2376,8 +2395,6 @@ dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 
 
 if [  ! -z "$dsftool" ] ; then
-
-
 	for i in ${dfs_list[@]} ; do
 
 		if [ "$MASH_SCENARY" = "yes" ]  ; then
