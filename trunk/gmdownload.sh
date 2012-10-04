@@ -340,6 +340,7 @@ log(){
 		exit 40
 	fi	
 	echo "$(date) - $1" 1>&2
+	return 0
 }
 
 #
@@ -1120,11 +1121,13 @@ setAltitudeEnv(){
 		log "Load DEM $dem in memory ..."
 		cnt="0"
 
-		while read DEM[$cnt] ; do cnt="$[ $cnt + 1 ]"; done < "$tiles_dir/dem/${dem}.asc"
-
 		info=( $( cat "$tiles_dir/dem/${dem}.asc" | head -n "$DEM_LINE_OFFSET" | tr -d "\r" | awk '{ print $2 }' | tr "\n" " " ) )
+
 		info[3]="$( awk 'BEGIN { printf "%d", '${info[3]}' + ( 120 / 24 ) }' )"
 		padfTransform=( ${info[2]} ${info[4]} 0 ${info[3]} 0 -${info[4]}  )
+		[ ! -f "$tiles_dir/dem/${dem}.asc.filter" ] && cat "$tiles_dir/dem/${dem}.asc" | sed -e s/"${info[5]}"/"0"/g >  "$tiles_dir/dem/${dem}.asc.filter"
+
+		while read DEM[$cnt] ; do cnt="$[ $cnt + 1 ]"; done < "$tiles_dir/dem/${dem}.asc.filter"
 
                 padfTransform[1]="${info[4]}"  	# Pixel X size 
                 padfTransform[5]="-${info[4]}"	# Pixel Y size
@@ -1146,8 +1149,12 @@ getAltitude(){
 	Yp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' + '$DEM_LINE_OFFSET' 	}' )"
 
 	xCoords=( $( awk 'BEGIN { printf "%d %d %d %d", '$Xp', '$Yp', '$Xp' + 1, '$Yp' + 1 }' ) )
+ #	x0=( $( echo "${DEM[${xCoords[1]}]}" | sed -e 's/-9999/0/g' ) )
+ #	x1=( $( echo "${DEM[${xCoords[3]}]}" | sed -e 's/-9999/0/g' ) )
+
  	x0=( ${DEM[${xCoords[1]}]} )
  	x1=( ${DEM[${xCoords[3]}]} )
+
 
 
 	alt="$( awk 'BEGIN { printf "%f", '${x0[${xCoords[0]}]}' + 0.'${Xp#*.}' * ( '${x0[${xCoords[2]}]}' - '${x0[${xCoords[0]}]}' ) + 0.'${Yp#*.}' * ( '${x1[${xCoords[0]}]}' - '${x0[${xCoords[0]}]}') + 0.'${Xp#*.}' * 0.'${Yp#*.}' * ( '${x1[${xCoords[2]}]}' + '${x0[${xCoords[0]}]}' - '${x1[${xCoords[0]}]}' - '${x0[${xCoords[2]}]}' ) }' )"
@@ -1162,8 +1169,9 @@ getAltitude(){
 	awk 'BEGIN { printf "%f", '$alt' }' 
 }
 
-# setAltitudeEnv 12.000000 44.995882
-# getAltitude 12.000000 44.995882
+# setAltitudeEnv 12.332153 45.452424
+# getAltitude 12.332153 45.452424
+# echo
 # exit 0
 
 #########################################################################3
@@ -1192,7 +1200,6 @@ r2(){
 
 	        f="$( awk 'BEGIN { printf "%f",  (( '$x' * '$dd') - ( '$aa' * '$aa' )) * (( '$x' * '$ee' ) - ( '$bb' * '$bb'))  }' )"
 	        if [ "$( awk 'BEGIN { printf "%d", ('$f' == 0 ) ? 0 : 1 }' )" -eq "0" ]  ; then
-			echo "cacca"
 	                ff="0.0"
 	                ff2="0.0"
 	                break
@@ -1212,8 +1219,56 @@ r2(){
 
 }
 
+#########################################################################3
+
+getTagContent(){
+        content="$1"
+        key=( $2 )
+
+	line="$( echo "$content" | grep -i -n "${key[0]}" )"
+	for k in ${key[*]} ; do line="$( echo "$line" | grep -i "$k" )" ; done
+
+        [ -z "$line" ] && return
+        startTag="$( echo "${line#*:}" | awk {'print $1'} )"
+        endTag="$(   echo "${line#*:}" | awk {'print $1'} | sed -e s/"<"/"<\/"/g | tr -d ">" )>"
+        ntag="1"
+        while read line ; do
+                [ "${line% *}"  = "$startTag" ]         && ntag="$[ $ntag + 1 ]"
+                [ "$line"       = "$endTag" ]           && ntag="$[ $ntag - 1 ]"
+
+                [ "$ntag" -eq "0" ] && break
+                echo "$line"
+        done <<< "$( echo "$content" | tail -n +$[ ${line%:*} + 1 ] | tr -d "\r"  )"
+}
+
+getTagParameter(){
+	content="$1"
+        key="$2"
+
+	echo "$content" | tr " " "\n" | grep "${key}=" | awk -F\" {'print $2'}
+}
+
 
 #########################################################################3
+
+
+
+matrixApply(){
+        matrix=( $1 )
+        coords=( $2 1 )
+
+        awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[0]}'  ) + ( '${coords[1]}' * '${matrix[1]}'  ) + ( '${coords[2]}' * '${matrix[2]}'  ) + ( '${coords[3]}' * '${matrix[3]}'  ) }'
+        awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[4]}'  ) + ( '${coords[1]}' * '${matrix[5]}'  ) + ( '${coords[2]}' * '${matrix[6]}'  ) + ( '${coords[3]}' * '${matrix[7]}'  ) }'
+        awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[8]}'  ) + ( '${coords[1]}' * '${matrix[9]}'  ) + ( '${coords[2]}' * '${matrix[10]}' ) + ( '${coords[3]}' * '${matrix[11]}' ) }'
+#       awk 'BEGIN { printf "%f",  ( '${coords[0]}' * '${matrix[12]}' ) + ( '${coords[1]}' * '${matrix[13]}' ) + ( '${coords[2]}' * '${matrix[14]}' ) + ( '${coords[3]}' * '${matrix[15]}'  ) }' 
+
+}
+
+
+
+#########################################################################3
+
+
 
 if [ -z "$output_dir" ] ; then
 	log "Output directory missing..."
@@ -1451,8 +1506,21 @@ if [ "$RESTORE" = "no" ] ; then
 	        done
 	fi
 
-	echo "MESH_LEVEL=$MESH_LEVEL" >> "$nfo_file"
-	echo "WATER_MASK=$WATER_MASK" >> "$nfo_file"
+
+	while : ; do
+		echo -n "Do you want to add the buildings overlay (Experimental)?  (y/n) [CTRL+C to abort]: "
+		read -n 1 x
+                echo
+                [ "$x" = "n" ] && BUILDINGS_OVERLAY="no" && break
+                [ "$x" = "y" ] && BUILDINGS_OVERLAY="yes" && break
+        done
+
+
+
+
+	echo "MESH_LEVEL=$MESH_LEVEL" 			>> "$nfo_file"
+	echo "WATER_MASK=$WATER_MASK" 			>> "$nfo_file"
+	echo "BUILDINGS_OVERLAY=$BUILDINGS_OVERLAY" 	>> "$nfo_file"
 	log "Creating tiles list..."
 
 	tot=$[ $dim_x * $dim_y ]
@@ -1464,7 +1532,7 @@ if [ "$RESTORE" = "no" ] ; then
 	log "Randomizing tile list..."
 	log "Step 1 ..."
 	[ "$( uname -s )" = "Darwin" ] && tile_index=( $( seq 0 $[ $tot - 1 ] | awk 'BEGIN { srand() } { print rand() "\t" $0 }' | sort -n | cut -f2- | tr "\n" " " ) )
-	[ "$( uname -s )" = "Linuc"  ] && tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
+	[ "$( uname -s )" = "Linux"  ] && tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
 
 	i="0"
 	cnt=1
@@ -1507,12 +1575,13 @@ fi
 if [ "$RESTORE" = "yes" ] ; then
 	log "Restoring section $nfo_file..."
 	. "$nfo_file"
-	if 	[ -z "$dim_x" ] 	|| \
-	 	[ -z "$dim_y" ] 	|| \
-	 	[ -z "$good_tile" ] 	|| \
-	 	[ -z "$cursor" ] 	|| \
-		[ -z "$MASH_SCENARY" ]	|| \
-		[ -z "$MESH_LEVEL" ]	|| \
+	if 	[ -z "$dim_x" ] 		|| \
+	 	[ -z "$dim_y" ] 		|| \
+	 	[ -z "$good_tile" ] 		|| \
+	 	[ -z "$cursor" ] 		|| \
+		[ -z "$MASH_SCENARY" ]		|| \
+		[ -z "$MESH_LEVEL" ]		|| \
+		[ -z "$BUILDINGS_OVERLAY" ] 	|| \
 	 	[ -z "$WATER_MASK" ] 	; then
 		log "Input file is corrupted, I must remove it."
 		rm -f "$nfo_file"
@@ -1544,6 +1613,14 @@ fi
 #########################################################################3
 
 
+
+if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
+	log "Downloading objects list ..."
+	placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
+	list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g | sed  -e s/"<\/id>"/"<\/id>\n"/g | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+	log "Found $( echo "$list3Dobjects" | wc -l  ) objects ..."
+fi
+
 log "Download tiles..."
 cnt="1"
 tot="${#good_tile[@]}"
@@ -1551,7 +1628,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1640,7 +1717,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -1796,6 +1873,7 @@ if [  "$DSF_CREATION" = "true" ] ; then
 fi
 
 for x in $( seq 0 $dim_x ) ; do
+	# break # TO BE REMOVED
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
@@ -1969,8 +2047,13 @@ for x in $( seq 0 $dim_x ) ; do
 				BEGIN_POLYGON_CNT="0"
 				BEGIN_PATCH_CNT="1"
 			else
+				if [ -f "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt" ] ; then
 [ "$MASH_SCENARY" = "no" ]  &&	BEGIN_POLYGON_CNT="$( 	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"	| grep "BEGIN_POLYGON" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_POLYGON_CNT="$[ $BEGIN_POLYGON_CNT + 1 ]"	
 [ "$MASH_SCENARY" = "yes" ] && 	BEGIN_PATCH_CNT="$(	cat "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt" | grep "BEGIN_PATCH" 	| tail -n 1 | awk {'print $2'} )" && BEGIN_PATCH_CNT="$[   $BEGIN_PATCH_CNT   + 1 ]"
+				else
+					BEGIN_POLYGON_CNT="0"
+					BEGIN_PATCH_CNT="1"
+				fi
 
 			fi
 
@@ -2246,42 +2329,361 @@ for x in $( seq 0 $dim_x ) ; do
         done
 done
 
-################################################################################################################################
-
-# log "Adding building over scenery ..."
-# 
-# # New York
-# lat="40.7400"
-# lon="-73.9902"
-# url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Ageo+filetype%3Akmz+near%3A%22${lat}+${lon}%22&scoring=p&max-results=100"
-# 
-# list3D="$( wget -O- -q "$url"   | tr "<>" "\n"  | grep "type='application/vnd.google-earth.kmz'" | recode html/.. | tr "'" "\n" | grep "http://" )"
-# 
-# 
-# overLayDir="$tiles_dir/overlay"
-# OUTPUT="$output_dir"
-# 
-# 
-# 
-
-
-################################################################################################################################
-#
-# Uncomment from following code to enable compatibility with X-Plane 8 (Thanks to Matt)
-#
-
-#echo "Converting tiles..."
-#for i in $tile_dir/*.dds; do
-#	convert -resize 1024x1024 $i ${i/dds/png}
-#done
-
-
 
 ################################################################################################################################
 
 # Sorting DSF file and remove the duplicate
-dfs_list=( $( echo "${dfs_list[@]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
+dfs_list=( $( echo "${dfs_list[*]}" | tr " " "\n" | sort -u | tr "\n" " " ) )
 
+################################################################################################################################
+
+if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
+
+	log "Adding buildings over scenery ..."
+
+	# lat="$( echo "scale = 8; ( $point_lat + $lowright_lat ) / 2" | bc )"
+	# lon="$( echo "scale = 8; ( $point_lon + $lowright_lon ) / 2" | bc )"
+
+	# New York
+	# lat="40.7400"
+	# lon="-73.9902"
+
+	# echo "$list3D"
+	# http://sketchup.google.com/3dwarehouse/download?mid=21f543d70b5c29d6d48f2eea2790b6d&rtyp=k2&ctyp=other&ts=1325311360000
+	# http://sketchup.google.com/3dwarehouse/download?mid=433bfb7d61901dc65822c6ca7b1d5d61&rtyp=ks&fn=ANTOG+%282%29&ctyp=other&prevstart=0&ts=1273435410000
+	# http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=12.293014526367188%2C45.41712994686011%2C12.379188537597656%2C45.45350801699933
+
+	#url="http://sketchup.google.com/3dwarehouse/data/entities?q=is%3Amodel+is%3Abest-of-geo+filetype%3Akmz+near%3A%22${lat}+${lon}%22&scoring=t&max-results=100"
+
+	#list3D="$( wget -O- -q "$url"   | tr "<>" "\n"  | grep "type='application/vnd.google-earth.kmz'" | recode html/.. | tr "'" "\n" | grep "http://" )"
+
+	overLayDir="$tiles_dir/overlay"
+	OUTPUT="$output_dir"
+
+	obj_index="0"
+	for i in $list3Dobjects ; do
+
+	        name="${i}.kmz"
+	        log "Elaborating $name file ..."
+
+	        [ ! -d "$overLayDir/kmz" ]       && mkdir -p "$overLayDir/kmz"
+	        [ ! -d "$overLayDir/kml" ]       && mkdir -p "$overLayDir/kml"
+	        [ ! -f "$overLayDir/kmz/$name" ] && log "Downloading KMZ file ..." && wget -q -O "$overLayDir/kmz/$name" "http://sketchup.google.com/3dwarehouse/download?mid=${i}&rtyp=k2"
+		if [ ! -s "$overLayDir/kmz/$name" ] ; then
+			log "Building not downloadable, skip ..."
+			rm -f "$overLayDir/kmz/$name"
+			continue
+
+		fi
+
+		kmlDir="$overLayDir/kml/${name%.*}"
+		[ ! -d "$kmlDir" ] && mkdir -p "$kmlDir"
+		unzip -o -q -d "$kmlDir" "$overLayDir/kmz/$name" &> /dev/null
+		if [ "$?" -ne "0" ] ; then
+			log "Uncompression error, skip ..."
+			rm -fr "$kmlDir"
+			rm -f "$overLayDir/kmz/$name"
+			continue
+		fi
+	
+		model_file="$( find $kmlDir -type f -iname "*.dae" | head -n 1 )"
+		if [ ! -f "$model_file" ] ; then
+			log "Unable to file model.dae, skip this overlay ..."
+			continue
+		fi
+
+	        kml_file="$kmlDir/doc.kml"
+		if [ ! -f "$kml_file" ] ; then
+			log "Unable to find file doc.kml, skip this overlay ..."
+			continue
+		fi
+
+	        model_dae="$(   cat "${model_file}" )"
+	        kml="$(         cat "${kml_file}"   )"
+	        Model="$(       getTagContent "$kml"    "<Model>"       )"
+	        Location=( $(   getTagContent "$Model"  "<Location>"    | sort |  sed 's/<[^>]*>//g' | tr "\n" " " ) )
+		[ "$( echo "scale = 8; ${Location[0]} < 0.0" | bc )" = "1" ] && Location[0]="0.000000"
+
+		unset obj_list; unset dsf_body
+		for i in ${dfs_list[*]} ; do
+			PROPERTY="$( cat "$output_dir/$output_sub_dir/${i}.txt" | grep "PROPERTY" )"
+			cnt="0"
+			for sim in "north" "south" "west" "east" ; do
+				coords[$cnt]="$( echo "$PROPERTY" | grep "PROPERTY sim/${sim}" | awk {'print $3'} )"
+				cnt=$[ $cnt + 1 ]
+			done
+
+			out="$( pointInPolygon ${Location[2]} ${Location[1]} "${coords[2]},${coords[0]} ${coords[3]},${coords[0]} ${coords[3]},${coords[1]} ${coords[2]},${coords[1]}" )"
+
+			if [ "$out" = "in" ] ; then
+				obj_list="$output_dir/$output_sub_dir/${i}.txt"
+				dsf_body="$output_dir/$output_sub_dir/${i}_body.txt"
+				break
+			fi
+		done
+
+		if [ ! -f "$obj_list" ] ; then
+			log "Overlay is outside your scenery ..." 
+			rm -fr "$kmlDir"
+			continue
+		fi
+
+		obj_index="$( cat "$dsf_body" | grep "OBJECT" | tail -n 1 | awk {'print $2'} )"
+		if [ -z "$obj_index" ] ; then 
+				obj_index="0" 
+		else
+			obj_index="$[ $obj_index + 1 ]"
+		fi
+
+	        log "Loading library_geometries ..."
+	        library_geometries="$(    getTagContent "$model_dae" "<library_geometries>"     )"
+	        log "Loading library_images ..."
+	        library_images="$(        getTagContent "$model_dae" "<library_images>"         )"
+	        log "Loading library_materials ..."
+	        library_materials="$(     getTagContent "$model_dae" "<library_materials>"      )"
+	        log "Loading library_effects ..."
+	        library_effects="$(       getTagContent "$model_dae" "<library_effects>"        )"
+	        log "Loading library_visual_scenes ..."
+	        library_visual_scenes="$( getTagContent "$model_dae" "<library_visual_scenes>"  )"
+
+
+	        scale_factor="$( echo "$model_dae" | grep "<unit" | tr " " "\n" | grep "meter=\"" | awk -F\" {'print $2'} )"
+	        [ -z "$scale_factor" ] && scale_factor="1.0"
+
+	        unset geometries
+	        geometries=( $( echo "$library_geometries" | grep "geometry id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
+
+	        unset matrixTrans
+	        [ "$( echo "$library_visual_scenes" | grep "<matrix>" | wc -l  )" -eq "1" ] && matrixTrans="$( getTagContent "$library_visual_scenes"  "<matrix>" | tr "\n" " " )"
+
+	        materials=( $( echo "$library_materials"  | grep "<material id=\"" | awk -F\" {'print $2","$4'} | tr -d "#" | tr "\n" " " ) )
+
+
+		cd "$( dirname -- "$model_file" )"
+	        cnt="0"; unset texture_list;
+	        for mat in ${materials[*]} ; do
+		
+        	        effects="$(    getTagContent "$library_materials"  "<material id=\"${mat%,*}\""  | grep "<instance_effect url="  | awk -F\" {'print $2'} | tr -d "#"  )"
+        	        image="$(      getTagContent "$library_effects"    "<effect id=\"$effects\""     | grep "<init_from>" |  sed 's/<[^>]*>//g' )"
+
+        	        if [ -z "$image" ] ; then
+        	                texture="transparent"
+        	        else
+        	                texture="$( getTagContent "$library_images" "<image id=\"$image\"" |  sed 's/<[^>]*>//g' )"
+				tex_dir="$( dirname -- "$texture" )"
+				[ ! -d "$tex_dir" ] && tex_dir="$( dirname -- "$( find . -name "$( basename -- "$texture" )" )" )"
+				texture="$( cd "$tex_dir" ; pwd )/$( basename -- "$texture" )"
+        	        fi
+        	        texture_list[$cnt]="${mat#*,},$texture,${mat%,*},"
+        	        cnt=$[ $cnt + 1 ]
+        	done
+		cd - &> /dev/null
+
+        	[ ! -d "$OUTPUT/objects"   ]            	&& mkdir -p "$OUTPUT/objects"
+        	[ ! -d "$OUTPUT/obj_texture/${name%.*}"  ] 	&& mkdir -p "$OUTPUT/obj_texture/${name%.*}"
+
+	        for id in ${geometries[*]} ; do
+	                log "Creating object $id ..."
+	                geometry="$(  getTagContent "$model_dae" "geometry id=\"$id\""  )"
+	                materials=( $(  echo "$geometry" | grep "<triangles" | tr " " "\n" | grep  "material=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
+	
+	                for material in ${materials[*]} ; do
+	                        texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i "${material}," | awk -F, {'print $2'}  )"
+				# <instance_material symbol="Material2" target="#ID3">
+
+	                        if [ -z "$texture" ] ; then
+		material2="$( getTagContent "$library_visual_scenes" "<instance_geometry url=\"#${id}\">" | grep "<instance_material"  | grep "symbol=\"${material}\"" | tr " " "\n" | grep "target=" | awk -F\" {'print $2'} | tr -d "#" )"
+					[ ! -z "$material2" ] && texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i ",${material2}," | awk -F, {'print $2'}  )"
+				fi
+
+	                        if [ "$texture" != "transparent" ] && [ ! -f "$texture" ] ; then
+					log "TEXTURE ERROR $texture" && exit 3
+				fi
+
+                	        texture_name="$( basename -- "$texture" )"; unset texturepng
+                	        [ "$texture_name" != "transparent" ] && texturepng="$( echo "$texture_name" | awk -F. {'print $1'}  ).png"
+
+                	        [ -z "$texturepng" ] &&  continue
+
+                	        sizeOriImg="$( identify "$texture" | awk {'print $3'} )"
+                	        outSizeImg="256"
+                	        if [ "${sizeOriImg%x*}" -gt "${sizeOriImg#*x}" ] ; then
+                	                size="${sizeOriImg%x*}"
+                	        else
+                	                size="${sizeOriImg#*x}"
+                	        fi
+
+                	        while [ "$size" -gt "$outSizeImg" ] ; do outSizeImg=$[ $outSizeImg * 2 ] ; done
+				[ "$outSizeImg" -gt "2048" ] && outSizeImg="2048"
+
+                	        [ ! -f "$OUTPUT/obj_texture/$texturepng" ] && convert  "$texture" -resize ${outSizeImg}x${outSizeImg}\!  "$OUTPUT/obj_texture/${name%.*}/$texturepng"
+
+
+                	        triangles="$(   getTagContent "$geometry"  "triangles material=\"${material}\"" )"
+                	        [ -z "$triangles" ] && log "Not found trinagles definition ... "  && continue
+
+
+                	        VERTEX="$(      echo "$triangles" | grep "semantic=\"VERTEX\""					| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+                	        NORMAL="$(      echo "$triangles" | grep "semantic=\"NORMAL\""          			| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+                	        TEXCOORD="$(    echo "$triangles" | grep "semantic=\"TEXCOORD\""        			| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+                	        POSITION="$(    getTagContent "$geometry"  "vertices id=\"$VERTEX\""    | grep "POSITION" 	| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+
+
+				log "Reading POSITION information ..."
+                	        cnt="0"; i="0"; unset position_array;
+                	        for e in $( getTagContent "$geometry" "source id=\"$POSITION\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
+                	                line[$i]="$e"; i=$[ $i + 1 ]
+                	                [ "${#line[*]}" -lt "3" ] && continue
+                	                [ ! -z "$matrixTrans" ] && line=( $( matrixApply "$matrixTrans" "${line[*]}" ) )
+		
+       		                        position_array[$cnt]="$( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }'  )"
+       	        	                unset line; i="0"
+                        	        cnt=$[ $cnt + 1 ]
+	                        done
+
+				log "Reading NORMAL information ..."
+        	                cnt="0"; i="0"; unset normal_array
+        	                [ ! -z "$NORMAL" ] && for e in $( getTagContent "$geometry" "source id=\"$NORMAL\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
+        	                        line[$i]="$e"; i=$[ $i + 1 ]
+        	                        [ "${#line[*]}" -lt "3" ] && continue
+        	                        normal_array[$cnt]="${line[*]}"
+        	                        unset line; i="0"
+        	                        cnt=$[ $cnt + 1 ]
+        	                done
+
+				log "Reading TEXCOORD information ..."
+                	        cnt="0"; i="0"; unset uv_array
+                	        [ ! -z "$TEXCOORD" ] && for e in $( getTagContent "$geometry" "source id=\"$TEXCOORD\"" | grep "<float_array" | sed 's/<[^>]*>//g' ) ; do
+                	                line[$i]="$e"; i=$[ $i + 1 ]
+                	                [ "${#line[*]}" -lt "2" ] && continue
+                	                uv_array[$cnt]="${line[*]}"
+                	                unset line; i="0"
+                	                cnt=$[ $cnt + 1 ]
+                	        done
+
+
+                        	log "Output for material $material ..."
+                        	# 1:VERTEX 2:NORMAL 3:TEXCOORD
+                        	semantic="$( echo "$triangles" | grep "<input" | grep "semantic=\""  )"
+
+
+	                        semantic_num="$(   echo "${semantic}" | wc -l )"
+	                        vertex_index="$(   echo "${semantic}" | grep "VERTEX"   | tr " " "\n" | grep "offset=" | awk -F\" {'print $2'} )"
+	                        normal_index="$(   echo "${semantic}" | grep "NORMAL"   | tr " " "\n" | grep "offset=" | awk -F\" {'print $2'} )"
+	                        texcoord_index="$( echo "${semantic}" | grep "TEXCOORD" | tr " " "\n" | grep "offset=" | awk -F\" {'print $2'} )"
+
+	                        [ -z "$vertex_index" ]          && vertex_index="x"
+	                        [ -z "$normal_index" ]          && normal_index="y"
+	                        [ -z "$texcoord_index" ]        && texcoord_index="z"
+
+				log "Reading triangles information ..."
+        	                cnt="0"; i="0"; unset array
+        	                for e in $( echo "$triangles" | grep "<p>" | sed 's/<[^>]*>//g' ) ; do
+        	                        line[$i]="$e"; i=$[ $i + 1 ]
+        	                        [ "${#line[*]}" -lt "$semantic_num" ] && continue
+
+
+	                                v="x"; n="y"; t="z"
+	                                [ "$vertex_index"   != "x" ] && v="${line[$vertex_index]}"
+	                                [ "$normal_index"   != "y" ] && n="${line[$normal_index]}"
+	                                [ "$texcoord_index" != "z" ] && t="${line[$texcoord_index]}"
+	
+	                                array[$cnt]="$v $n $t"
+	                                unset line; i="0"
+	                                cnt=$[ $cnt + 1 ]
+	                        done
+
+
+	                        array_uniq="$( cnt="0"; while [ ! -z "${array[$cnt]}" ] ; do echo "${array[$cnt]}"; cnt=$[ $cnt + 1 ]; done | sort -u )"
+				# array_uniq="$( echo "$array_uniq" | sed -e s/"x"/"0.000000 0.000000 0.000000"/g | sed -e s/"y"/"0.000000 0.000000 1.000000"/g | sed -e s/"z"/"0.000000 0.000000"/g )"
+
+				log "Checking $( echo "$array_uniq" | wc -l ) coordinates ..."
+
+        	                unset VT; cnt="0"
+        	                while read line ; do
+        	                        p=( $line );
+					position="0.000000 0.000000 0.000000";	normal="0.000000 0.000000 1.000000"; uv="0.000000 0.000000"
+					[ "${p[0]}" != "x" ] && position="${position_array[${p[0]}]}"
+					[ "${p[1]}" != "y" ] && normal="${normal_array[${p[1]}]}"
+					[ "${p[2]}" != "z" ] && uv="${uv_array[${p[2]}]}"
+
+        	                        eval vt_${p[0]}_${p[1]}_${p[2]}="$cnt"
+        	                        VT[$cnt]=";VT $position $normal $uv"
+        	                        cnt=$[ $cnt + 1 ]
+        	                done <<< "$( echo "$array_uniq" )"
+                	        VT_COUNT="$cnt"
+
+				log "Re-ordering POSITION coordiantes ..."
+                	        cnt="0"; unset array_mod 
+                	        while [ ! -z "${array[$cnt]}" ] ; do
+                	                a="$cnt"
+                	                b="$[ $cnt + 1 ]"
+                	                c="$[ $cnt + 2 ]"
+                	                array_mod[$a]="${array[$c]}"
+                	                array_mod[$b]="${array[$b]}"
+                	                array_mod[$c]="${array[$a]}"
+                	                cnt=$[ $cnt + 3 ]
+                	        done
+
+
+				log "Extracting triangles vertex ..."
+                        	cnt="0"; unset IDX
+                        	while [ ! -z "${array_mod[$cnt]}" ] ; do
+                        	        p=( ${array_mod[$cnt]} )
+                        	        IDX[$cnt]="$( eval echo \"'$'vt_${p[0]}_${p[1]}_${p[2]}\" )"
+                        	        cnt=$[ $cnt + 1 ]
+                        	done
+
+
+			
+	                        objFile="$OUTPUT/objects/${name%.*}-${id}-${material}.obj"
+				log "Writing ${name%.*}-${id}-${material}.obj object file ..."
+
+	                        echo "OBJECT_DEF objects/${name%.*}-${id}-${material}.obj"    		  >> "$obj_list"
+	                        echo "OBJECT $obj_index ${Location[2]} ${Location[1]} ${Location[0]} "    >> "$dsf_body"
+                        
+
+	        
+	                        echo -n                                                                 >  "$objFile"
+	                        echo "I"                                                                >> "$objFile"
+	                        echo "800"                                                              >> "$objFile"
+	                        echo "OBJ"                                                              >> "$objFile"
+	                        echo                                                                    >> "$objFile"
+	                        echo "TEXTURE ../obj_texture/${name%.*}/$texturepng"                    >> "$objFile"
+	                        echo                                                                    >> "$objFile"
+	                        echo "POINT_COUNTS $VT_COUNT 0 0 ${#IDX[*]}"                            >> "$objFile"
+	                        echo                                                                    >> "$objFile"
+	                        echo  "${VT[*]}" | tr ";" "\n"                                             >> "$objFile"
+	                        echo                                                                    >> "$objFile"
+	                        end="$[ ( ${#IDX[*]} / 10 ) * 10 ]"
+	                        i="0"
+	                        [ "${#IDX[*]}" -ge "10" ] && while [ "$i" -lt "$end" ] ; do
+	                                [ "$[ $i % 10 ]" -eq "0" ] && [ "$i" -ne "0" ] && echo          >> "$objFile"
+	                                [ "$[ $i % 10 ]" -eq "0" ] && echo -ne "IDX10 "                 >> "$objFile"
+	                                echo -ne "${IDX[$i]}\t"                                         >> "$objFile"
+	                                i="$[ $i + 1 ]"
+	                        done
+	                        echo                                                                    >> "$objFile"
+	                        while [ ! -z "${IDX[$i]}" ] ; do
+	                                echo "IDX ${IDX[$i]}"                                           >> "$objFile"
+	                                i="$[ $i + 1 ]"
+	                        done
+
+        	                echo                                                                    >> "$objFile"
+        	                echo "GLOBAL_no_blend"                                                  >> "$objFile"
+        	                echo "ATTR_LOD 0.000000 6000.000000"                                    >> "$objFile"
+        	                echo "TRIS 0 ${#IDX[*]}"                                                >> "$objFile"
+        	                
+
+                	        obj_index=$[ $obj_index + 1 ]
+                
+                	done
+	        done	
+		# break # TO BE REMOVED
+	done
+fi
+
+################################################################################################################################
 
 if [  ! -z "$dsftool" ] ; then
 	for i in ${dfs_list[@]} ; do
