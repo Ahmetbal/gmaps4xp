@@ -1617,7 +1617,10 @@ fi
 if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	log "Downloading objects list ..."
 	placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
-	list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g | sed  -e s/"<\/id>"/"<\/id>\n"/g | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+
+	[ "$( uname -s )" = "Darwin" ] && list3Dobjects="$( echo "$placemarksanon" | sed -e 's/<id>/\'$'\n<id>/g' | sed -e 's/<\/id>/<\/id>\'$'\n/g' | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+
+	[ "$( uname -s )" = "Linux"  ] && list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g | sed  -e s/"<\/id>"/"<\/id>\n"/g | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
 	log "Found $( echo "$list3Dobjects" | wc -l  ) objects ..."
 fi
 
@@ -1628,7 +1631,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1717,7 +1720,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -1741,9 +1744,8 @@ for cursor_huge in ${good_tile[@]} ; do
 				# WATER_COLOR="#99b3cc"
 				WATER_COLOR="#a5bfdd"
 				content="$( convert  "${tiles_dir}/map/map-${cursor_huge}.png" txt:- | grep -v "^#" | grep -i "$WATER_COLOR" | wc -l | tr -d "\n" )" ; [ -z "$content" ] && content="0"
-
-				water_percent="$( awk 'BEGIN { printf "%.2f",  ( '${content}' /  ( 256 * 256 ) ) * 100 }' )"
-		
+				water_percent="$( awk 'BEGIN { printf "%.2f",  ( '"${content}"' /  ( 256 * 256 ) ) * 100 }' )"
+	
 				if [  "$( echo "scale = 8; $water_percent >= $MAX_PERC_COVER" | bc )" = 1 ] ; then
 					echo -n " Water found (${water_percent}%) ... "
 					convert  -fuzz 8%  "${tiles_dir}/map/map-${cursor_huge}.png" -format PNG32 -transparent "$WATER_COLOR" -filter Cubic -resize 2048x2048 "${tiles_dir}/mask/mask-${cursor_huge}.png"
@@ -2458,7 +2460,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 	        materials=( $( echo "$library_materials"  | grep "<material id=\"" | awk -F\" {'print $2","$4'} | tr -d "#" | tr "\n" " " ) )
 
-
 		cd "$( dirname -- "$model_file" )"
 	        cnt="0"; unset texture_list;
 	        for mat in ${materials[*]} ; do
@@ -2479,17 +2480,20 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
         	done
 		cd - &> /dev/null
 
-        	[ ! -d "$OUTPUT/objects"   ]            	&& mkdir -p "$OUTPUT/objects"
-        	[ ! -d "$OUTPUT/obj_texture/${name%.*}"  ] 	&& mkdir -p "$OUTPUT/obj_texture/${name%.*}"
+
+        	[ ! -d "$OUTPUT/objects"   ]  && mkdir -p "$OUTPUT/objects"
 
 	        for id in ${geometries[*]} ; do
-	                log "Creating object $id ..."
 	                geometry="$(  getTagContent "$model_dae" "geometry id=\"$id\""  )"
 	                materials=( $(  echo "$geometry" | grep "<triangles" | tr " " "\n" | grep  "material=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
-	
+
+			materials=( $( for material in ${materials[*]} ; do  [ ! -z "$( echo "${texture_list[*]}"  | tr " " "\n" | grep -v ",transparent," | grep "${material},"  )" ] && echo -n "$material "; done ) )
+			[ "${#materials[*]}" -eq "0" ] && log "Object $id without materials, skip ..." && continue
+
 	                for material in ${materials[*]} ; do
+	                	log "Creating object $id with material $material ..."
+
 	                        texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i "${material}," | awk -F, {'print $2'}  )"
-				# <instance_material symbol="Material2" target="#ID3">
 
 	                        if [ -z "$texture" ] ; then
 		material2="$( getTagContent "$library_visual_scenes" "<instance_geometry url=\"#${id}\">" | grep "<instance_material"  | grep "symbol=\"${material}\"" | tr " " "\n" | grep "target=" | awk -F\" {'print $2'} | tr -d "#" )"
@@ -2503,21 +2507,24 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                 	        texture_name="$( basename -- "$texture" )"; unset texturepng
                 	        [ "$texture_name" != "transparent" ] && texturepng="$( echo "$texture_name" | awk -F. {'print $1'}  ).png"
 
-                	        [ -z "$texturepng" ] &&  continue
 
-                	        sizeOriImg="$( identify "$texture" | awk {'print $3'} )"
-                	        outSizeImg="256"
-                	        if [ "${sizeOriImg%x*}" -gt "${sizeOriImg#*x}" ] ; then
-                	                size="${sizeOriImg%x*}"
-                	        else
-                	                size="${sizeOriImg#*x}"
-                	        fi
+                	        [ -z "$texturepng" ] && log "No texture found, skip this material ..." && continue
 
-                	        while [ "$size" -gt "$outSizeImg" ] ; do outSizeImg=$[ $outSizeImg * 2 ] ; done
-				[ "$outSizeImg" -gt "2048" ] && outSizeImg="2048"
+				if [ ! -z "$texturepng" ] ; then
+	                	        sizeOriImg="$( identify "$texture" | awk {'print $3'} )"
+	                	        outSizeImg="256"
+	                	        if [ "${sizeOriImg%x*}" -gt "${sizeOriImg#*x}" ] ; then
+	                	                size="${sizeOriImg%x*}"
+	                	        else
+	                	                size="${sizeOriImg#*x}"
+	                	        fi
 
-                	        [ ! -f "$OUTPUT/obj_texture/$texturepng" ] && convert  "$texture" -resize ${outSizeImg}x${outSizeImg}\!  "$OUTPUT/obj_texture/${name%.*}/$texturepng"
-
+	                	        while [ "$size" -gt "$outSizeImg" ] ; do outSizeImg=$[ $outSizeImg * 2 ] ; done
+					[ "$outSizeImg" -gt "2048" ] && outSizeImg="2048"
+	
+        				[ ! -d "$OUTPUT/obj_texture/${name%.*}"  ] && mkdir -p "$OUTPUT/obj_texture/${name%.*}"
+	                	        [ ! -f "$OUTPUT/obj_texture/$texturepng" ] && convert  "$texture" -resize ${outSizeImg}x${outSizeImg}\!  "$OUTPUT/obj_texture/${name%.*}/$texturepng"
+				fi
 
                 	        triangles="$(   getTagContent "$geometry"  "triangles material=\"${material}\"" )"
                 	        [ -z "$triangles" ] && log "Not found trinagles definition ... "  && continue
@@ -2635,11 +2642,12 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                         	done
 
 
-			
-	                        objFile="$OUTPUT/objects/${name%.*}-${id}-${material}.obj"
-				log "Writing ${name%.*}-${id}-${material}.obj object file ..."
+		
+				[ ! -d "$OUTPUT/objects/${name%.*}" ] && mkdir -p "$OUTPUT/objects/${name%.*}"
+	                        objFile="$OUTPUT/objects/${name%.*}/${id}-${material}.obj"
+				log "Writing ${name%.*}/${id}-${material}.obj object file ..."
 
-	                        echo "OBJECT_DEF objects/${name%.*}-${id}-${material}.obj"    		  >> "$obj_list"
+	                        echo "OBJECT_DEF objects/${name%.*}/${id}-${material}.obj"    		  >> "$obj_list"
 	                        echo "OBJECT $obj_index ${Location[2]} ${Location[1]} ${Location[0]} "    >> "$dsf_body"
                         
 
@@ -2649,7 +2657,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	                        echo "800"                                                              >> "$objFile"
 	                        echo "OBJ"                                                              >> "$objFile"
 	                        echo                                                                    >> "$objFile"
-	                        echo "TEXTURE ../obj_texture/${name%.*}/$texturepng"                    >> "$objFile"
+      [ ! -z "$texturepng" ] && echo "TEXTURE ../../obj_texture/${name%.*}/$texturepng"                 >> "$objFile"
 	                        echo                                                                    >> "$objFile"
 	                        echo "POINT_COUNTS $VT_COUNT 0 0 ${#IDX[*]}"                            >> "$objFile"
 	                        echo                                                                    >> "$objFile"
