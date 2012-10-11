@@ -1615,14 +1615,44 @@ fi
 
 
 if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
-	log "Downloading objects list ..."
-	placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
 
-	[ "$( uname -s )" = "Darwin" ] && list3Dobjects="$( echo "$placemarksanon" | sed -e 's/<id>/\'$'\n<id>/g' | sed -e 's/<\/id>/<\/id>\'$'\n/g' | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+	log "Buildings overlay getting information ..."
+	if [ -z "$LIST_3D_OBEJCTS" ] ; then
+		log "Downloading objects list ..."
+		placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
 
-	[ "$( uname -s )" = "Linux"  ] && list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g | sed  -e s/"<\/id>"/"<\/id>\n"/g | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+		[ "$( uname -s )" = "Darwin" ] && list3Dobjects="$( echo "$placemarksanon" | sed -e 's/<id>/\'$'\n<id>/g' | sed -e 's/<\/id>/<\/id>\'$'\n/g' | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+		[ "$( uname -s )" = "Linux"  ] && list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g | sed  -e s/"<\/id>"/"<\/id>\n"/g | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+
+		minRank3Dobjects="50"
+
+		log "Filtering by rating (min: $minRank3Dobjects ) ..."
+		list3Dobjects="$( for i in $list3Dobjects ; do
+					ratings="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/ratings?mid=${i}" )"
+					[ -z "$ratings" ] && continue
+			
+					values=( $( echo "$ratings" | grep "<td nowrap><font size=\"-0\"><b>" | grep "</b></font></td></tr>" | sed 's/<[^>]*>//g' ) )
+					[ "${#values[*]}" -ne "3" ] && continue
+	
+					rank="$( awk 'BEGIN { printf "%.2f\n",  ( '${values[0]}' / '${values[2]}' ) * 100 }' )"
+	
+					[  "$( echo "scale = 8; ( $rank < $minRank3Dobjects )" | bc )" = "1" ] && continue
+	
+					log "Found object $i with rank $rank ..."
+					echo "$i"
+				done 
+		)"
+		echo "LIST_3D_OBEJCTS=\"$( echo "$list3Dobjects" | tr "\n" " " )\"" >> "$nfo_file"
+	else
+		log "Restore list from cache ..."
+		list3Dobjects="$( echo "$LIST_3D_OBEJCTS" | tr " " "\n" )"
+
+	fi
+
 	log "Found $( echo "$list3Dobjects" | wc -l  ) objects ..."
+
 fi
+
 
 log "Download tiles..."
 cnt="1"
@@ -2363,10 +2393,13 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	OUTPUT="$output_dir"
 
 	obj_index="0"
+	cnt_3Dobjects="1"
+	tot_3Dobjects="$( echo "$list3Dobjects" | wc -l | tr -d " " )"
+	list3Dobjects="1911b49906a7574c1a7db9432a3ad44"
 	for i in $list3Dobjects ; do
 
 	        name="${i}.kmz"
-	        log "Elaborating $name file ..."
+	        log "Elaborating $name file ( $cnt_3Dobjects / $tot_3Dobjects ) ..."
 
 	        [ ! -d "$overLayDir/kmz" ]       && mkdir -p "$overLayDir/kmz"
 	        [ ! -d "$overLayDir/kml" ]       && mkdir -p "$overLayDir/kml"
@@ -2437,17 +2470,18 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			obj_index="$[ $obj_index + 1 ]"
 		fi
 
-	        log "Loading library_geometries ..."
-	        library_geometries="$(    getTagContent "$model_dae" "<library_geometries>"     )"
 	        log "Loading library_images ..."
 	        library_images="$(        getTagContent "$model_dae" "<library_images>"         )"
 	        log "Loading library_materials ..."
 	        library_materials="$(     getTagContent "$model_dae" "<library_materials>"      )"
 	        log "Loading library_effects ..."
 	        library_effects="$(       getTagContent "$model_dae" "<library_effects>"        )"
+	        log "Loading library_geometries ..."
+	        library_geometries="$(    getTagContent "$model_dae" "<library_geometries>"     )"
+		log "Loading library_nodes ..."
+		library_nodes="$(	  getTagContent "$model_dae" "<library_nodes>"  )"
 	        log "Loading library_visual_scenes ..."
 	        library_visual_scenes="$( getTagContent "$model_dae" "<library_visual_scenes>"  )"
-
 
 	        scale_factor="$( echo "$model_dae" | grep "<unit" | tr " " "\n" | grep "meter=\"" | awk -F\" {'print $2'} )"
 	        [ -z "$scale_factor" ] && scale_factor="1.0"
@@ -2482,16 +2516,36 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
         	[ ! -d "$OUTPUT/objects"   ]  && mkdir -p "$OUTPUT/objects"
+		# mesh58-geometry-material_16_18_0.obj:TEXTURE
+		# mesh58-geometry-material_16_19_0.obj:TEXTURE
+		# mesh58-geometry-material_16_20_0.obj:TEXTURE
 
+		geometries=( mesh58-geometry )
 	        for id in ${geometries[*]} ; do
+
+			nodes="$( echo "$library_nodes" | grep "<node" | tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} )"
+
+			
+			for n in $nodes ; do
+				tag="$( getTagContent "$library_nodes" "<node id=\"$n\"" )"
+				[ -z "$( echo "$tag" | grep "<instance_geometry" | grep "url=\"#$id\"" )" ]  && continue
+				echo "$n"
+				log "$n"
+			done 
+			
+
+	
+			exit 0
+
+
+
 	                geometry="$(  getTagContent "$model_dae" "geometry id=\"$id\""  )"
 	                materials=( $(  echo "$geometry" | grep "<triangles" | tr " " "\n" | grep  "material=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 
 			materials=( $( for material in ${materials[*]} ; do  [ ! -z "$( echo "${texture_list[*]}"  | tr " " "\n" | grep -v ",transparent," | grep "${material},"  )" ] && echo -n "$material "; done ) )
-			[ "${#materials[*]}" -eq "0" ] && log "Object $id without materials, skip ..." && continue
-
+			[ "${#materials[*]}" -eq "0" ] && log "$cnt_3Dobjects / $tot_3Dobjects: Object $id without materials, skip ..." && continue
 	                for material in ${materials[*]} ; do
-	                	log "Creating object $id with material $material ..."
+	                	log "$cnt_3Dobjects / $tot_3Dobjects: Creating object $id with material $material ..."
 
 	                        texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i "${material}," | awk -F, {'print $2'}  )"
 
@@ -2505,12 +2559,14 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 				fi
 
                 	        texture_name="$( basename -- "$texture" )"; unset texturepng
-                	        [ "$texture_name" != "transparent" ] && texturepng="$( echo "$texture_name" | awk -F. {'print $1'}  ).png"
-
+                	        if [ "$texture_name" != "transparent" ] ; then
+					texturepng="$( echo "$texture_name" | md5sum | awk {'print $1'}  ).png"
+					texturedds="$( echo "$texture_name" | md5sum | awk {'print $1'}  ).dds"
+				fi
 
                 	        [ -z "$texturepng" ] && log "No texture found, skip this material ..." && continue
 
-				if [ ! -z "$texturepng" ] ; then
+				if [ ! -z "$texturepng" ] && [ ! -f "$OUTPUT/obj_texture/${name%.*}/$texturedds" ] ; then
 	                	        sizeOriImg="$( identify "$texture" | awk {'print $3'} )"
 	                	        outSizeImg="256"
 	                	        if [ "${sizeOriImg%x*}" -gt "${sizeOriImg#*x}" ] ; then
@@ -2525,6 +2581,14 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
         				[ ! -d "$OUTPUT/obj_texture/${name%.*}"  ] && mkdir -p "$OUTPUT/obj_texture/${name%.*}"
 	                	        [ ! -f "$OUTPUT/obj_texture/$texturepng" ] && convert  "$texture" -resize ${outSizeImg}x${outSizeImg}\!  "$OUTPUT/obj_texture/${name%.*}/$texturepng"
 				fi
+
+				if [ ! -f "$OUTPUT/obj_texture/${name%.*}/$texturedds" ] ; then
+					"$ddstool" --png2dxt args1 args2 "$OUTPUT/obj_texture/${name%.*}/$texturepng" "$OUTPUT/obj_texture/${name%.*}/$texturedds"
+					#rm -f "$OUTPUT/obj_texture/${name%.*}/$texturepng"
+				fi
+
+
+
 
                 	        triangles="$(   getTagContent "$geometry"  "triangles material=\"${material}\"" )"
                 	        [ -z "$triangles" ] && log "Not found trinagles definition ... "  && continue
@@ -2657,11 +2721,11 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	                        echo "800"                                                              >> "$objFile"
 	                        echo "OBJ"                                                              >> "$objFile"
 	                        echo                                                                    >> "$objFile"
-      [ ! -z "$texturepng" ] && echo "TEXTURE ../../obj_texture/${name%.*}/$texturepng"                 >> "$objFile"
+      [ ! -z "$texturedds" ] && echo "TEXTURE ../../obj_texture/${name%.*}/$texturedds"                 >> "$objFile"
 	                        echo                                                                    >> "$objFile"
 	                        echo "POINT_COUNTS $VT_COUNT 0 0 ${#IDX[*]}"                            >> "$objFile"
 	                        echo                                                                    >> "$objFile"
-	                        echo  "${VT[*]}" | tr ";" "\n"                                             >> "$objFile"
+	                        echo  "${VT[*]}" | tr ";" "\n"                                          >> "$objFile"
 	                        echo                                                                    >> "$objFile"
 	                        end="$[ ( ${#IDX[*]} / 10 ) * 10 ]"
 	                        i="0"
@@ -2678,8 +2742,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	                        done
 
         	                echo                                                                    >> "$objFile"
-        	                echo "GLOBAL_no_blend"                                                  >> "$objFile"
         	                echo "ATTR_LOD 0.000000 6000.000000"                                    >> "$objFile"
+        	                echo "ATTR_no_blend"                                                    >> "$objFile"
+				echo "ATTR_no_cull"							>> "$objFile"
         	                echo "TRIS 0 ${#IDX[*]}"                                                >> "$objFile"
         	                
 
@@ -2688,6 +2753,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                 	done
 	        done	
 		# break # TO BE REMOVED
+		cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 	done
 fi
 
