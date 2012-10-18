@@ -1279,7 +1279,7 @@ searchLeafs(){
 	while read line ; do
 		[ -z "$line" ] 		 	&& continue
 		[ "${line:0:1}"	!= "<" ] 	&& continue
-		[ "${line:(-2)}" = "/>" ] 	&& continue
+#		[ "${line:(-2)}" = "/>" ] 	&& log "/>"	&&continue
 		searchLeafs "$( getTagContent "$contentSearchTagPath" "$line" )" "${2}${line}"
 		cnt="$[ $cnt + 1 ]"
 	done <<< "$( getTagList "$contentSearchTagPath" )"
@@ -1293,7 +1293,7 @@ searchPathToMaterial(){
 	local contentSearchPathToMaterial="$1"
 	[ -z "$contentSearchPathToMaterial" ] && return
 	local matrixPath="$2"
-	
+
 
 	[ -z "$counter" ] && counter="0"
 	while read leaf ; do
@@ -1307,6 +1307,9 @@ searchPathToMaterial(){
 		done
 		num_tokens="$[ ${#tokens[*]} - 1 ]"
 		lastTag=( ${tokens[$num_tokens]} )
+
+		echo "$leaf"
+
 		if [ "${lastTag[0]}" = "<instance_material" ] && [ ! -z "$matrixPath" ] ; then
 			instance_geometry="$( echo "${tokens[*]}" 		| tr " " "\n" | grep "url=\""	 | awk -F\" {'print $2'} | tr -d "#" )"
 			instance_material="$( echo "${tokens[$num_tokens]}" 	| tr " " "\n" | grep "target=\"" | awk -F\" {'print $2'} | tr -d "#" )"
@@ -1327,8 +1330,17 @@ searchPathToMaterial(){
 			searchPathToMaterial "$( getTagContent "$library_nodes" "<node id=\"$instance_node\"" )" "$matrixPath $matrix"
 			counter=$[ $counter + 1 ]
 			continue
+		fi
+
+		if [ "${lastTag[0]}" = "<instance_material" ] && [ -z "$library_nodes" ] ; then
+			instance_geometry="$( echo "${tokens[*]}" 		| tr " " "\n" | grep "url=\""	 | awk -F\" {'print $2'} | tr -d "#" )"
+			instance_material="$( echo "${tokens[$num_tokens]}" 	| tr " " "\n" | grep "target=\"" | awk -F\" {'print $2'} | tr -d "#" )"
+			echo "$matrixPath; $instance_geometry $instance_material"
+			continue
 
 		fi
+
+
 	done <<< "$( searchLeafs "$contentSearchPathToMaterial" )"
 
 }
@@ -2000,7 +2012,7 @@ if [  "$DSF_CREATION" = "true" ] ; then
 fi
 
 for x in $( seq 0 $dim_x ) ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
@@ -2583,8 +2595,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		nodes=(		$( getTagList "$library_nodes"         	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 
 
-
-
+		log "Parsing textures and colors information ..."
 		cd "$( dirname -- "$model_file" )"
 	        cnt="0"; unset texture_list;
 	        for mat in ${materials[*]} ; do
@@ -2623,7 +2634,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
 		log "Starting objects generation ..."
-
 		searchPathToMaterial "$( getTagContent "$library_visual_scenes" "<node id=\"Model\"" )" | while read line ; do
 			[ -z "$line" ] && continue
 			srcs=( $( echo "$line" | awk -F\; {'print $2'}  ) )
