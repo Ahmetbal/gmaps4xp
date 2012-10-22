@@ -1235,11 +1235,10 @@ getTagContent(){
 
         [ -z "$line" ] && return
 
-	
 	echo "$line" | while read tag ; do
 	        local startTag="$( echo "${tag#*:}" | awk {'print $1'} )"
-		[ "${startTag:0:2}"  = "</" ] && continue
-		[ "${startTag:(-2)}" = "/>" ] && continue
+		[ "${startTag:0:2}"  = "</" ] 	&& continue
+		[ "${tag:(-2)}" = "/>" ]	&& echo "${tag#*:}" && continue	
 
 	        local endTag="$(   echo "$startTag"  | sed -e s/"<"/"<\/"/g | tr -d ">" )>"
 
@@ -1247,7 +1246,7 @@ getTagContent(){
 	        echo "$contentGetTagContent" | tail -n +$[ ${tag%:*} + 1 ] | tr -d "\r" | while read line ; do
 			[ -z "$line" ] && continue
 			array=( $line )
-	                [ "${array[0]}"  = "$startTag" ]	&& ntag="$[ $ntag + 1 ]"
+	                [ "${array[0]}"  = "$startTag" ]	&& ntag="$[ $ntag + 1 ]" 	&& [ "${line:(-2)}" = "/>" ] && ntag="$[ $ntag - 1 ]"
 	                [ "$line"        = "$endTag" ]      	&& ntag="$[ $ntag - 1 ]"
 	                [ "$ntag" -eq "0" ] 			&& break
 			echo "$line"
@@ -1266,7 +1265,7 @@ getTagList(){
 		[ -z "$line" ] && continue
 		array=( $line )
                 [ "$ntag" -eq "1" ]		&& echo "$line"
-                [ "${array[0]}" = "$startTag" ] && ntag="$[ $ntag + 1 ]"
+                [ "${array[0]}" = "$startTag" ] && ntag="$[ $ntag + 1 ]" && [ "${line:(-2)}" = "/>" ] && ntag="$[ $ntag - 1 ]"
                 [ "$line"       = "$endTag" ] 	&& ntag="$[ $ntag - 1 ]"
         done 
 }
@@ -1275,18 +1274,43 @@ getTagList(){
 searchLeafs(){
 	local contentSearchTagPath="$1"
 	[ -z "$contentSearchTagPath" ] && return
-	local cnt="0"	
-	while read line ; do
+
+	[ -z "$cnt" ] && local cnt="0"	
+	cnt="$[ $cnt + 1 ]"
+
+	getTagList "$contentSearchTagPath" | while read line ; do
 		[ -z "$line" ] 		 	&& continue
 		[ "${line:0:1}"	!= "<" ] 	&& continue
-#		[ "${line:(-2)}" = "/>" ] 	&& log "/>"	&&continue
-		searchLeafs "$( getTagContent "$contentSearchTagPath" "$line" )" "${2}${line}"
-		cnt="$[ $cnt + 1 ]"
-	done <<< "$( getTagList "$contentSearchTagPath" )"
+		[ "${line:0:2}"	= "</" ] 	&& continue
+		data="$( getTagContent "$contentSearchTagPath" "$line"  )"
 
-	[ "$cnt" -le "1" ] && echo "$2"
+		[ "$line" = "<matrix>" ]	&& echo "${2}${line}" 1>&2 && continue
+		[ "$data" = "$line" ] 		&& echo "${2}${line}" 1>&2 && continue
+
+		[ "${line:(-2)}" = "/>" ] 	&& continue
+		searchLeafs "$data" "${2}${line}"
+	done
+
 
 }
+
+
+
+explodeDAEtoObjects(){
+	[ -f "$kmlDir/geometry_material_cache.dat" ] && rm -f "$kmlDir/geometry_material_cache.dat"
+	searchPathToMaterial "$( getTagContent "$1" "<node id=\"Model\"" )" 
+
+	if [ -f "$kmlDir/geometry_material_cache.dat" ] ; then
+		log "Processing object without matrix transformation ..."
+		while read line ; do 
+			echo "; $line"
+		done < "$kmlDir/geometry_material_cache.dat"
+	fi
+
+	
+
+}
+
 
 searchPathToMaterial(){
 
@@ -1294,10 +1318,10 @@ searchPathToMaterial(){
 	[ -z "$contentSearchPathToMaterial" ] && return
 	local matrixPath="$2"
 
-
-	[ -z "$counter" ] && counter="0"
-	while read leaf ; do
+	searchLeafs "$contentSearchPathToMaterial" 2>&1 | while read leaf ; do
 		[ -z "$leaf" ] && continue
+
+
 		tags="$( echo "$leaf" | sed -e s/"><"/">;<"/g  )"
 		cnt="0"; unset tokens
 		while : ; do
@@ -1307,13 +1331,19 @@ searchPathToMaterial(){
 		done
 		num_tokens="$[ ${#tokens[*]} - 1 ]"
 		lastTag=( ${tokens[$num_tokens]} )
+		[ "${lastTag[0]}" = "<bind_vertex_input" ] && num_tokens="$[ $num_tokens - 1 ]" && lastTag=( ${tokens[$num_tokens]} )
 
-		echo "$leaf"
 
-		if [ "${lastTag[0]}" = "<instance_material" ] && [ ! -z "$matrixPath" ] ; then
+		if [ "${lastTag[0]}" = "<instance_material" ] ; then
 			instance_geometry="$( echo "${tokens[*]}" 		| tr " " "\n" | grep "url=\""	 | awk -F\" {'print $2'} | tr -d "#" )"
 			instance_material="$( echo "${tokens[$num_tokens]}" 	| tr " " "\n" | grep "target=\"" | awk -F\" {'print $2'} | tr -d "#" )"
-			echo "$matrixPath; $instance_geometry $instance_material"
+			if [ ! -z "$matrixPath" ] ; then
+				echo "$matrixPath; $instance_geometry $instance_material"
+				[ -f "$kmlDir/geometry_material_cache.dat" ] && sed -i "$kmlDir/geometry_material_cache.dat" -e s/"$instance_geometry $instance_material"//g
+				continue
+			fi
+
+			echo "$instance_geometry $instance_material" >> "$kmlDir/geometry_material_cache.dat"
 			continue
 		fi
 		if [ "${lastTag[0]}" = "<matrix>" ] ; then
@@ -1326,22 +1356,12 @@ searchPathToMaterial(){
 			[ -z "$instance_node" ] && continue
 
 			matrix="$( getTagContent "$node" "<matrix>" | tr "\n " "_" )"
-			#echo -n "$matrix; "
 			searchPathToMaterial "$( getTagContent "$library_nodes" "<node id=\"$instance_node\"" )" "$matrixPath $matrix"
-			counter=$[ $counter + 1 ]
 			continue
 		fi
 
-		if [ "${lastTag[0]}" = "<instance_material" ] && [ -z "$library_nodes" ] ; then
-			instance_geometry="$( echo "${tokens[*]}" 		| tr " " "\n" | grep "url=\""	 | awk -F\" {'print $2'} | tr -d "#" )"
-			instance_material="$( echo "${tokens[$num_tokens]}" 	| tr " " "\n" | grep "target=\"" | awk -F\" {'print $2'} | tr -d "#" )"
-			echo "$matrixPath; $instance_geometry $instance_material"
-			continue
 
-		fi
-
-
-	done <<< "$( searchLeafs "$contentSearchPathToMaterial" )"
+	done 
 
 }
 
@@ -1439,7 +1459,7 @@ if [ -f "$nfo_file" ] ; then
 fi
 
 log "Getting Cookies from Google Maps ..."
-getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon"
+# getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon" # TO BE REMOVE
 
 if [ "$RESTORE" = "no" ] ; then
 	if [ ! -z "$zoom_reference_lat" ] && [ ! -z "$zoom_reference_lon" ] ; then
@@ -1768,7 +1788,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1857,7 +1877,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -2012,7 +2032,7 @@ if [  "$DSF_CREATION" = "true" ] ; then
 fi
 
 for x in $( seq 0 $dim_x ) ; do
-	break # TO BE REMOVED
+	#break # TO BE REMOVED
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
@@ -2482,7 +2502,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 	overLayDir="$tiles_dir/overlay"
 	OUTPUT="$output_dir"
-
+	list3Dobjects="7f584fe9dab11a9124db2ec9e26059e9" 	# colored at FE
+  	# list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
+	# list3Dobjects="78d12ddd018d275e436b7f08482a6cf9"	# texture at FE castle
 	obj_index="0"
 	cnt_3Dobjects="1"
 	tot_3Dobjects="$( echo "$list3Dobjects" | wc -l | tr -d " " )"
@@ -2613,8 +2635,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
         	        if [ -z "$image" ] ; then
 				data="$( getTagContent "$library_effects" "<effect id=\"${effect}\"" )"
-				color="$( getTagContent "$data" "<diffuse>"  | tr -d "\n" |  sed 's/<[^>]*>//g' )"
-				[ -z "$color" ] && color="0.000000 0.000000 0.000000 1"
+				color="$( getTagContent "$data" "<diffuse>"  | tr -d "\n" |  sed 's/<[^>]*>//g' | tr " " "_" )"
+				[ -z "$color" ] && color="0.000000_0.000000_0.000000_1"
 				texture="$color"
 
 			else
@@ -2633,8 +2655,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
         	[ ! -d "$OUTPUT/objects"   ]  && mkdir -p "$OUTPUT/objects"
 
 
+
 		log "Starting objects generation ..."
-		searchPathToMaterial "$( getTagContent "$library_visual_scenes" "<node id=\"Model\"" )" | while read line ; do
+		explodeDAEtoObjects "$library_visual_scenes" | while read line ; do
 			[ -z "$line" ] && continue
 			srcs=( $( echo "$line" | awk -F\; {'print $2'}  ) )
 			[ "${#srcs[*]}" -ne "2" ] && continue
@@ -2660,7 +2683,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
                         texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i "${material}," | awk -F, {'print $2'}  )"
-
 
                 	log "$cnt_3Dobjects / $tot_3Dobjects: Creating object ${id} with material $material ..."
 
@@ -2731,8 +2753,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					#rm -f "$OUTPUT/obj_texture/${name%.*}/$texturepng"
 				fi
 			else
-				texture_color=( $texture )
-				log "cacca ${texture_color[*]}"
+				texture_color=( $( echo "$texture" | tr "_" " " ) )
 			fi
 
 	               	log "Output for material $material ..."
@@ -2819,8 +2840,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			fi
 
 			if [ -f "$objFile" ] ; then
-				log "ERROR: severe bug, file $objFile already exists ..."
-				exit 0
+				#log "ERROR: severe bug, file $objFile already exists ..."
+				log "Warning: Object with same position an material, skip ..."
+				continue
 			fi
 
 			log "Writing $( basename -- "$objFile" ) object file ..."
@@ -2861,7 +2883,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                        	echo "ATTR_no_blend"                                                    >> "$objFile"
 			echo "ATTR_no_cull"							>> "$objFile"
 			if [ "${#texture_color[*]}" -ge "3" ] ; then
-	echo "ATTR_emission_rgb ${#texture_color[0]} ${#texture_color[1]} ${#texture_color[2]}"	>> "$objFile"
+	echo "ATTR_emission_rgb ${texture_color[0]} ${texture_color[1]} ${texture_color[2]}"	>> "$objFile"
 			fi
 
                 	echo "TRIS 0 ${#IDX[*]}"                                                >> "$objFile"
