@@ -40,6 +40,7 @@ TER_DIR="terrain"
 TEX_DIR="texture"
 POL_DIR="pol"
 MESH_LEVEL="2"
+MAX_OBECTS_DIST="50" # meters
 output_index="0"
 REMAKE_TILE="no"
 TMPFILE="tmp$$"
@@ -1459,7 +1460,7 @@ if [ -f "$nfo_file" ] ; then
 fi
 
 log "Getting Cookies from Google Maps ..."
-# getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon" # TO BE REMOVE
+getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon" # TO BE REMOVE
 
 if [ "$RESTORE" = "no" ] ; then
 	if [ ! -z "$zoom_reference_lat" ] && [ ! -z "$zoom_reference_lon" ] ; then
@@ -1749,11 +1750,10 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
 
 		[ "$( uname -s )" = "Darwin" ] && list3Dobjects="$( echo "$placemarksanon" | sed -e 's/<id>/\'$'\n<id>/g' | sed -e 's/<\/id>/<\/id>\'$'\n/g' | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
-		[ "$( uname -s )" = "Linux"  ] && list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g | sed  -e s/"<\/id>"/"<\/id>\n"/g | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
+		[ "$( uname -s )" = "Linux"  ] && list3Dobjects="$( echo "$placemarksanon" | sed  -e s/"<id>"/"\n<id>"/g  | sed  -e s/"<\/id>"/"<\/id>\n"/g  | grep "^<id>" | tr "[]" " " | awk {'print $3'} )"
 
-		minRank3Dobjects="50"
 
-		log "Filtering by rating (min: $minRank3Dobjects ) ..."
+		log "Sorting by rating ..."
 		list3Dobjects="$( for i in $list3Dobjects ; do
 					ratings="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/ratings?mid=${i}" )"
 					[ -z "$ratings" ] && continue
@@ -1761,14 +1761,15 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					values=( $( echo "$ratings" | grep "<td nowrap><font size=\"-0\"><b>" | grep "</b></font></td></tr>" | sed 's/<[^>]*>//g' ) )
 					[ "${#values[*]}" -ne "3" ] && continue
 	
+
 					rank="$( awk 'BEGIN { printf "%.2f\n",  ( '${values[0]}' / '${values[2]}' ) * 100 }' )"
 	
-					[  "$( echo "scale = 8; ( $rank < $minRank3Dobjects )" | bc )" = "1" ] && continue
 	
 					log "Found object $i with rank $rank ..."
-					echo "$i"
+					echo "$rank $i"
 				done 
 		)"
+		list3Dobjects="$( echo "$list3Dobjects" | sort -n -r | awk {'print $2'}  )"
 		echo "LIST_3D_OBEJCTS=\"$( echo "$list3Dobjects" | tr "\n" " " )\"" >> "$nfo_file"
 	else
 		log "Restore list from cache ..."
@@ -1788,7 +1789,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1877,7 +1878,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -2032,7 +2033,7 @@ if [  "$DSF_CREATION" = "true" ] ; then
 fi
 
 for x in $( seq 0 $dim_x ) ; do
-	#break # TO BE REMOVED
+	# break # TO BE REMOVED
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
@@ -2502,7 +2503,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 	overLayDir="$tiles_dir/overlay"
 	OUTPUT="$output_dir"
-	list3Dobjects="7f584fe9dab11a9124db2ec9e26059e9" 	# colored at FE
+	# list3Dobjects="7f584fe9dab11a9124db2ec9e26059e9" 	# colored at FE TO BE REMOVED
   	# list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
 	# list3Dobjects="78d12ddd018d275e436b7f08482a6cf9"	# texture at FE castle
 	obj_index="0"
@@ -2519,6 +2520,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		if [ ! -s "$overLayDir/kmz/$name" ] ; then
 			log "Building not downloadable, skip ..."
 			rm -f "$overLayDir/kmz/$name"
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
 
 		fi
@@ -2530,27 +2532,28 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			log "Uncompression error, skip ..."
 			rm -fr "$kmlDir"
 			rm -f "$overLayDir/kmz/$name"
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
 		fi
 	
 		model_file="$( find $kmlDir -type f -iname "*.dae" | head -n 1 )"
 		if [ ! -f "$model_file" ] ; then
 			log "Unable to file model.dae, skip this overlay ..."
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
 		fi
 
 	        kml_file="$kmlDir/doc.kml"
 		if [ ! -f "$kml_file" ] ; then
 			log "Unable to find file doc.kml, skip this overlay ..."
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
 		fi
 
 	        model_dae="$(   cat "${model_file}" | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
 	        kml="$(         cat "${kml_file}"   | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
 	        Model="$(       getTagContent "$kml"    "<Model>"    )"
-	        #Location=( $(   getTagContent "$Model"  "<Location>"  | sort |  sed 's/<[^>]*>//g' | tr "\n" " " ) )
 		Location="$(	getTagContent "$Model"  "<Location>" )"
-
 		Location=( $( for c in "<altitude>" "<latitude>" "<longitude>" ; do
 				value=$( getTagContent "$Location" "$c" )
 				echo -n "$value  "
@@ -2580,6 +2583,22 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		if [ ! -f "$obj_list" ] ; then
 			log "Overlay is outside your scenery ..." 
 			rm -fr "$kmlDir"
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
+			continue
+		fi
+
+		log "Checking around buildings ..."
+		otherObj_coords="$( cat "$dsf_body" | grep "OBJECT" | awk '{ printf "%f_%f\n", $3, $4}' | sort -u | tr "\n" " " )"
+
+		neighbour="ok"
+		for i in $otherObj_coords ; do
+			dist="$( pointDist ${Location[2]} ${Location[1]} ${i/_/ } )"
+			[ "$( echo "scale = 8; $dist < $MAX_OBECTS_DIST" | bc )" = "1" ] && neighbour="no" && break
+		done
+		if [ "$neighbour" = "no" ] ; then
+			log "Building too close with others, skip ..."
+			rm -fr "$kmlDir"
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
 		fi
 
@@ -2608,6 +2627,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	        scale_factor="$( getTagContent "$model_dae" "<asset>" | grep "<unit" | tr " " "\n" | grep "meter=\"" | awk -F\" {'print $2'} )"
 	        [ -z "$scale_factor" ] && scale_factor="1.0"
 		log "Scale factor object $scale_factor ..."
+
+
+
 
 	        unset geometries; unset materials; unset images
 
@@ -2848,7 +2870,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			log "Writing $( basename -- "$objFile" ) object file ..."
 
                         echo "OBJECT_DEF objects/${name%.*}/$( basename -- "$objFile" )" 	  >> "$obj_list"
-                        echo "OBJECT $obj_index ${Location[2]} ${Location[1]} ${Location[0]} "    >> "$dsf_body"
+                        echo "OBJECT $obj_index ${Location[2]} ${Location[1]} ${Location[0]}"    >> "$dsf_body"
                 
 
         
