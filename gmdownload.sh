@@ -1299,7 +1299,8 @@ searchLeafs(){
 
 explodeDAEtoObjects(){
 	[ -f "$kmlDir/geometry_material_cache.dat" ] && rm -f "$kmlDir/geometry_material_cache.dat"
-	searchPathToMaterial "$( getTagContent "$1" "<node id=\"Model\"" )" 
+	#searchPathToMaterial "$( getTagContent "$1" "<node id=\"Model\"" )" 
+	searchPathToMaterial "$1" 
 
 	if [ -f "$kmlDir/geometry_material_cache.dat" ] ; then
 		log "Processing object without matrix transformation ..."
@@ -1399,12 +1400,12 @@ matrixApply(){
 
 
 if [ -z "$output_dir" ] ; then
-	log "Output directory missing..."
+	log "Output directory missing ..."
 	exit 1
 fi	
 
 if [ -d "$output_dir" ] ; then
-	log "Directory \"$output_dir\" already exists..."
+	log "Directory \"$output_dir\" already exists ..."
 else
 	log "Create directory \"$output_dir\"..."
 	mkdir "$output_dir"
@@ -1412,16 +1413,16 @@ fi
 
 
 if [ -d "$tiles_dir" ] ; then
-	log "Directory \"$tiles_dir\" already exists..."
+	log "Directory \"$tiles_dir\" already exists ..."
 else
-	log "Create directory \"$tiles_dir\"..."
+	log "Create directory \"$tiles_dir\" ..."
 	mkdir "$tiles_dir"
 fi
 
 
 for d in crd map tile mask dds dem ; do
 	if [ ! -d "$tiles_dir/$d" ] ; then
-		log "Create directory \"$tiles_dir/$d\"..."
+		log "Create directory \"$tiles_dir/$d\" ..."
 		mkdir -p "$tiles_dir/$d"
 	fi
 done
@@ -1433,9 +1434,9 @@ done
 
 output_sub_dir="Earth nav data"
 if [ -d "$output_dir/$output_sub_dir" ] ; then
-	log "Sub directory \"$output_sub_dir\" already exists..."
+	log "Sub directory \"$output_sub_dir\" already exists ..."
 else
-	log "Create sub directory \"$output_sub_dir\"..."
+	log "Create sub directory \"$output_sub_dir\" ..."
 	mkdir "$output_dir/$output_sub_dir"
 fi
 
@@ -1701,7 +1702,7 @@ fi
 
 
 if [ "$RESTORE" = "yes" ] ; then
-	log "Restoring section $nfo_file..."
+	log "Restoring section $nfo_file ..."
 	. "$nfo_file"
 	if 	[ -z "$dim_x" ] 		|| \
 	 	[ -z "$dim_y" ] 		|| \
@@ -1757,15 +1758,19 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		list3Dobjects="$( for i in $list3Dobjects ; do
 					ratings="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/ratings?mid=${i}" )"
 					[ -z "$ratings" ] && continue
-			
+
 					values=( $( echo "$ratings" | grep "<td nowrap><font size=\"-0\"><b>" | grep "</b></font></td></tr>" | sed 's/<[^>]*>//g' ) )
 					[ "${#values[*]}" -ne "3" ] && continue
 	
 
 					rank="$( awk 'BEGIN { printf "%.2f\n",  ( '${values[0]}' / '${values[2]}' ) * 100 }' )"
-	
-	
+
 					log "Found object $i with rank $rank ..."
+					log "Download preview for ${i} ..."
+					[ ! -d "$tiles_dir/overlay/previews" ] && mkdir -p "$tiles_dir/overlay/previews"
+					wget -q -O "$tiles_dir/overlay/previews/${i}.jpg" "http://sketchup.google.com/3dwarehouse/download?mid=${i}&rtyp=lt&ctyp=other"
+
+
 					echo "$rank $i"
 				done 
 		)"
@@ -1782,14 +1787,14 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 fi
 
 
-log "Download tiles..."
+log "Download tiles ..."
 cnt="1"
 tot="${#good_tile[@]}"
 
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1878,7 +1883,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	# break # TO BE REMOVED
+	break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -1968,18 +1973,18 @@ TEX_DIR="$output_dir/$TEX_DIR"
 POL_DIR="$output_dir/$POL_DIR"
 
 if [ ! -d  "$TEX_DIR" ] ; then
-        log "Creating directory $TEX_DIR..."
+        log "Creating directory $TEX_DIR ..."
         mkdir -p -- "$TEX_DIR"
 else
-        log "Directory $TEX_DIR already exists..."
+        log "Directory $TEX_DIR already exists ..."
 fi
 
 if [ "$MASH_SCENARY" = "no" ] ; then
 	if [ ! -d  "$POL_DIR" ] ; then
-	        log "Creating directory $POL_DIR..."
+	        log "Creating directory $POL_DIR ..."
 	        mkdir -p -- "$POL_DIR"
 	else
-	        log "Directory $POL_DIR already exists..."
+	        log "Directory $POL_DIR already exists ..."
 	fi
 fi
 
@@ -1987,10 +1992,10 @@ fi
 
 if [ "$MASH_SCENARY" = "yes" ] ; then
 	if [ ! -d  "$TER_DIR" ] ; then
-	        log "Creating directory $TER_DIR..."
+	        log "Creating directory $TER_DIR ..."
 	        mkdir -p -- "$TER_DIR"
 	else
-	        log "Directory $TER_DIR already exists..."
+	        log "Directory $TER_DIR already exists ..."
 	fi
 
 	log "Creating MESH grid using level $MESH_LEVEL ..."
@@ -2504,7 +2509,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	overLayDir="$tiles_dir/overlay"
 	OUTPUT="$output_dir"
 	# list3Dobjects="7f584fe9dab11a9124db2ec9e26059e9" 	# colored at FE TO BE REMOVED
-  	# list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
+  	list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
 	# list3Dobjects="78d12ddd018d275e436b7f08482a6cf9"	# texture at FE castle
 	obj_index="0"
 	cnt_3Dobjects="1"
@@ -2527,14 +2532,14 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 		kmlDir="$overLayDir/kml/${name%.*}"
 		[ ! -d "$kmlDir" ] && mkdir -p "$kmlDir"
-		unzip -o -q -d "$kmlDir" "$overLayDir/kmz/$name" &> /dev/null
-		if [ "$?" -ne "0" ] ; then
-			log "Uncompression error, skip ..."
-			rm -fr "$kmlDir"
-			rm -f "$overLayDir/kmz/$name"
-			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
-			continue
-		fi
+#		unzip -o -q -d "$kmlDir" "$overLayDir/kmz/$name" &> /dev/null
+#		if [ "$?" -ne "0" ] ; then
+#			log "Uncompression error, skip ..."
+#			rm -fr "$kmlDir"
+#			rm -f "$overLayDir/kmz/$name"
+#			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
+#			continue
+#		fi
 	
 		model_file="$( find $kmlDir -type f -iname "*.dae" | head -n 1 )"
 		if [ ! -f "$model_file" ] ; then
@@ -2560,7 +2565,46 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 				done ) 
 		)
 
+		if [ "$MASH_SCENARY" = "yes" ] ; then
+			setAltitudeEnv "${Location[2]}" "${Location[1]}" ; Location[0]="$(  getAltitude "${Location[2]}" "${Location[1]}" )"
+		fi
 		[ "$( echo "scale = 8; ${Location[0]} < 0.0" | bc )" = "1" ] && Location[0]="0.000000"
+		Location[0]="200.0" # TO BE REMOVE
+
+
+		rot_fix="0" # TO BE REMOVE
+		if [ "$rot_fix" != "0" ] ; then
+			l_lat="$( echo "scale = 8; ${Location[1]} - $lat_plane" | bc -l )"
+			l_lon="$( echo "scale = 8; ${Location[2]} - $lon_plane" | bc -l )"
+			l_lon="$( echo "scale = 8; $l_lon * c( ($pi/180) * $rot_fix ) - $l_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			l_lat="$( echo "scale = 8; $l_lon * s( ($pi/180) * $rot_fix ) + $l_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			Location[1]="$( echo "scale = 8; $l_lat + $lat_plane" | bc -l )"
+			Location[2]="$( echo "scale = 8; $l_lon + $lon_plane" | bc -l )"
+		fi
+
+
+
+
+		Orientation="$( getTagContent "$Model" "<Orientation>" )"; unset heading; unset tilt; unset roll
+		if [ ! -z "$Orientation" ] ; then
+			heading="$( 	getTagContent "$Orientation" "<heading>" )"	; [ -z "$heading" ] 	&& heading="0.0"
+			tilt="$( 	getTagContent "$Orientation" "<tilt>" )"	; [ -z "$tilt" ]	&& tilt="0.0"
+			roll="$( 	getTagContent "$Orientation" "<roll>" )"	; [ -z "$roll" ]        && roll="0.0"
+			heading="$(	awk 'BEGIN { printf "%f", ('$pi' / 180 ) * '$heading' 	}' )"
+			tilt="$(	awk 'BEGIN { printf "%f", ('$pi' / 180 ) * '$tilt' 	}' )"
+			roll="$(	awk 'BEGIN { printf "%f", ('$pi' / 180 ) * '$roll' 	}' )"
+
+			[ "$heading" = "-0.000000" ] 	&& heading="0.000000"
+			[ "$tilt" = "-0.000000" ] 	&& tilt="0.000000"
+			[ "$roll" = "-0.000000" ] 	&& roll="0.000000"
+
+			log "Orientation object $heading / $tilt / $roll radians ..."
+
+			[ "$( echo "scale = 8; $heading  == 0.0" | bc )" = "1" ] && unset heading
+			[ "$( echo "scale = 8; $tilt	 == 0.0" | bc )" = "1" ] && unset tilt
+			[ "$( echo "scale = 8; $roll 	 == 0.0" | bc )" = "1" ] && unset roll
+
+		fi		
 
 		unset obj_list; unset dsf_body
 		for i in ${dfs_list[*]} ; do
@@ -2596,7 +2640,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			[ "$( echo "scale = 8; $dist < $MAX_OBECTS_DIST" | bc )" = "1" ] && neighbour="no" && break
 		done
 		if [ "$neighbour" = "no" ] ; then
-			log "Building too close with others, skip ..."
+			log "Building too close with others ($dist meters), skip ..."
 			rm -fr "$kmlDir"
 			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
@@ -2608,6 +2652,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		else
 			obj_index="$[ $obj_index + 1 ]"
 		fi
+
+
 
 	        log "Loading library_images ..."
 	        library_images="$(        getTagContent "$model_dae" "<library_images>"         )"
@@ -2629,8 +2675,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		log "Scale factor object $scale_factor ..."
 
 
-
-
 	        unset geometries; unset materials; unset images
 
 		geometries=(	$( getTagList "$library_geometries" 	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
@@ -2638,6 +2682,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                 images=(	$( getTagList "$library_images" 	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 		nodes=(		$( getTagList "$library_nodes"         	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 
+
+
+		
 
 		log "Parsing textures and colors information ..."
 		cd "$( dirname -- "$model_file" )"
@@ -2697,13 +2744,13 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			[ "$( getTagList "$geometry" )" != "<mesh>" ] && continue
 
 			geometry="$( getTagContent "$geometry" "<mesh>" )"
-			material_name="$( getTagList "$library_materials" | grep "id=\"${material}\"" | tr " " "\n" | grep "name=\"" | awk -F\" {'print $2'} )" ; [ -z "$material" ] && continue
+			material_name="$( getTagList "$library_materials" | grep "id=\"${material}\"" | tr " " "\n" | grep "name=\"" | awk -F\" {'print $2'} )" 
 
+			[ -z "$material_name" ] && material_name="$( getTagContent "$library_visual_scenes" "<instance_material target=\"#${material}\"" | tr " " "\n" | grep "symbol=\"" | awk -F\" {'print $2'} )"
+			[ -z "$material_name" ] && material_name="$( getTagContent "$library_nodes" "<instance_material target=\"#${material}\"" | tr " " "\n" | grep "symbol=\"" | awk -F\" {'print $2'} )"
+			[ -z "$material_name" ] && log "Unkown link from material and geometry, skip ..." && continue
 
-			# material="material_0_5_0"
 			triangleData="$( getTagContent "$geometry" "<triangles material=\"$material_name\"" )"
-
-
                         texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i "${material}," | awk -F, {'print $2'}  )"
 
                 	log "$cnt_3Dobjects / $tot_3Dobjects: Creating object ${id} with material $material ..."
@@ -2715,17 +2762,20 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
 			log "Reading POSITION information ..."
-        	        cnt="0"; i="0"; unset position_array;
+        	        cnt="0"; i="0"; unset position_array; 
         	        for e in $(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" ) ; do
         	                line[$i]="$e"; i=$[ $i + 1 ]
         	                [ "${#line[*]}" -lt "3" ] && continue
 
 				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
+				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[0]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[1]}' * '$scale_factor' }' ) )
 
-	                        position_array[$cnt]="$( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }'  )"
+				position_array[$cnt]="${line[*]}"
+
         	                unset line; i="0"
                 	        cnt=$[ $cnt + 1 ]
                         done
+
 
 			log "Reading NORMAL information ..."
 	                cnt="0"; i="0"; unset normal_array
@@ -2794,6 +2844,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			log "Reading triangles information ..."
 	                cnt="0"; i="0"; unset array
 
+
 	                for e in $( getTagContent "$triangleData" "<p>" ) ; do
 	                        line[$i]="$e"; i=$[ $i + 1 ]
        	                        [ "${#line[*]}" -lt "$semantic_num" ] && continue
@@ -2808,7 +2859,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                                 cnt=$[ $cnt + 1 ]
                         done
 
-                        array_uniq="$( cnt="0"; while [ ! -z "${array[$cnt]}" ] ; do echo "${array[$cnt]}"; cnt=$[ $cnt + 1 ]; done | sort -u )"
+	                 array_uniq="$( cnt="0"; while [ ! -z "${array[$cnt]}" ] ; do echo "${array[$cnt]}"; cnt=$[ $cnt + 1 ]; done | sort -u )"
 			# array_uniq="$( echo "$array_uniq" | sed -e s/"x"/"0.000000 0.000000 0.000000"/g | sed -e s/"y"/"0.000000 0.000000 1.000000"/g | sed -e s/"z"/"0.000000 0.000000"/g )"
 
 			log "Checking $( echo "$array_uniq" | wc -l ) coordinates ..."
@@ -2879,7 +2930,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                         echo "800"                                                              >> "$objFile"
                         echo "OBJ"                                                              >> "$objFile"
                         echo                                                                    >> "$objFile"
-[ ! -z "$texturedds" ] && echo "TEXTURE ../../obj_texture/${name%.*}/$texturedds"               >> "$objFile"
+[ ! -z "$texturedds" ] 	&& echo "TEXTURE ../../obj_texture/${name%.*}/$texturedds"              >> "$objFile"
+[ "${#texture_color[*]}" -ge "3" ] && echo "TEXTURE"						>> "$objFile"
                        	echo                                                                    >> "$objFile"
                        	echo "POINT_COUNTS $VT_COUNT 0 0 ${#IDX[*]}"                            >> "$objFile"
                        	echo                                                                    >> "$objFile"
@@ -2905,7 +2957,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                        	echo "ATTR_no_blend"                                                    >> "$objFile"
 			echo "ATTR_no_cull"							>> "$objFile"
 			if [ "${#texture_color[*]}" -ge "3" ] ; then
-	echo "ATTR_emission_rgb ${texture_color[0]} ${texture_color[1]} ${texture_color[2]}"	>> "$objFile"
+	echo "ATTR_ambient_rgb ${texture_color[0]} ${texture_color[1]} ${texture_color[2]}"	>> "$objFile"
 			fi
 
                 	echo "TRIS 0 ${#IDX[*]}"                                                >> "$objFile"
@@ -2914,9 +2966,70 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			obj_index=$[ $obj_index + 1 ]
                 
 	        done 
-		# break # TO BE REMOVED
+
+
+		if [ ! -z "$heading" ] || [ ! -z "$tilt" ] || [ ! -z "$roll" ] ; then
+			log "Applying position transformation ..."
+			objDir="$OUTPUT/objects/${name%.*}"
+			unset position_min; unset position_max; unset position_avg;
+			while read line ; do
+				info=( ${line} )
+				if [ -z "$position_min" ] && [ -z "$position_max" ] ; then
+					position_min=( ${info[*]} )
+					position_max=( ${info[*]} )
+				else
+					position_min[0]="$( awk 'BEGIN { printf "%f", ('${info[0]}' < '${position_min[0]}' ) ? '${info[0]}' : '${position_min[0]}' }' )"
+					position_min[1]="$( awk 'BEGIN { printf "%f", ('${info[1]}' < '${position_min[1]}' ) ? '${info[1]}' : '${position_min[1]}' }' )"
+					position_min[2]="$( awk 'BEGIN { printf "%f", ('${info[2]}' < '${position_min[2]}' ) ? '${info[2]}' : '${position_min[2]}' }' )"
+	
+					position_max[0]="$( awk 'BEGIN { printf "%f", ('${info[0]}' > '${position_max[0]}' ) ? '${info[0]}' : '${position_max[0]}' }' )"
+					position_max[1]="$( awk 'BEGIN { printf "%f", ('${info[1]}' > '${position_max[1]}' ) ? '${info[1]}' : '${position_max[1]}' }' )"
+					position_max[2]="$( awk 'BEGIN { printf "%f", ('${info[2]}' > '${position_max[2]}' ) ? '${info[2]}' : '${position_max[2]}' }' )"
+				fi
+			done <<< "$( cat "$objDir/"* | grep "^VT" | awk '{ printf "%f %f %f\n", $2, $3, $4 }' )" 
+
+			# position_avg[0]="$( awk 'BEGIN { printf "%f", ('${position_min[0]}' + '${position_max[0]}' ) / 2.0 }' )"
+			# position_avg[1]="$( awk 'BEGIN { printf "%f", ('${position_min[1]}' + '${position_max[1]}' ) / 2.0 }' )"
+			# position_avg[2]="$( awk 'BEGIN { printf "%f", ('${position_min[2]}' + '${position_max[2]}' ) / 2.0 }' )"
+
+			position_avg[0]="${position_min[0]}"
+			position_avg[1]="${position_min[1]}"
+			position_avg[2]="${position_min[2]}"
+
+
+
+			find "$objDir" -type f | while read file ; do
+				log "Elaborating file ${name%.*}/$( basename $file ) ..."
+				while read line ; do
+					info=( ${line} )
+					[ "${info[0]}" != "VT" ] && echo "$line" && continue
+					coord=( ${info[1]} ${info[2]} ${info[3]} )
+
+					if [ ! -z "$roll" ] ; then
+					coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$roll') * ( '${coord[0]}' - '${position_avg[0]}' ) ) - ( sin('$roll') * ( '${coord[1]}' - '${position_avg[1]}' ) ) + '${position_avg[0]}' }' )"
+					coord[1]="$( awk 'BEGIN { printf "%f", ( sin('$roll') * ( '${coord[0]}' - '${position_avg[0]}' ) ) + ( cos('$roll') * ( '${coord[1]}' - '${position_avg[1]}' ) ) + '${position_avg[1]}' }' )"
+					fi
+
+					if [ ! -z "$heading" ] ; then
+					coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$heading') * ( '${coord[0]}' - '${position_avg[0]}' ) ) - ( sin('$heading') * ( '${coord[2]}' - '${position_avg[2]}' ) ) + '${position_avg[0]}' }' )"
+					coord[2]="$( awk 'BEGIN { printf "%f", ( sin('$heading') * ( '${coord[0]}' - '${position_avg[0]}' ) ) + ( cos('$heading') * ( '${coord[2]}' - '${position_avg[2]}' ) ) + '${position_avg[2]}' }' )"
+					fi
+
+
+					echo "VT ${coord[*]} ${info[4]} ${info[5]} ${info[6]} ${info[7]} ${info[8]}"
+
+				done < "$file" > "${file}.rot"
+				mv "${file}.rot" "$file"
+			done
+
+		fi
+
+		break # TO BE REMOVED
 		cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 	done
+
+
+
 fi
 
 ################################################################################################################################
