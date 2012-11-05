@@ -1794,7 +1794,7 @@ tot="${#good_tile[@]}"
 SHIT_COLOR="E4E3DF"
 
 for c2 in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	log  "$cnt / $tot"
 
 	[ "$( testImage "$tiles_dir/tile/tile-$c2.png" )" != "good" ] && rm -f "$tiles_dir/tile/tile-$c2.png"
@@ -1883,7 +1883,7 @@ tot="${#good_tile[@]}"
 # REMAKE_TILE="yes"
 
 for cursor_huge in ${good_tile[@]} ; do
-	break # TO BE REMOVED
+	# break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
 	log "$prog / $tot"
@@ -2075,34 +2075,34 @@ for x in $( seq 0 $dim_x ) ; do
 			ll_lon="$ori_ul_lon"
 		else
 			# With rotation...
-			ul_lat="$( echo "scale = 8; $ori_ul_lat - $lat_plane" | bc -l )"
-			ul_lon="$( echo "scale = 8; $ori_ul_lon - $lon_plane" | bc -l )"
-			ul_lon="$( echo "scale = 8; $ul_lon * c( ($pi/180) * $rot_fix ) - $ul_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-			ul_lat="$( echo "scale = 8; $ul_lon * s( ($pi/180) * $rot_fix ) + $ul_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-			ul_lat="$( echo "scale = 8; $ul_lat + $lat_plane" | bc -l )"
-			ul_lon="$( echo "scale = 8; $ul_lon + $lon_plane" | bc -l )"
+			ul_lat="$(   echo "scale = 8; $ori_ul_lat - $lat_plane" | bc -l )"
+			ul_lon="$(   echo "scale = 8; $ori_ul_lon - $lon_plane" | bc -l )"
+			ul_lon_n="$( echo "scale = 8; $ul_lon * c( ($pi/180) * $rot_fix ) - $ul_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			ul_lat_n="$( echo "scale = 8; $ul_lon * s( ($pi/180) * $rot_fix ) + $ul_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			ul_lat="$(   echo "scale = 8; $ul_lat_n + $lat_plane" | bc -l )"
+			ul_lon="$(   echo "scale = 8; $ul_lon_n + $lon_plane" | bc -l )"
 
-			ur_lat="$( echo "scale = 8; $ori_ul_lat - $lat_plane" | bc -l )"
-			ur_lon="$( echo "scale = 8; $ori_lr_lon - $lon_plane" | bc -l )"
-			ur_lon="$( echo "scale = 8; $ur_lon * c( ($pi/180) * $rot_fix ) - $ur_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-			ur_lat="$( echo "scale = 8; $ur_lon * s( ($pi/180) * $rot_fix ) + $ur_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-			ur_lat="$( echo "scale = 8; $ur_lat + $lat_plane" | bc -l )"
-			ur_lon="$( echo "scale = 8; $ur_lon + $lon_plane" | bc -l )"
+			ur_lat="$(   echo "scale = 8; $ori_ul_lat - $lat_plane" | bc -l )"
+			ur_lon="$(   echo "scale = 8; $ori_lr_lon - $lon_plane" | bc -l )"
+			ur_lon_n="$( echo "scale = 8; $ur_lon * c( ($pi/180) * $rot_fix ) - $ur_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			ur_lat_n="$( echo "scale = 8; $ur_lon * s( ($pi/180) * $rot_fix ) + $ur_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			ur_lat="$(   echo "scale = 8; $ur_lat_n + $lat_plane" | bc -l )"
+			ur_lon="$(   echo "scale = 8; $ur_lon_n + $lon_plane" | bc -l )"
 
-			lr_lat="$( echo "scale = 8; $ori_lr_lat - $lat_plane" | bc -l )"
-			lr_lon="$( echo "scale = 8; $ori_lr_lon - $lon_plane" | bc -l )"
-			lr_lon="$( echo "scale = 8; $lr_lon * c( ($pi/180) * $rot_fix ) - $lr_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-			lr_lat="$( echo "scale = 8; $lr_lon * s( ($pi/180) * $rot_fix ) + $lr_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-			lr_lat="$( echo "scale = 8; $lr_lat + $lat_plane" | bc -l )"
-			lr_lon="$( echo "scale = 8; $lr_lon + $lon_plane" | bc -l )"
+			lr_lat="$(   echo "scale = 8; $ori_lr_lat - $lat_plane" | bc -l )"
+			lr_lon="$(   echo "scale = 8; $ori_lr_lon - $lon_plane" | bc -l )"
+			lr_lon_n="$( echo "scale = 8; $lr_lon * c( ($pi/180) * $rot_fix ) - $lr_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			lr_lat_n="$( echo "scale = 8; $lr_lon * s( ($pi/180) * $rot_fix ) + $lr_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			lr_lat="$(   echo "scale = 8; $lr_lat_n + $lat_plane" | bc -l )"
+			lr_lon="$(   echo "scale = 8; $lr_lon_n + $lon_plane" | bc -l )"
 
 
-			ll_lat="$( echo "scale = 8; $ori_lr_lat - $lat_plane" | bc -l )"
-			ll_lon="$( echo "scale = 8; $ori_ul_lon - $lon_plane" | bc -l )"
-			ll_lon="$( echo "scale = 8; $ll_lon * c( ($pi/180) * $rot_fix ) - $ll_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-			ll_lat="$( echo "scale = 8; $ll_lon * s( ($pi/180) * $rot_fix ) + $ll_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-			ll_lat="$( echo "scale = 8; $ll_lat + $lat_plane" | bc -l )"
-			ll_lon="$( echo "scale = 8; $ll_lon + $lon_plane" | bc -l )"
+			ll_lat="$(   echo "scale = 8; $ori_lr_lat - $lat_plane" | bc -l )"
+			ll_lon="$(   echo "scale = 8; $ori_ul_lon - $lon_plane" | bc -l )"
+			ll_lon_n="$( echo "scale = 8; $ll_lon * c( ($pi/180) * $rot_fix ) - $ll_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			ll_lat_n="$( echo "scale = 8; $ll_lon * s( ($pi/180) * $rot_fix ) + $ll_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			ll_lat="$(   echo "scale = 8; $ll_lat_n + $lat_plane" | bc -l )"
+			ll_lon="$(   echo "scale = 8; $ll_lon_n + $lon_plane" | bc -l )"
 
 		fi
 
@@ -2509,7 +2509,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	overLayDir="$tiles_dir/overlay"
 	OUTPUT="$output_dir"
 	# list3Dobjects="7f584fe9dab11a9124db2ec9e26059e9" 	# colored at FE TO BE REMOVED
-  	list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
+  	# list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
 	# list3Dobjects="78d12ddd018d275e436b7f08482a6cf9"	# texture at FE castle
 	obj_index="0"
 	cnt_3Dobjects="1"
@@ -2569,17 +2569,15 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			setAltitudeEnv "${Location[2]}" "${Location[1]}" ; Location[0]="$(  getAltitude "${Location[2]}" "${Location[1]}" )"
 		fi
 		[ "$( echo "scale = 8; ${Location[0]} < 0.0" | bc )" = "1" ] && Location[0]="0.000000"
-		Location[0]="200.0" # TO BE REMOVE
 
-
-		rot_fix="0" # TO BE REMOVE
+		# rot_fix="0" # TO BE REMOVE
 		if [ "$rot_fix" != "0" ] ; then
 			l_lat="$( echo "scale = 8; ${Location[1]} - $lat_plane" | bc -l )"
 			l_lon="$( echo "scale = 8; ${Location[2]} - $lon_plane" | bc -l )"
-			l_lon="$( echo "scale = 8; $l_lon * c( ($pi/180) * $rot_fix ) - $l_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
-			l_lat="$( echo "scale = 8; $l_lon * s( ($pi/180) * $rot_fix ) + $l_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-			Location[1]="$( echo "scale = 8; $l_lat + $lat_plane" | bc -l )"
-			Location[2]="$( echo "scale = 8; $l_lon + $lon_plane" | bc -l )"
+			l_lon_n="$( echo "scale = 8; $l_lon * c( ($pi/180) * $rot_fix ) - $l_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+			l_lat_n="$( echo "scale = 8; $l_lon * s( ($pi/180) * $rot_fix ) + $l_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+			Location[1]="$( echo "scale = 8; $l_lat_n + $lat_plane" | bc -l )"
+			Location[2]="$( echo "scale = 8; $l_lon_n + $lon_plane" | bc -l )"
 		fi
 
 
@@ -2971,32 +2969,19 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		if [ ! -z "$heading" ] || [ ! -z "$tilt" ] || [ ! -z "$roll" ] ; then
 			log "Applying position transformation ..."
 			objDir="$OUTPUT/objects/${name%.*}"
-			unset position_min; unset position_max; unset position_avg;
+			unset position_avg; position_sum=( "0.0" "0.0" "0.0" );
+			cnt="0"
 			while read line ; do
 				info=( ${line} )
-				if [ -z "$position_min" ] && [ -z "$position_max" ] ; then
-					position_min=( ${info[*]} )
-					position_max=( ${info[*]} )
-				else
-					position_min[0]="$( awk 'BEGIN { printf "%f", ('${info[0]}' < '${position_min[0]}' ) ? '${info[0]}' : '${position_min[0]}' }' )"
-					position_min[1]="$( awk 'BEGIN { printf "%f", ('${info[1]}' < '${position_min[1]}' ) ? '${info[1]}' : '${position_min[1]}' }' )"
-					position_min[2]="$( awk 'BEGIN { printf "%f", ('${info[2]}' < '${position_min[2]}' ) ? '${info[2]}' : '${position_min[2]}' }' )"
-	
-					position_max[0]="$( awk 'BEGIN { printf "%f", ('${info[0]}' > '${position_max[0]}' ) ? '${info[0]}' : '${position_max[0]}' }' )"
-					position_max[1]="$( awk 'BEGIN { printf "%f", ('${info[1]}' > '${position_max[1]}' ) ? '${info[1]}' : '${position_max[1]}' }' )"
-					position_max[2]="$( awk 'BEGIN { printf "%f", ('${info[2]}' > '${position_max[2]}' ) ? '${info[2]}' : '${position_max[2]}' }' )"
-				fi
+				position_sum[0]="$( awk 'BEGIN { printf "%f", '${position_sum[0]}' + '${info[0]}' }' )"
+				position_sum[1]="$( awk 'BEGIN { printf "%f", '${position_sum[1]}' + '${info[1]}' }' )"
+				position_sum[2]="$( awk 'BEGIN { printf "%f", '${position_sum[2]}' + '${info[2]}' }' )"
+				cnt=$[ $cnt + 1 ]
 			done <<< "$( cat "$objDir/"* | grep "^VT" | awk '{ printf "%f %f %f\n", $2, $3, $4 }' )" 
 
-			# position_avg[0]="$( awk 'BEGIN { printf "%f", ('${position_min[0]}' + '${position_max[0]}' ) / 2.0 }' )"
-			# position_avg[1]="$( awk 'BEGIN { printf "%f", ('${position_min[1]}' + '${position_max[1]}' ) / 2.0 }' )"
-			# position_avg[2]="$( awk 'BEGIN { printf "%f", ('${position_min[2]}' + '${position_max[2]}' ) / 2.0 }' )"
-
-			position_avg[0]="${position_min[0]}"
-			position_avg[1]="${position_min[1]}"
-			position_avg[2]="${position_min[2]}"
-
-
+			position_avg[0]="$( awk 'BEGIN { printf "%f", '${position_sum[0]}' / '$cnt' }' )"
+			position_avg[1]="$( awk 'BEGIN { printf "%f", '${position_sum[1]}' / '$cnt' }' )"
+			position_avg[2]="$( awk 'BEGIN { printf "%f", '${position_sum[2]}' / '$cnt' }' )"
 
 			find "$objDir" -type f | while read file ; do
 				log "Elaborating file ${name%.*}/$( basename $file ) ..."
@@ -3005,15 +2990,28 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					[ "${info[0]}" != "VT" ] && echo "$line" && continue
 					coord=( ${info[1]} ${info[2]} ${info[3]} )
 
-					if [ ! -z "$roll" ] ; then
-					coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$roll') * ( '${coord[0]}' - '${position_avg[0]}' ) ) - ( sin('$roll') * ( '${coord[1]}' - '${position_avg[1]}' ) ) + '${position_avg[0]}' }' )"
-					coord[1]="$( awk 'BEGIN { printf "%f", ( sin('$roll') * ( '${coord[0]}' - '${position_avg[0]}' ) ) + ( cos('$roll') * ( '${coord[1]}' - '${position_avg[1]}' ) ) + '${position_avg[1]}' }' )"
+					if [ ! -z "$heading" ] ; then
+					coord_new[0]="$( awk 'BEGIN { printf "%f", ( cos('$heading') * '${coord[0]}' ) - ( sin('$heading') * '${coord[2]}' ) }' )"
+					coord_new[2]="$( awk 'BEGIN { printf "%f", ( sin('$heading') * '${coord[0]}' ) + ( cos('$heading') * '${coord[2]}' ) }' )"
+					coord=( ${coord_new[0]} ${coord[1]} ${coord_new[2]} )
 					fi
 
-					if [ ! -z "$heading" ] ; then
-					coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$heading') * ( '${coord[0]}' - '${position_avg[0]}' ) ) - ( sin('$heading') * ( '${coord[2]}' - '${position_avg[2]}' ) ) + '${position_avg[0]}' }' )"
-					coord[2]="$( awk 'BEGIN { printf "%f", ( sin('$heading') * ( '${coord[0]}' - '${position_avg[0]}' ) ) + ( cos('$heading') * ( '${coord[2]}' - '${position_avg[2]}' ) ) + '${position_avg[2]}' }' )"
+					if [ ! -z "$roll" ] ; then
+					coord_new[0]="$( awk 'BEGIN { printf "%f", ( cos('$roll') * '${coord[0]}' ) - ( sin('$roll') * '${coord[1]}' ) }' )"
+					coord_new[1]="$( awk 'BEGIN { printf "%f", ( sin('$roll') * '${coord[0]}' ) + ( cos('$roll') * '${coord[1]}' ) }' )"
+					coord=( ${coord_new[0]} ${coord_new[1]} ${coord[2]} )
 					fi
+
+					if [ ! -z "$tilt" ] ; then
+					coord_new[1]="$( awk 'BEGIN { printf "%f", ( cos('$roll') * '${coord[1]}' ) - ( sin('$roll') * '${coord[2]}' ) }' )"
+					coord_new[2]="$( awk 'BEGIN { printf "%f", ( sin('$roll') * '${coord[1]}' ) + ( cos('$roll') * '${coord[2]}' ) }' )"
+					coord=( ${coord[0]} ${coord_new[1]} ${coord[2]} )
+					fi
+
+
+					coord[0]="$( awk 'BEGIN { printf "%f", '${coord[0]}' + '${position_avg[0]}' }' )"
+					coord[1]="$( awk 'BEGIN { printf "%f", '${coord[1]}' + '${position_avg[1]}' }' )"
+					coord[2]="$( awk 'BEGIN { printf "%f", '${coord[2]}' + '${position_avg[2]}' }' )"
 
 
 					echo "VT ${coord[*]} ${info[4]} ${info[5]} ${info[6]} ${info[7]} ${info[8]}"
