@@ -2532,14 +2532,14 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 		kmlDir="$overLayDir/kml/${name%.*}"
 		[ ! -d "$kmlDir" ] && mkdir -p "$kmlDir"
-#		unzip -o -q -d "$kmlDir" "$overLayDir/kmz/$name" &> /dev/null
-#		if [ "$?" -ne "0" ] ; then
-#			log "Uncompression error, skip ..."
-#			rm -fr "$kmlDir"
-#			rm -f "$overLayDir/kmz/$name"
-#			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
-#			continue
-#		fi
+		unzip -o -q -d "$kmlDir" "$overLayDir/kmz/$name" &> /dev/null
+		if [ "$?" -ne "0" ] ; then
+			log "Uncompression error, skip ..."
+			rm -fr "$kmlDir"
+			rm -f "$overLayDir/kmz/$name"
+			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
+			continue
+		fi
 	
 		model_file="$( find $kmlDir -type f -iname "*.dae" | head -n 1 )"
 		if [ ! -f "$model_file" ] ; then
@@ -2601,6 +2601,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			[ "$( echo "scale = 8; $heading  == 0.0" | bc )" = "1" ] && unset heading
 			[ "$( echo "scale = 8; $tilt	 == 0.0" | bc )" = "1" ] && unset tilt
 			[ "$( echo "scale = 8; $roll 	 == 0.0" | bc )" = "1" ] && unset roll
+
 
 		fi		
 
@@ -2760,15 +2761,20 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
 			log "Reading POSITION information ..."
-        	        cnt="0"; i="0"; unset position_array; 
+        	        cnt="0"; i="0"; unset position_array
+			default_rot="$( awk 'BEGIN { printf "%f", '$pi' * 3.0 / 2.0  }' )"
         	        for e in $(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" ) ; do
         	                line[$i]="$e"; i=$[ $i + 1 ]
         	                [ "${#line[*]}" -lt "3" ] && continue
 
 				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
-				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[0]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[1]}' * '$scale_factor' }' ) )
+				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }' ) )
 
-				position_array[$cnt]="${line[*]}"
+				coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[2]}' ) }' )"
+				coord[1]="${line[1]}"
+				coord[2]="$( awk 'BEGIN { printf "%f", ( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[2]}' ) }' )"
+				# position_array[$cnt]="${line[*]}"
+				position_array[$cnt]="${coord[*]}"
 
         	                unset line; i="0"
                 	        cnt=$[ $cnt + 1 ]
@@ -2990,6 +2996,10 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					[ "${info[0]}" != "VT" ] && echo "$line" && continue
 					coord=( ${info[1]} ${info[2]} ${info[3]} )
 
+					#coord[0]="$( awk 'BEGIN { printf "%f", '${coord[0]}' - '${position_avg[0]}' }' )"
+					#coord[1]="$( awk 'BEGIN { printf "%f", '${coord[1]}' - '${position_avg[1]}' }' )"
+					#coord[2]="$( awk 'BEGIN { printf "%f", '${coord[2]}' - '${position_avg[2]}' }' )"
+
 					if [ ! -z "$heading" ] ; then
 					coord_new[0]="$( awk 'BEGIN { printf "%f", ( cos('$heading') * '${coord[0]}' ) - ( sin('$heading') * '${coord[2]}' ) }' )"
 					coord_new[2]="$( awk 'BEGIN { printf "%f", ( sin('$heading') * '${coord[0]}' ) + ( cos('$heading') * '${coord[2]}' ) }' )"
@@ -3009,9 +3019,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					fi
 
 
-					coord[0]="$( awk 'BEGIN { printf "%f", '${coord[0]}' + '${position_avg[0]}' }' )"
-					coord[1]="$( awk 'BEGIN { printf "%f", '${coord[1]}' + '${position_avg[1]}' }' )"
-					coord[2]="$( awk 'BEGIN { printf "%f", '${coord[2]}' + '${position_avg[2]}' }' )"
+					#coord[0]="$( awk 'BEGIN { printf "%f", '${coord[0]}' + '${position_avg[0]}' }' )"
+					#coord[1]="$( awk 'BEGIN { printf "%f", '${coord[1]}' + '${position_avg[1]}' }' )"
+					#coord[2]="$( awk 'BEGIN { printf "%f", '${coord[2]}' + '${position_avg[2]}' }' )"
 
 
 					echo "VT ${coord[*]} ${info[4]} ${info[5]} ${info[6]} ${info[7]} ${info[8]}"
@@ -3022,7 +3032,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 		fi
 
-		break # TO BE REMOVED
+		# break # TO BE REMOVED
 		cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 	done
 
