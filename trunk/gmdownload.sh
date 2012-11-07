@@ -2511,6 +2511,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	# list3Dobjects="7f584fe9dab11a9124db2ec9e26059e9" 	# colored at FE TO BE REMOVED
   	# list3Dobjects="7a59bdf06bd3a99eb6e43a42b4402e82" 	# texture at FE 
 	# list3Dobjects="78d12ddd018d275e436b7f08482a6cf9"	# texture at FE castle
+	list3Dobjects="eb7cc7e40cddf6b3c77db9f205e27a96"
 	obj_index="0"
 	cnt_3Dobjects="1"
 	tot_3Dobjects="$( echo "$list3Dobjects" | wc -l | tr -d " " )"
@@ -2750,6 +2751,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			[ -z "$material_name" ] && log "Unkown link from material and geometry, skip ..." && continue
 
 			triangleData="$( getTagContent "$geometry" "<triangles material=\"$material_name\"" )"
+			[ -z "$triangleData" ] && continue
+
                         texture="$( echo "${texture_list[*]}" | tr " " "\n" | grep -i "${material}," | awk -F, {'print $2'}  )"
 
                 	log "$cnt_3Dobjects / $tot_3Dobjects: Creating object ${id} with material $material ..."
@@ -2773,7 +2776,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 				coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[2]}' ) }' )"
 				coord[1]="${line[1]}"
 				coord[2]="$( awk 'BEGIN { printf "%f", ( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[2]}' ) }' )"
-				# position_array[$cnt]="${line[*]}"
 				position_array[$cnt]="${coord[*]}"
 
         	                unset line; i="0"
@@ -3027,7 +3029,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					echo "VT ${coord[*]} ${info[4]} ${info[5]} ${info[6]} ${info[7]} ${info[8]}"
 
 				done < "$file" > "${file}.rot"
-				mv "${file}.rot" "$file"
+				cp "${file}.rot" "$file"
 			done
 
 		fi
