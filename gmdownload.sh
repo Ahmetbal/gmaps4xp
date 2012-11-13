@@ -1742,7 +1742,6 @@ fi
 #########################################################################3
 
 
-
 if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 	log "Buildings overlay getting information ..."
@@ -1756,13 +1755,16 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 		log "Sorting by rating ..."
 		list3Dobjects="$( for i in $list3Dobjects ; do
+					blueribbon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/brief?hl=en&mid=${i}" | grep "main_blueribbon_sm" )"
+					[ -z "$blueribbon" ] && continue
+
 					ratings="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/ratings?mid=${i}" )"
 					[ -z "$ratings" ] && continue
 
 					values=( $( echo "$ratings" | grep "<td nowrap><font size=\"-0\"><b>" | grep "</b></font></td></tr>" | sed 's/<[^>]*>//g' ) )
 					[ "${#values[*]}" -ne "3" ] && continue
 	
-
+		
 					rank="$( awk 'BEGIN { printf "%.2f\n",  ( '${values[0]}' / '${values[2]}' ) * 100 }' )"
 
 					log "Found object $i with rank $rank ..."
@@ -2630,20 +2632,20 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			continue
 		fi
 
-		log "Checking around buildings ..."
-		otherObj_coords="$( cat "$dsf_body" | grep "OBJECT" | awk '{ printf "%f_%f\n", $3, $4}' | sort -u | tr "\n" " " )"
-
-		neighbour="ok"
-		for i in $otherObj_coords ; do
-			dist="$( pointDist ${Location[2]} ${Location[1]} ${i/_/ } )"
-			[ "$( echo "scale = 8; $dist < $MAX_OBECTS_DIST" | bc )" = "1" ] && neighbour="no" && break
-		done
-		if [ "$neighbour" = "no" ] ; then
-			log "Building too close with others ($dist meters), skip ..."
-			rm -fr "$kmlDir"
-			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
-			continue
-		fi
+#		log "Checking around buildings ..."
+#		otherObj_coords="$( cat "$dsf_body" | grep "OBJECT" | awk '{ printf "%f_%f\n", $3, $4}' | sort -u | tr "\n" " " )"
+#
+#		neighbour="ok"
+#		for i in $otherObj_coords ; do
+#			dist="$( pointDist ${Location[2]} ${Location[1]} ${i/_/ } )"
+#			[ "$( echo "scale = 8; $dist < $MAX_OBECTS_DIST" | bc )" = "1" ] && neighbour="no" && break
+#		done
+#		if [ "$neighbour" = "no" ] ; then
+#			log "Building too close with others ($dist meters), skip ..."
+#			rm -fr "$kmlDir"
+#			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
+#			continue
+#		fi
 
 		obj_index="$( cat "$dsf_body" | grep "OBJECT" | tail -n 1 | awk {'print $2'} )"
 		if [ -z "$obj_index" ] ; then 
@@ -2827,7 +2829,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 				if [ ! -z "$texturepng" ] && [ ! -f "$OUTPUT/obj_texture/${name%.*}/$texturedds" ] ; then
 					"$ddstool" --png2dxt args1 args2 "$OUTPUT/obj_texture/${name%.*}/$texturepng" "$OUTPUT/obj_texture/${name%.*}/$texturedds"
-					#rm -f "$OUTPUT/obj_texture/${name%.*}/$texturepng"
+					rm -f "$OUTPUT/obj_texture/${name%.*}/$texturepng"
 				fi
 			else
 				texture_color=( $( echo "$texture" | tr "_" " " ) )
