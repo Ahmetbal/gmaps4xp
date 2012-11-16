@@ -426,7 +426,7 @@ swget(){
 			--header='Accept-Encoding: deflate,sdch' \
 			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
 			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
-			--header="Cookie: $COOKIES" -q -S --spider "$url" )"
+			--header="Cookie: $COOKIES" -S --spider "$url" )"
 	
 	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
 		log "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
@@ -1099,8 +1099,11 @@ EOM
 setAltitudeEnv(){
 	lon="$1"
 	lat="$2"
-	srtm_x="$( awk 'BEGIN { printf "%02d", int( ( 180 + '$lon'  		  ) / ( 360 / 72 ) ) + 1 }' )"
-	srtm_y="$( awk 'BEGIN { printf "%02d", int( ( 60  - '$lat' + ( 120 / 24 ) ) / ( 120 / 24 ) )	 }' )"
+	[ -z "$lon" ] && exit 1
+	[ -z "$lat" ] && exit 1
+
+	srtm_x="$( awk 'BEGIN { printf "%02d", int( ( 180 + '"$lon"'  		  ) / ( 360 / 72 ) ) + 1 }' )"
+	srtm_y="$( awk 'BEGIN { printf "%02d", int( ( 60  - '"$lat"' + ( 120 / 24 ) ) / ( 120 / 24 ) )	 }' )"
 	dem="srtm_${srtm_x}_${srtm_y}"
 
 	if [ "${DemInMemory}" != "$dem" ] ; then
@@ -1495,7 +1498,7 @@ if [ "$RESTORE" = "no" ] ; then
 			exit 4
 	
 		fi
-		[ -z "$( echo "$remote" | grep "404 Not Found" )" ] && break
+		[ -z "$( echo "$remote" | grep -i "404 Not Found" )" ] && break
 		log "Layer does not exist, dezooming one step..."
 		cursor_reference="$( echo "$cursor_reference"  | rev | cut -c 2- | rev  )"
 
@@ -2557,10 +2560,28 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			continue
 		fi
 
-	        model_dae="$(   cat "${model_file}" | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
-	        kml="$(         cat "${kml_file}"   | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
+		if [ "$( uname -s )" = "Linux" ] ; then
+		        model_dae="$(   cat "${model_file}" | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
+		        kml="$(         cat "${kml_file}"   | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
+		fi
+		if [ "$( uname -s )" = "Darwin" ] ; then
+		        model_dae="$(   cat "${model_file}" | tr -d "\r" | perl -pe 's/</\n</g' | perl -pe 's/>/>\n/g' | awk 'NF' 2> /dev/null )"
+		        kml="$(         cat "${kml_file}"   | tr -d "\r" | perl -pe 's/</\n</g' | perl -pe 's/>/>\n/g' | awk 'NF' 2> /dev/null )"
+		fi
+		
+		if [ -z "$model_dae" ] ; then
+			log "ERROR: Unable to load model file!"
+			exit 2
+		fi
+
+		if [ -z "$kml" ] ; then
+			log "ERROR: Unable to load KML file!"
+			exit 2
+		fi
+
 	        Model="$(       getTagContent "$kml"    "<Model>"    )"
 		Location="$(	getTagContent "$Model"  "<Location>" )"
+
 		Location=( $( for c in "<altitude>" "<latitude>" "<longitude>" ; do
 				value=$( getTagContent "$Location" "$c" )
 				echo -n "$value  "
@@ -2570,6 +2591,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		if [ "$MASH_SCENARY" = "yes" ] ; then
 			setAltitudeEnv "${Location[2]}" "${Location[1]}" ; Location[0]="$(  getAltitude "${Location[2]}" "${Location[1]}" )"
 		fi
+
 		[ "$( echo "scale = 8; ${Location[0]} < 0.0" | bc )" = "1" ] && Location[0]="0.000000"
 
 		# rot_fix="0" # TO BE REMOVE
@@ -2682,10 +2704,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		materials=( 	$( getTagList "$library_materials"	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
                 images=(	$( getTagList "$library_images" 	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 		nodes=(		$( getTagList "$library_nodes"         	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
-
-
-
-		
 
 		log "Parsing textures and colors information ..."
 		cd "$( dirname -- "$model_file" )"
