@@ -2595,6 +2595,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		[ "$( echo "scale = 8; ${Location[0]} < 0.0" | bc )" = "1" ] && Location[0]="0.000000"
 
 		# rot_fix="0" # TO BE REMOVE
+		Location[2]="$( awk 'BEGIN { printf "%f", '${Location[2]}' + '$lon_fix' }' )"
+		Location[1]="$( awk 'BEGIN { printf "%f", '${Location[1]}' + '$lat_fix' }' )"
+	
 		if [ "$rot_fix" != "0" ] ; then
 			l_lat="$( echo "scale = 8; ${Location[1]} - $lat_plane" | bc -l )"
 			l_lon="$( echo "scale = 8; ${Location[2]} - $lon_plane" | bc -l )"
@@ -2783,7 +2786,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
 			log "Reading POSITION information ..."
-        	        cnt="0"; i="0"; unset position_array
+        	        cnt="0"; i="0"; unset position_array; unset coord
 			default_rot="$( awk 'BEGIN { printf "%f", '$pi' * 3.0 / 2.0  }' )"
         	        for e in $(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" ) ; do
         	                line[$i]="$e"; i=$[ $i + 1 ]
@@ -2791,7 +2794,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
 				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }' ) )
-
 				coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[2]}' ) }' )"
 				coord[1]="${line[1]}"
 				coord[2]="$( awk 'BEGIN { printf "%f", ( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[2]}' ) }' )"
