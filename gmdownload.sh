@@ -1,25 +1,19 @@
 #!/bin/bash  
 
 
-if [ "$( uname -s )" = "Darwin" ] ; then
-	export LC_ALL="us"
-	export LANG="us"
-	export LC_NUMERIC="us"
-	export LC_COLLATE="us"
-	export LC_CTYPE="us"
-	export LC_MESSAGES="us"
-	export LC_MONETARY="us"
-	export LC_NUMERIC="us"
-	export LC_TIME="us"     
-else
-	export LANG="en_US.UTF-8"
-	export LC_ALL="en_US.UTF-8"
-fi
+export LC_ALL="en_US.UTF-8"
+export LANG="en_US.UTF-8"
+export LC_NUMERIC="en_US.UTF-8"
+export LC_COLLATE="en_US.UTF-8"
+export LC_CTYPE="en_US.UTF-8"
+export LC_MESSAGES="en_US.UTF-8"
+export LC_MONETARY="en_US.UTF-8"
+export LC_NUMERIC="en_US.UTF-8"
+export LC_TIME="en_US.UTF-8"     
 
 
 servers_tile=( khm0.google.com khm1.google.com khm2.google.com khm3.google.com )
 servers_maps=( mt0.google.com  mt1.google.com  mt2.google.com  mt3.google.com  )
-OSM="no"
 server_index="0"
 SLEEP_TIME="1"
 MAX_PERC_COVER="1"
@@ -1344,7 +1338,10 @@ searchPathToMaterial(){
 			instance_material="$( echo "${tokens[$num_tokens]}" 	| tr " " "\n" | grep "target=\"" | awk -F\" {'print $2'} | tr -d "#" )"
 			if [ ! -z "$matrixPath" ] ; then
 				echo "$matrixPath; $instance_geometry $instance_material"
-				[ -f "$kmlDir/geometry_material_cache.dat" ] && sed -i "$kmlDir/geometry_material_cache.dat" -e s/"$instance_geometry $instance_material"//g
+				if [ -f "$kmlDir/geometry_material_cache.dat" ] ; then
+					[ "$( uname -s )" = "Linux" ]  && sed -i "$kmlDir/geometry_material_cache.dat" -e s/"$instance_geometry $instance_material"//g 
+					[ "$( uname -s )" = "Darwin" ] && sed -i '' s/"$instance_geometry $instance_material"//g "$kmlDir/geometry_material_cache.dat"
+				fi
 				continue
 			fi
 
