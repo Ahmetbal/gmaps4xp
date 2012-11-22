@@ -17,10 +17,50 @@
 #include "XPLMDataAccess.h"
 
 
+// http://www.xsquawkbox.net/xpsdk/docs/DataRefs.html
+/* Timestamp, usually a double representing seconds elapsed since 1.1.1970 (unix time) */
 
-#define SERVER          "x-plane/1.0"
-#define PROTOCOL        "HTTP/1.1"
-#define RFC1123FMT      "%a, %d %b %Y %H:%M:%S GMT"
+#define JSON_GPS_TIMESTAMP 	"ts"	// function time
+
+/* Ground and Air speeds in meters per second */
+
+#define JSON_GROUNDSPEED	"gs" 	// sim/flightmodel/position/groundspeed
+#define JSON_AIRSPEED 		"as" 	// sim/flightmodel/position/indicated_airspeed
+
+/* Degrees, true north oriented */
+
+#define JSON_COURSE 		"tc" 	// sim/flightmodel/position/psi
+
+/* Altitude in meters */
+
+#define JSON_ALTITUDE 		"alt" 	// sim/flightmodel/position/elevation
+#define JSON_PRESSURE_ALTITUDE 	"palt"	// sim/flightmodel/position/elevation
+
+/* GPS accuracy in meters */
+
+#define JSON_VERTICAL_ACC 	"vacc"	// 
+#define JSON_HORIZONTAL_ACC 	"hacc"	//
+
+/* GPS Coordinates WGS84 */
+
+#define JSON_LATITUDE		"lat"	// sim/flightmodel/position/latitude
+#define JSON_LONGITUDE		"lon"	// sim/flightmodel/position/longitude 
+
+/* Attitude angles, degrees */
+
+#define JSON_YAW		"yaw"	// sim/flightmodel/position/beta
+#define JSON_PITCH		"pitch"	// sim/flightmodel/position/theta
+#define JSON_ROLL		"roll"	// sim/flightmodel/position/phi
+
+/* Airplane acceleration in G's */
+
+#define JSON_SLIP		"slip"
+
+#define JSON_ACC_X		"acc_x"	// sim/flightmodel/position/local_ax
+#define JSON_ACC_Y		"acc_y" // sim/flightmodel/position/local_ay
+#define JSON_ACC_Z		"acc_z" // sim/flightmodel/position/local_az
+
+
 #define PORT            8080
 
 void    *webServer(void *);
