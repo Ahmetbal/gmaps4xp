@@ -1874,7 +1874,7 @@ good_tile=( $( echo "${good_tile[@]}" | tr " " "\n" | rev | cut -c 4- | rev | so
 
 
 ####################################################################################################################
-
+[ "$MASH_SCENARY" = "yes" ] && [ "$WATER_MASK" = "no" ] && WATER_MASK="yes"
 
 log "Merging tiles into 2048x2048 texture..."
 [ "$WATER_MASK" = "yes" ] && log "Water mask Enabled..."
@@ -1893,6 +1893,7 @@ for cursor_huge in ${good_tile[@]} ; do
 	[ "$REMAKE_TILE" = "yes" ] && [ -f "${tiles_dir}/tile/tile-${cursor_huge}.png" ] 	&& rm -f "${tiles_dir}/tile/tile-${cursor_huge}.png" 
 	[ "$( testImage "${tiles_dir}/tile/tile-${cursor_huge}.png" )" != "good" ] 		&& rm -f "${tiles_dir}/tile/tile-${cursor_huge}.png"
 
+	[ "$WATER_MASK" = "yes" ] && [ -f "$tiles_dir/tile/tile-$cursor_huge.png" ] && [ ! -f "${tiles_dir}/mask/mask-${cursor_huge}.png" ] && rm -f "$tiles_dir/tile/tile-$cursor_huge.png" 
 
 	if  [ ! -f "$tiles_dir/tile/tile-$cursor_huge.png" ] ; then
 		if [ "$WATER_MASK" = "yes" ] ; then
@@ -2062,20 +2063,7 @@ for x in $( seq 0 $dim_x ) ; do
 		ori_lr_lat="$( awk 'BEGIN { printf "%.8f", '${info[5]}' + '$lat_fix' }' )"	
 
 
-		if [ "$rot_fix" = "0" ] ; then
-			# Without rotation 
-			ul_lat="$ori_ul_lat"
-			ul_lon="$ori_ul_lon"
-	
-			ur_lat="$ori_ul_lat"
-			ur_lon="$ori_lr_lon"
-
-			lr_lat="$ori_lr_lat"
-			lr_lon="$ori_lr_lon"
-
-			ll_lat="$ori_lr_lat"
-			ll_lon="$ori_ul_lon"
-		else
+		if [ "$rot_fix" != "0" ] && [ "$MASH_SCENARY" != "yes" ] ; then
 			# With rotation...
 			ul_lat="$(   echo "scale = 8; $ori_ul_lat - $lat_plane" | bc -l )"
 			ul_lon="$(   echo "scale = 8; $ori_ul_lon - $lon_plane" | bc -l )"
@@ -2105,6 +2093,19 @@ for x in $( seq 0 $dim_x ) ; do
 			ll_lat_n="$( echo "scale = 8; $ll_lon * s( ($pi/180) * $rot_fix ) + $ll_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
 			ll_lat="$(   echo "scale = 8; $ll_lat_n + $lat_plane" | bc -l )"
 			ll_lon="$(   echo "scale = 8; $ll_lon_n + $lon_plane" | bc -l )"
+		else
+			# Without rotation 
+			ul_lat="$ori_ul_lat"
+			ul_lon="$ori_ul_lon"
+	
+			ur_lat="$ori_ul_lat"
+			ur_lon="$ori_lr_lon"
+
+			lr_lat="$ori_lr_lat"
+			lr_lon="$ori_lr_lon"
+
+			ll_lat="$ori_lr_lat"
+			ll_lon="$ori_ul_lon"
 
 		fi
 
@@ -2440,6 +2441,16 @@ for x in $( seq 0 $dim_x ) ; do
 
 					# 0.86745204
 
+
+
+					[ "$rot_fix" != "0" ] && for i in 0 1 2 ; do
+						lat="$(   	echo "scale = 8; ${pLat[$i]} - $lat_plane" | bc -l )"
+						lon="$(   	echo "scale = 8; ${pLon[$i]} - $lon_plane" | bc -l )"
+						lon_n="$( 	echo "scale = 8; $lon * c( ($pi/180) * $rot_fix ) - $lat * s( ($pi/180) * $rot_fix )" | bc -l )"
+						lat_n="$( 	echo "scale = 8; $lon * s( ($pi/180) * $rot_fix ) + $lat * c( ($pi/180) * $rot_fix )" | bc -l )"
+						pLat[$i]="$(   	echo "scale = 8; $lat_n + $lat_plane" | bc -l )"
+						pLon[$i]="$(   	echo "scale = 8; $lon_n + $lon_plane" | bc -l )"
+					done
 
 
 					# -0.000015259 -0.000015259
