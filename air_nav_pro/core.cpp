@@ -30,7 +30,7 @@ void *webServer(void *arg){
 	gPlaneAlt       = XPLMFindDataRef("sim/flightmodel/position/elevation");
 
 
-	printf("HTTP server listening on port %d\n", PORT );
+	printf("Air Navigator Pro Plugin listening on port %d\n", PORT );
 
 	while (1){
 		s = accept(sock, NULL, NULL);
@@ -98,8 +98,8 @@ int process(FILE *f){
 	protocol	= strtok(NULL, 		" ");
 
 
-	if (!method || !path || !protocol) return -1;
-	for (i = 0; i < (int)strlen(protocol); i++ ) protocol[i] = ( ( (int)protocol[i] == 13 ) || ( (int)protocol[i] == 10 ) || ( (int)protocol[i] == 32 ) ) ? '\0' : protocol[i];
+	// if (!method || !path || !protocol) return -1;
+	// for (i = 0; i < (int)strlen(protocol); i++ ) protocol[i] = ( ( (int)protocol[i] == 13 ) || ( (int)protocol[i] == 10 ) || ( (int)protocol[i] == 32 ) ) ? '\0' : protocol[i];
 
 	fseek(f, 0, SEEK_CUR); 
 

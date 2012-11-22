@@ -1,10 +1,5 @@
 #include "core.h"
 
-#define SERVER		"x-plane/1.0"
-#define PROTOCOL	"HTTP/1.1"
-#define RFC1123FMT	"%a, %d %b %Y %H:%M:%S GMT"
-#define PORT 		8080
-
 PLUGIN_API void	XPluginStop(void){}
 PLUGIN_API void XPluginDisable(void){}
 PLUGIN_API int XPluginEnable(void){ return 1; }
