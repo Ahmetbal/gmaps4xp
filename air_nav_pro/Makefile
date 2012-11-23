@@ -27,7 +27,7 @@ clean_air_navigation_linux:
 	rm -fv *.o *.d air_navigation_linux.xpl
 
 air_navigation_linux:
-	$(MAKE) air_navigation_linux.xpl TARGET=air_navigation_linux.xpl CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lpthread"
+	$(MAKE) air_navigation_linux.xpl TARGET=air_navigation_linux.xpl CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lpthread -lm"
 
 air_navigation_linux.xpl: ${OBJS_air_navigation_linux}
 	${CC} -shared 	${LDFLAGS}	-o air_navigation_linux.xpl 	${OBJS_air_navigation_linux} ${LIBS}

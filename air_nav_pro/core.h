@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -15,6 +16,10 @@
 #include "XPLMDisplay.h"
 #include "XPLMGraphics.h"
 #include "XPLMDataAccess.h"
+#include "XPLMMenus.h"
+
+#define RUN	0
+#define STOP	1
 
 
 // http://www.xsquawkbox.net/xpsdk/docs/DataRefs.html
@@ -34,7 +39,7 @@
 /* Altitude in meters */
 
 #define JSON_ALTITUDE 		"alt" 	// sim/flightmodel/position/elevation
-#define JSON_PRESSURE_ALTITUDE 	"palt"	// sim/flightmodel/position/elevation
+#define JSON_PRESSURE_ALTITUDE 	"palt"	// sim/flightmodel/misc/h_ind
 
 /* GPS accuracy in meters */
 
@@ -63,7 +68,7 @@
 
 #define PORT            8080
 
-void    *webServer(void *);
-int     process(FILE *);
+void *webServer(void *);
+void *process(void *);
 
 #endif
