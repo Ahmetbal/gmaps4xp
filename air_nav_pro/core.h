@@ -13,14 +13,15 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include "XPLMDisplay.h"
 #include "XPLMGraphics.h"
 #include "XPLMDataAccess.h"
 #include "XPLMMenus.h"
 
-#define RUN	0
-#define STOP	1
-
+#define RUN		0
+#define STOP		1
+#define MAX_CLIENTS_NUM 50
 
 // http://www.xsquawkbox.net/xpsdk/docs/DataRefs.html
 /* Timestamp, usually a double representing seconds elapsed since 1.1.1970 (unix time) */
@@ -70,5 +71,6 @@
 
 void *webServer(void *);
 void *process(void *);
+
 
 #endif

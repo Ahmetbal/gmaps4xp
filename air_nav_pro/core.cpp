@@ -15,10 +15,29 @@ XPLMDataRef gAcc_x;
 XPLMDataRef gAcc_y;
 XPLMDataRef gAcc_z;
 
+
+
+pthread_t pth[MAX_CLIENTS_NUM];
+pthread_t avahiTh;
+
+void *avahiService(void *arg){
+	// avahi-publish-service -s air_nav_fsx _air_nav_fsx._tcp 1234
+	char command[4096];
+	bzero(command, 4095);
+	sprintf(command, "avahi-publish-service -s air_nav_fsx _air_nav_fsx._tcp %d", PORT );
+	printf("Publish Service ...\n");
+	if ( system(command) == -1 ) printf("ERROR: command avahi-publish-service not found!!\n"); 
+	return (void*)(1);
+}
+
+
+
 void *webServer(void *arg){
 	int 			sock;
 	struct sockaddr_in 	sin;
 	int 			s;
+	int 			i;
+
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -28,6 +47,9 @@ void *webServer(void *arg){
 
 	if ( bind(sock, (struct sockaddr *) &sin, sizeof(sin)) ) return (void*)(1);
 	if ( listen(sock, 5) ) 					 return (void*)(1);
+	for ( i = 0; i < MAX_CLIENTS_NUM; i++ ) pth[i] = 0;
+
+	pthread_create(&avahiTh, NULL, avahiService, (void *)NULL);
 
 
 	gGroundSpeed    = XPLMFindDataRef("sim/flightmodel/position/groundspeed");
@@ -48,13 +70,14 @@ void *webServer(void *arg){
 
 	printf("Air Navigator Pro Plugin listening on port %d\n", PORT );
 
-	while (1){
+	i = 0;	while (1){
 		s = accept(sock, NULL, NULL);
 		if (s < 0) continue;
-		pthread_t pth;
-		pthread_create(&pth, NULL, process, (void *)&s);
-		if ( BridgeStatus == STOP ) break;
+		if ( i >= MAX_CLIENTS_NUM ) { close(s); continue; } 
+		pthread_create(&(pth[i]), NULL, process, (void *)&s);
+		i++;
 	}
+
 
 	close(sock);
 	return (void*)(1);
@@ -88,7 +111,6 @@ void *process(void *sock){
 
 	if ( ( f = fdopen(s, "r+") ) == NULL ) return (void*)(1);
 
-
 	while (1){
 		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	return  (void*)(1);
 		bzero(buf[i], 4095);
@@ -107,7 +129,6 @@ void *process(void *sock){
 
 
 	while(1){
-		if ( BridgeStatus == STOP ) break;
 	        Latitude	= XPLMGetDataf(gPlaneLat); if ( isnan(Latitude) != 0 ) break;
 	        Speed           = XPLMGetDataf(gGroundSpeed);
 	        AirSpeed        = XPLMGetDataf(gAirSpeed);
