@@ -30,10 +30,7 @@ air_navigation_linux:
 	$(MAKE) air_navigation_linux.xpl TARGET=air_navigation_linux.xpl CC="g++"  LD="g++"  AR="ar -crs"  SIZE="size" LIBS+="-lpthread -lm"
 
 air_navigation_linux.xpl: ${OBJS_air_navigation_linux}
-	${CC} -shared 	${LDFLAGS}	-o air_navigation_linux.xpl 	${OBJS_air_navigation_linux} ${LIBS}
-
-air_navigation_linux.exe: ${OBJS_air_navigation_linux}
-	${CC} ${LDFLAGS}		-o air_navigation_linux.exe 	${WD_air_navigation_linux}/core.cpp.o ${LIBS}
+	${CC} -shared ${LDFLAGS} ${OBJS_air_navigation_linux} ${LIBS} -o air_navigation_linux.xpl
 
 
 ifeq (${TARGET}, air_navigation_linux.xpl)

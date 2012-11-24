@@ -1,8 +1,7 @@
 #include "core.h"
 
-extern pthread_t 	main_thread;
-extern int		BridgeStatus;
-
+pthread_t 	main_thread;
+int		BridgeStatus;
 
 enum {
 	startBridge = 1,
@@ -18,14 +17,18 @@ PLUGIN_API void XPluginReceiveMessage(	XPLMPluginID	inFromWho,
 void MyMenuHandlerCallback(void *inMenuRef, void *inItemRef){
 	switch((int) inItemRef){
 		case startBridge:
+			printf("Starting Air Navigation bridge ...\n");
 			if ( BridgeStatus == STOP ){
 				pthread_create(&main_thread, NULL, webServer, (void *)NULL);
 				BridgeStatus = RUN;
 			} else printf("Plugin is already running ...\n");
 			break;
 		case stopBridge:
+			printf("Stopping Air Navigation bridge ...\n");
 			if ( BridgeStatus == RUN ){
-				pthread_kill(main_thread, SIGUSR1);
+				pthread_kill(main_thread, SIGKILL);
+				system("killall -9 avahi-publish-service");
+
 				BridgeStatus = STOP;
 			} else printf("Plugin is already stopped ...\n");
 			break;
@@ -58,8 +61,8 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 	return 1;
 }
 
-PLUGIN_API void XPluginStop(void){ 	pthread_kill(main_thread, SIGUSR1);	BridgeStatus = STOP;					}
-PLUGIN_API void XPluginDisable(void){	pthread_kill(main_thread, SIGUSR1);	BridgeStatus = STOP;					}
+PLUGIN_API void XPluginStop(void){ 	pthread_kill(main_thread, SIGKILL); system("killall -9 avahi-publish-service"); BridgeStatus = STOP;					}
+PLUGIN_API void XPluginDisable(void){	pthread_kill(main_thread, SIGKILL); system("killall -9 avahi-publish-service");	BridgeStatus = STOP;					}
 PLUGIN_API int XPluginEnable(void){ 	pthread_create(&main_thread, NULL, webServer, (void *)NULL); BridgeStatus = RUN; return 1; 	}
 
 
