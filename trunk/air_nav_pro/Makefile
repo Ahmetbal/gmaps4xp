@@ -8,7 +8,6 @@ clean: clean_air_navigation_linux
 TOP_air_navigation_linux=./
 WD_air_navigation_linux=$(shell cd ${TOP_air_navigation_linux};echo `pwd`)
 cpp_SRC_air_navigation_linux+=${WD_air_navigation_linux}/air_navigation_linux.cpp
-cpp_SRC_air_navigation_linux+=${WD_air_navigation_linux}/core.cpp
 
 OBJS_air_navigation_linux+=$(cpp_SRC_air_navigation_linux:.cpp=.cpp.o)
 
