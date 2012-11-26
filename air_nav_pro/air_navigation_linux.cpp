@@ -17,11 +17,11 @@ XPLMDataRef gAcc_z;
 
 
 
-pthread_t 		pth[MAX_CLIENTS_NUM];
-pthread_t 		avahiTh;
-FILE			*avahiStream = NULL;
-pthread_t 		main_thread;
-int			BridgeStatus;
+pthread_t 	pth[MAX_CLIENTS_NUM];
+pthread_t 	avahiTh;
+pthread_t	main_thread;
+int		BridgeStatus;
+pid_t		avahi_publish_service_pid;
 
 enum {
 	startBridge = 1,
@@ -29,16 +29,26 @@ enum {
 };
 
 
-
-void sig_func(int sig){ signal(SIGSEGV,sig_func); }
-
 int closeAll(){
-	if ( BridgeStatus == STOP ) return 1;
-	pthread_kill(main_thread,SIGSEGV);
-	pthread_join(main_thread,NULL);
-	printf("Main thread terminated ...\n");
+	struct sockaddr_in 	pin;
+	int			sd;
 
+	if ( BridgeStatus == STOP ) return 1;
 	BridgeStatus = STOP;
+
+	memset(&pin, 0, sizeof(pin));
+	pin.sin_family 		= AF_INET;
+	pin.sin_addr.s_addr 	= inet_addr("127.0.0.1");
+	pin.sin_port 		= htons(PORT);
+
+	if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1) 		return 1;
+	if (connect(sd,(struct sockaddr *)  &pin, sizeof(pin)) == -1 ) 	return 1;
+
+	send(sd, "stop", 4, 0); // Not important the message
+	close(sd);
+	if ( kill(avahi_publish_service_pid, SIGKILL) == - 1 ) printf("Unable to kill avahi-publish-service process!\n");
+	printf("Closed Air Navigation Bridge at port %d ...\n", PORT );
+
 	return 0;
 }
 
@@ -78,10 +88,6 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 
 	int		mySubMenuItem;
 	XPLMMenuID	myMenu;
-	pthread_attr_t	attr;
-
-
-
 
 
 	strcpy(outName,	"Air Navigation Pro");
@@ -89,6 +95,9 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 	strcpy(outDesc, "http://members.ferrara.linux.it/cavicchi/");
 	mySubMenuItem 	= XPLMAppendMenuItem( XPLMFindPluginsMenu(), "Air Navigation", 0, 1);
 	myMenu 		= XPLMCreateMenu( "Air Navigation", XPLMFindPluginsMenu(), mySubMenuItem, MyMenuHandlerCallback, 0);
+
+	if ( system("avahi-publish-service --version") == -1 ) return 1;
+
 
 	XPLMAppendMenuItem( myMenu, "Start Air Navigation bridge", (void *) startBridge, 1);
 	XPLMAppendMenuItem( myMenu, "Stop Air Navigation bridge",  (void *) stopBridge,	 1);
@@ -108,31 +117,38 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 	gAcc_x		= XPLMFindDataRef("sim/flightmodel/position/local_ax");
 	gAcc_y		= XPLMFindDataRef("sim/flightmodel/position/local_ay");
 	gAcc_z		= XPLMFindDataRef("sim/flightmodel/position/local_az");
+	BridgeStatus	= STOP; // The plugin starts off
 
-
-	signal(SIGSEGV,sig_func);
-	pthread_attr_init(&attr);	
-	pthread_create(&main_thread, &attr, webServer, (void *)NULL); BridgeStatus = RUN;
- 
 	return 1;
 }
 
-PLUGIN_API void XPluginStop(void){ 	closeAll(); 							BridgeStatus = STOP;		}
-PLUGIN_API void XPluginDisable(void){	closeAll();							BridgeStatus = STOP;		}
-PLUGIN_API int XPluginEnable(void){ 	pthread_create(&main_thread, NULL, webServer, (void *)NULL); 	BridgeStatus = RUN; return 1; 	}
+PLUGIN_API void XPluginStop(void){ 	closeAll(); BridgeStatus = STOP; }
+PLUGIN_API void XPluginDisable(void){	closeAll(); BridgeStatus = STOP; }
+PLUGIN_API int XPluginEnable(void){ return 1; }
 
 
 //--------------------------------------------------------------------------------------------------------//
 
 
 void *avahiService(void *arg){
-	char command[4096];
-	bzero(command, 4095);
+	pid_t pid;
 
-	sprintf(command, "avahi-publish-service -s %s %s %d", AVAHI_SERVICE_NAME, AVAHI_SERVICE_TYPE, PORT);
-	printf("Run command \"%s\" ..\n", command );
-	avahiStream = popen( command, "r");
-	if ( avahiStream == NULL ) return (void*)(1);
+	char port[10];
+	bzero(port, 9); sprintf(port, "%d", PORT );
+
+	printf("Run command avahi-publish-service -s %s %s %s ..\n", AVAHI_SERVICE_NAME, AVAHI_SERVICE_TYPE, port );
+
+	pid = fork();
+	if 	( pid <  0 ) return (void*)(1);
+	else if	( pid == 0 ) {
+		if ( execlp("avahi-publish-service", "avahi-publish-service", "-s", AVAHI_SERVICE_NAME, AVAHI_SERVICE_TYPE, port, NULL) == -1 )	{
+			printf("Unable to publish avahi service: %s\n", strerror( errno ) );
+			return (void*)(1);
+		}
+	}
+
+	printf("Started avahi-publish-service with pid %d ...\n", pid);
+	avahi_publish_service_pid = pid;
 
 	return (void*)(1);
 }
@@ -162,16 +178,18 @@ void *webServer(void *arg){
 
 	printf("Air Navigator Pro Plugin listening on port %d\n", PORT );
 
+	
 	i = 0;	while (1){
-		s = accept(sock, NULL, NULL);
-		if ( BridgeStatus == STOP ) break;		
+		s = accept(sock, NULL, NULL); 
+		if ( BridgeStatus == STOP ) break;
 		if (s < 0) continue;
 		if ( i >= MAX_CLIENTS_NUM ) { close(s); continue; } 
+		printf("Accept new connection ...\n");
 		pthread_create(&(pth[i]), NULL, process, (void *)&s);
 		i++;
 	}
-
-
+	
+	close(s);
 	close(sock);
 	return (void*)(1);
 }
@@ -202,10 +220,10 @@ void *process(void *sock){
 
 	int		s		= *(int *)sock;
 
-	if ( ( f = fdopen(s, "r+") ) == NULL ) return (void*)(1);
+	if ( ( f = fdopen(s, "r+") ) == NULL ) { close(s); return (void*)(1); }
 
 	while (1){
-		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	return  (void*)(1);
+		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	{ fclose(f); close(s); return  (void*)(1); }
 		bzero(buf[i], 4095);
 		if ( !fgets(buf[i], 4096, f) ) return (void*)(1);
 		if (( buf[i][0] == '\r' ) && ( buf[i][1] == '\n' )) break; 
@@ -213,10 +231,10 @@ void *process(void *sock){
 	}
 
         command = strtok(buf[0], "\n");
-        if (!command) return (void*)(1);
+       	if (!command) { fclose(f); close(s); return (void*)(1); }
 
 
-	if ( ! strstr( buf[0], "{\"cmd\"=\"getdata\"}" ) )  return (void*)(1);
+	if ( ! strstr( buf[0], "{\"cmd\"=\"getdata\"}" ) ) { fclose(f); close(s); return (void*)(1); }
 
 	fseek(f, 0, SEEK_CUR); 
 
