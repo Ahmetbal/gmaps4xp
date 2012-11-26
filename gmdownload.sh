@@ -321,10 +321,6 @@ if [ "$( uname -s )" = "Linux" ] ; then
 	fi
 	dsftool="$( dirname -- "$0" )/ext_app/linux/tools/DSFTool"
 	ddstool="$( dirname -- "$0" )/ext_app/linux/tools/DDSTool"
-	if [ "$( uname -m )" = "x86_64" ] ; then
-		echo "ERROR! Your architecture x86_64 is not supported!"
-		exit 3
-	fi
 fi	
 
 ################################################################################################################33
@@ -1868,7 +1864,7 @@ for c2 in ${good_tile[@]} ; do
 done
 rm -f "$tiles_dir/${TMPFILE}.jpg"
 
-log "Screnary creation...."
+log "Screnery creation...."
 good_tile=( $( echo "${good_tile[@]}" | tr " " "\n" | rev | cut -c 4- | rev | sort -u | tr "\n" " " ) )
 
 
@@ -2915,7 +2911,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	                done <<< "$( echo "$array_uniq" )"
         	        VT_COUNT="$cnt"
 
-			log "Re-ordering POSITION coordiantes ..."
+			log "Re-ordering POSITION coordinates ..."
         	        cnt="0"; unset array_mod 
         	        while [ ! -z "${array[$cnt]}" ] ; do
         	                a="$cnt"
