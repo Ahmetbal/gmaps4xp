@@ -72,7 +72,7 @@
 #define JSON_ACC_Z		"acc_z" // sim/flightmodel/position/local_az
 
 
-#define PORT            8080
+#define PORT 21777
 
 void *webServer(void *);
 void *process(void *);
