@@ -46,7 +46,7 @@ int closeAll(){
 
 	send(sd, "stop", 4, 0); // Not important the message
 	close(sd);
-	if ( kill(avahi_publish_service_pid, SIGKILL) == - 1 ) printf("Unable to kill avahi-publish-service process!\n");
+	if ( kill(avahi_publish_service_pid, SIGINT) == - 1 ) printf("Unable to kill avahi-publish-service process!\n");
 	printf("Closed Air Navigation Bridge at port %d ...\n", PORT );
 
 	return 0;
@@ -117,7 +117,8 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 	gAcc_x		= XPLMFindDataRef("sim/flightmodel/position/local_ax");
 	gAcc_y		= XPLMFindDataRef("sim/flightmodel/position/local_ay");
 	gAcc_z		= XPLMFindDataRef("sim/flightmodel/position/local_az");
-	BridgeStatus	= STOP; // The plugin starts off
+	BridgeStatus	= STOP; 	// The plugin starts off
+	avahi_publish_service_pid = 0;	
 
 	return 1;
 }
@@ -159,7 +160,7 @@ void *avahiService(void *arg){
 void *webServer(void *arg){
 	struct sockaddr_in 	sin;
 	int 			s;
-	int 			i;
+	int 			i = 1;
 	int 			sock;
 
 
@@ -176,15 +177,14 @@ void *webServer(void *arg){
 
 	pthread_create(&avahiTh, NULL, avahiService, (void *)NULL);
 
-	printf("Air Navigator Pro Plugin listening on port %d\n", PORT );
 
+	printf("Air Navigator Pro Plugin listening on port %d\n", PORT );
 	
 	i = 0;	while (1){
 		s = accept(sock, NULL, NULL); 
 		if ( BridgeStatus == STOP ) break;
 		if (s < 0) continue;
 		if ( i >= MAX_CLIENTS_NUM ) { close(s); continue; } 
-		printf("Accept new connection ...\n");
 		pthread_create(&(pth[i]), NULL, process, (void *)&s);
 		i++;
 	}
@@ -198,9 +198,9 @@ void *process(void *sock){
 	char 		*buf[50];
 	char 		*command	= NULL;
 	int		i		= 0;
+	int		error		= 0;
 	char		data[4096];
-	size_t		length 		= 0;
-	FILE 		*f		= NULL;
+	struct sockaddr_in addr;
 
 	double		Speed		= 0.0;
 	double		AirSpeed	= 0.0;
@@ -220,32 +220,39 @@ void *process(void *sock){
 
 	int		s		= *(int *)sock;
 
-	if ( ( f = fdopen(s, "r+") ) == NULL ) { close(s); return (void*)(1); }
+	signal(SIGPIPE, SIG_IGN);
+
+	socklen_t socklen = sizeof(addr); 
+	socklen_t len	  = sizeof(error);
+	if ( getpeername(s, (struct sockaddr*) &addr, &socklen) < 0) 	printf("Accept new connection from unknown ...\n");
+	else 								printf("Accept new connection from %s:%d ...\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+
 
 	while (1){
-		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	{ fclose(f); close(s); return  (void*)(1); }
+		if ( i >= 50 ) break;
+		if ( ( buf[i] = (char *)malloc(sizeof(char) * 4096) ) == NULL )	{ close(s); return  (void*)(1); }
 		bzero(buf[i], 4095);
-		if ( !fgets(buf[i], 4096, f) ) return (void*)(1);
+		ssize_t bytes_recieved = recv(s, buf[i], 4096, 0);
+		buf[i][bytes_recieved] = '\0';
+		if ( bytes_recieved <= 0  ) return (void*)(1);
 		if (( buf[i][0] == '\r' ) && ( buf[i][1] == '\n' )) break; 
 		i++;
 	}
 
         command = strtok(buf[0], "\n");
-       	if (!command) { fclose(f); close(s); return (void*)(1); }
-
-
-	if ( ! strstr( buf[0], "{\"cmd\"=\"getdata\"}" ) ) { fclose(f); close(s); return (void*)(1); }
-
-	fseek(f, 0, SEEK_CUR); 
+       	if (!command) { close(s); return (void*)(1); }
+	if ( ! strstr( buf[0], "{\"cmd\"=\"getdata\"}" ) ) { close(s); return (void*)(1); }
 
 
 	while(1){
 		if ( BridgeStatus == STOP ) break;		
+		if ( getsockopt (s, SOL_SOCKET, SO_ERROR, &error, &len ) != 0 ) break;
+
 	        Latitude	= XPLMGetDataf(gPlaneLat); if ( isnan(Latitude) != 0 ) break;
 	        Speed           = XPLMGetDataf(gGroundSpeed);
 	        AirSpeed        = XPLMGetDataf(gAirSpeed);
 	        Altitude	= XPLMGetDataf(gPlaneAlt);
-		PressAltitude	= XPLMGetDataf(gPlanePresAlt);
+		PressAltitude	= XPLMGetDataf(gPlanePresAlt) * 0.3048; // Conversion from feets to meters
 	        Heading		= XPLMGetDataf(gPlaneHeading);
 	        Longitude	= XPLMGetDataf(gPlaneLon);
 		Yaw		= XPLMGetDataf(gYaw);
@@ -257,30 +264,32 @@ void *process(void *sock){
 		Acc_z		= XPLMGetDataf(gAcc_z);
 
 		bzero(data, 4095);
+		sprintf(data,"{ " 								); 
+		sprintf(data,"%s \"%s\": %ld, ", data, JSON_GPS_TIMESTAMP,	time(NULL) 	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_GROUNDSPEED,	Speed		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_AIRSPEED,		AirSpeed	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_COURSE, 		Heading 	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_ALTITUDE, 		Altitude 	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_PRESSURE_ALTITUDE,	PressAltitude 	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_VERTICAL_ACC, 	1.0 		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_HORIZONTAL_ACC, 	1.0 		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_LATITUDE,		Latitude 	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_LONGITUDE, 		Longitude	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_YAW, 		Yaw		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_PITCH, 		Pitch		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_ROLL, 		Roll		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_SLIP, 		Slip		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_ACC_X, 		Acc_x		); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_ACC_Y, 		Acc_y		); 
+		sprintf(data,"%s \"%s\": %f " ,  data, JSON_ACC_Z, 		Acc_z		); 
+		sprintf(data,"%s }\r\n\r\n", 	 data 		      				); 
 
-		sprintf(data,"{ " 							); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %ld, ", JSON_GPS_TIMESTAMP,	time(NULL) 	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_GROUNDSPEED,		Speed		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_AIRSPEED,		AirSpeed	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_COURSE, 		Heading 	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_ALTITUDE, 		Altitude 	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_PRESSURE_ALTITUDE,	PressAltitude 	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_VERTICAL_ACC, 	1.0 		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_HORIZONTAL_ACC, 	1.0 		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_LATITUDE,		Latitude 	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_LONGITUDE, 		Longitude	); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_YAW, 		Yaw		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_PITCH, 		Pitch		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_ROLL, 		Roll		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_SLIP, 		Slip		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_ACC_X, 		Acc_x		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f, ",  JSON_ACC_Y, 		Acc_y		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"\"%s\": %f " ,  JSON_ACC_Z, 		Acc_z		); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
-		sprintf(data,"}\r\n\r\n" 						); length = strlen(data); fwrite(data, 1, length, f); fflush(f); bzero(data, 4095);
+		if ( send(s,  data,strlen(data), 0) <= 0 ) break;
+
 		usleep((int)(1000000/FREQ_HZ));
 	}
+	printf("Close connection ... \n");
 
-	fclose(f);
 	close(s);
 	return (void*)(1);
 }
