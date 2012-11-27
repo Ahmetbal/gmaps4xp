@@ -26,7 +26,7 @@
 #define MAX_CLIENTS_NUM 	50
 #define AVAHI_SERVICE_NAME 	"air_nav_fsx"
 #define AVAHI_SERVICE_TYPE 	"_air_nav_fsx._tcp"
-#define FREQ_HZ			5
+#define FREQ_HZ			1
 
 // http://www.xsquawkbox.net/xpsdk/docs/DataRefs.html
 /* Timestamp, usually a double representing seconds elapsed since 1.1.1970 (unix time) */
