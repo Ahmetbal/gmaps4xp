@@ -2,6 +2,7 @@
 
 XPLMDataRef gGroundSpeed;
 XPLMDataRef gAirSpeed;
+XPLMDataRef gVertSpeed;
 XPLMDataRef gPlaneHeading;
 XPLMDataRef gPlaneAlt;  
 XPLMDataRef gPlanePresAlt;
@@ -105,6 +106,7 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 
 	gGroundSpeed    = XPLMFindDataRef("sim/flightmodel/position/groundspeed");
 	gAirSpeed	= XPLMFindDataRef("sim/flightmodel/position/indicated_airspeed");
+	gVertSpeed	= XPLMFindDataRef("sim/flightmodel/position/vh_ind");
 	gPlaneHeading   = XPLMFindDataRef("sim/flightmodel/position/hpath");
 	gPlaneAlt       = XPLMFindDataRef("sim/flightmodel/position/elevation");
 	gPlanePresAlt	= XPLMFindDataRef("sim/flightmodel/misc/h_ind");
@@ -204,6 +206,7 @@ void *process(void *sock){
 
 	double		Speed		= 0.0;
 	double		AirSpeed	= 0.0;
+	double		VertSpeed	= 0.0;
 	double		Heading		= 0.0;
 	double		Altitude	= 0.0;
 	double		PressAltitude	= 0.0;
@@ -251,6 +254,7 @@ void *process(void *sock){
 	        Latitude	= XPLMGetDataf(gPlaneLat); if ( isnan(Latitude) != 0 ) break;
 	        Speed           = XPLMGetDataf(gGroundSpeed);
 	        AirSpeed        = XPLMGetDataf(gAirSpeed);
+		VertSpeed	= XPLMGetDataf(gVertSpeed);
 	        Altitude	= XPLMGetDataf(gPlaneAlt);
 		PressAltitude	= XPLMGetDataf(gPlanePresAlt) * 0.3048; // Conversion from feets to meters
 	        Heading		= XPLMGetDataf(gPlaneHeading);
@@ -259,15 +263,15 @@ void *process(void *sock){
 		Pitch		= XPLMGetDataf(gPitch);
 		Roll		= XPLMGetDataf(gRoll);
 		Slip		= XPLMGetDataf(gSlip);
-		Acc_x		= XPLMGetDataf(gAcc_x);
-		Acc_y		= XPLMGetDataf(gAcc_y);
-		Acc_z		= XPLMGetDataf(gAcc_z);
+		Acc_x		= XPLMGetDataf(gAcc_x) / 9.80665; // Conversion to mtr/sec2 to G
+		Acc_y		= XPLMGetDataf(gAcc_y) / 9.80665;
+		Acc_z		= XPLMGetDataf(gAcc_z) / 9.80665;
 
 		bzero(data, 4095);
 		sprintf(data,"{ " 								); 
 		sprintf(data,"%s \"%s\": %ld, ", data, JSON_GPS_TIMESTAMP,	time(NULL) 	); 
 		sprintf(data,"%s \"%s\": %f, ",  data, JSON_GROUNDSPEED,	Speed		); 
-		sprintf(data,"%s \"%s\": %f, ",  data, JSON_AIRSPEED,		AirSpeed	); 
+		sprintf(data,"%s \"%s\": %f, ",  data, JSON_AIRSPEED,		AirSpeed	);
 		sprintf(data,"%s \"%s\": %f, ",  data, JSON_COURSE, 		Heading 	); 
 		sprintf(data,"%s \"%s\": %f, ",  data, JSON_ALTITUDE, 		Altitude 	); 
 		sprintf(data,"%s \"%s\": %f, ",  data, JSON_PRESSURE_ALTITUDE,	PressAltitude 	); 
