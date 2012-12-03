@@ -2157,7 +2157,7 @@ for x in $( seq 0 $dim_x ) ; do
 
 			dfs_file="$( getDSFName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )" 
 			dfs_dir="$(  getDirName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )"
-			[ -z "$( echo "$DSF_LIST" | grep "$dfs_file" )" ] && continue
+			[ -z "$( echo "$DSF_LIST" | grep -- "$dfs_file" )" ] && continue
 
 			########################################################3
 
@@ -2166,7 +2166,7 @@ for x in $( seq 0 $dim_x ) ; do
 				mkdir "$output_dir/$output_sub_dir/$dfs_dir"
 			fi
 
-			DSF_LIST="$( echo "$DSF_LIST" | grep -v "$dfs_file" )"
+			DSF_LIST="$( echo "$DSF_LIST" | grep -v -- "$dfs_file" )"
 			dfs_list[$dfs_index]="${dfs_dir}/${dfs_file}"	
 			dfs_index="$[ $dfs_index + 1 ]"
 
