@@ -48,20 +48,98 @@ padfTransform=()
 padfTransformInv=()
 
 COOKIES=""
-COOKIES_FILE="$( dirname -- "$0" )/cookies.txt"
-
-point_lat="$1"
-point_lon="$2"
-dim_x="$3"
-dim_y="$4"
-lowright_lat="$3"
-lowright_lon="$4"
-output_dir="$5"
 
 
+args=( $* )
+
+Usage(){
+echo "Usage: $( basename -- $0 ) [options...]"
+cat << EOF
+	-ul	: Upper Left coordinates ( Latitude Longitude )
+	-lr	: Lower Right  coordinates ( Latitude Longitude )
+	-o 	: Output directory
+	-rwycorr: Plane position ( Latitude Longitude ) Runway position ( Latitude Longitude ) Rotation ( degree )
+	-kml	: Input KML/KMZ file 
+	-dsf	: DSF Tile coordiantes ( Latitude Longitude )
+	-zoomref: Coordinates used for scenery resolution ( Latitude Longitude )
+EOF
+
+}
 
 
-file="$1"
+cnt="0"
+while [ ! -z "${args[$cnt]}" ] ; do
+
+
+	if [ "${args[$cnt]}" = "-o" ] && [ -z "$output_dir" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		output_dir="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+	fi
+
+
+	if [ "${args[$cnt]}" = "-ul" ] && [ -z "$point_lat" ] && [ -z "$point_lon" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		point_lat="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		point_lon="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+	fi
+
+	if [ "${args[$cnt]}" = "-lr" ] && [ -z "$lowright_lat" ] && [ -z "$lowright_lon" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		lowright_lat="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		lowright_lon="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+	fi
+
+
+	if [ "${args[$cnt]}" = "-rwycorr" ] && [ -z "$lat_plane" ] && [ -z "$lon_plane" ] && [ -z "$lat_runwa" ] && [ -z "$lon_runwa" ] && [ -z "$rot_fix" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		lat_plane="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		lon_plane="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		lat_runwa="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		lon_runwa="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		rot_fix="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+	fi
+
+	
+	if [ "${args[$cnt]}" = "-kml" ] && [ -z "$file" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		file="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+
+	fi
+
+	if [ "${args[$cnt]}" = "-dsf" ] && [ -z "$lowright_lat" ] && [ -z "$point_lon" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		lowright_lat="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		point_lon="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		lowright_lon="$[ $point_lon + 1 ]"
+		point_lat="$[ $lowright_lat + 1 ]"
+		DSF_CREATION="true"
+	fi
+	
+	if [ "${args[$cnt]}" = "-zoomref" ] && [ -z "$zoom_reference_lat" ] && [ -z "$zoom_reference_lon" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		zoom_reference_lat="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+		zoom_reference_lon="${args[$cnt]}"
+		cnt="$[ $cnt + 1 ]"
+	fi
+
+
+	[ "${args[$cnt]}" = "-help" ] && Usage && exit 1
+
+done
 
 
 # Input is a KML file
@@ -182,45 +260,8 @@ if [ -f "$file" ] ; then
 		m_plane="$( echo "scale = 8; ( $lat_plane + $lat_fix - $lat_plane_rot ) / ( $lon_plane + $lon_fix - $lon_plane_rot )" | bc -l | awk {'printf "%.8f", $1'} )"
 		m_runwa="$( echo "scale = 8; ( $lat_runwa + $lat_fix - $lat_runwa_rot ) / ( $lon_runwa + $lon_fix - $lon_runwa_rot )" | bc -l | awk {'printf "%.8f", $1'} )"
 		rot_fix="$( echo "scale = 8; (a( ($m_plane -  $m_runwa)/(1+($m_plane + $m_runwa)) ) * ( 180 / $pi ))" | bc -l | awk {'printf "%.8f", $1'} )"
-	else
-		rot_fix="$3"
 	fi
 
-
-	output_dir="$2"
-
-
-	
-else
-	if [ "$1" = "DSF" ] && [ ! -z "$2" ] && [ ! -z "$3" ] && [ ! -z "$4" ] ; then
-		lowright_lat="$2"
-		point_lon="$3"
-
-		lowright_lon="$[ $point_lon + 1 ]"
-		point_lat="$[ $lowright_lat + 1 ]"
-		output_dir="$4"
-		DSF_CREATION="true"
-	fi
-
-
-	# Input is CLI arguments
-	if [ "$DSF_CREATION" != "true" ] ; then 
-		if [ -z "$5" ] ; then
-			echo "Usage $( basename -- "$0" ) UpperLeft_Lat UpperLeft_Lon LowRight_Lat LowRight_Lon output_directory"
-			exit 1
-		fi
-
-		#  44.789748
-		lat_plane="$( echo "$6" | awk -F, {'print $1'} )"
-		#  11.664939
-		lon_plane="$( echo "$6" | awk -F, {'print $2'} )"
-		#  44.791528
-		lat_runwa="$( echo "$7" | awk -F, {'print $1'} )"
-		#  11.668357
-		lon_runwa="$( echo "$7" | awk -F, {'print $2'} )"
-		#  10
-		rot_fix="$8"
-	fi
 fi
 
 
@@ -245,9 +286,11 @@ fi
 
 
 if [ -z "$point_lat" ] || [ -z "$point_lon" ] || [ -z "$lowright_lat" ] || [ -z "$lowright_lon" ] ; then
-	echo "Insufficient input paramters..."
+	echo "Insufficient input paramters ... (Try -help)"
 	exit 2
 fi
+
+
 echo "Input:"
 echo "  - Upper Left corner : $point_lat $point_lon"
 echo "  - Lower Right corner: $lowright_lat $lowright_lon"
@@ -260,9 +303,6 @@ echo "  - Coord runway:  Lat $lat_runwa / Lon $lon_runwa | Lat $lat_runwa_rot / 
 echo "  - Coord correc:  Lat $lat_fix / Lon $lon_fix"
 echo "  - Rotation    :  $rot_fix"
 
-
-osm_center_lat="$( echo "scale = 8; ( $point_lat + $lowright_lat ) / 2 " | bc )"
-osm_center_lon="$( echo "scale = 8; ( $point_lon + $lowright_lon ) / 2 " | bc )"
 
 if [  "$DSF_CREATION" = "true" ] ; then
 	echo "Creation of a complete DSF file ..."
@@ -337,8 +377,6 @@ log(){
 #
 # Wrapper for wget command
 #
-
-
 
 
 getCookies(){
@@ -1396,7 +1434,7 @@ matrixApply(){
 
 
 if [ -z "$output_dir" ] ; then
-	log "Output directory missing ..."
+	log "Output directory missing ... (Try -help)"
 	exit 1
 fi	
 
