@@ -62,6 +62,7 @@ cat << EOF
 	-kml	: Input KML/KMZ file 
 	-dsf	: DSF Tile coordiantes ( Latitude Longitude )
 	-zoomref: Coordinates used for scenery resolution ( Latitude Longitude )
+	-bonly	: Create only 3d buildings
 EOF
 
 }
@@ -136,6 +137,11 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 	fi
 
+	if [ "${args[$cnt]}" = "-bonly" ] && [ -z "$BUILDINGS_ONLY" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		BUILDINGS_ONLY="true"
+		BUILDINGS_OVERLAY="yes"
+	fi
 
 	[ "${args[$cnt]}" = "-help" ] && Usage && exit 1
 
@@ -307,6 +313,12 @@ echo "  - Rotation    :  $rot_fix"
 if [  "$DSF_CREATION" = "true" ] ; then
 	echo "Creation of a complete DSF file ..."
 fi
+
+if [ "$BUILDINGS_ONLY" = "true" ] ; then
+	echo "Creation of only 3d Buildings layer ..."
+
+fi
+
 nfo_file="$tiles_dir/tile_"$point_lat"_"$point_lon"_"$lowright_lat"_"$lowright_lon".nfo"
 
 ################################################################################################################33
@@ -1484,7 +1496,7 @@ log "Creating path to coordinates..."
 cursor="$( GetQuadtreeAddress $point_lon $point_lat )"
 
 RESTORE="no" 
-if [ -f "$nfo_file" ] ; then
+if [ -f "$nfo_file" ] && [ -z "$BUILDINGS_ONLY" ]; then
 	while : ; do
 		echo -n "Found input parameters for this scenery, do you want to restore this section? (y/n) [CTRL+C to abort]: "
 		read -n 1 x
@@ -1497,7 +1509,7 @@ fi
 log "Getting Cookies from Google Maps ..."
 getCookies "$point_lat,$point_lon" "$lowright_lat,$lowright_lon" # TO BE REMOVE
 
-if [ "$RESTORE" = "no" ] ; then
+if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 	if [ ! -z "$zoom_reference_lat" ] && [ ! -z "$zoom_reference_lon" ] ; then
 
 		pnt_zoom_ref_lat="$zoom_reference_lat"
@@ -1735,7 +1747,7 @@ if [ "$RESTORE" = "no" ] ; then
 fi
 
 
-if [ "$RESTORE" = "yes" ] ; then
+if [ "$RESTORE" = "yes" ] && [ -z  "$BUILDINGS_ONLY" ] ; then
 	log "Restoring section $nfo_file ..."
 	. "$nfo_file"
 	if 	[ -z "$dim_x" ] 		|| \
@@ -1779,6 +1791,11 @@ fi
 if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 	log "Buildings overlay getting information ..."
+	if [  "$BUILDINGS_ONLY" = "true" ] && [ -f "$nfo_file" ] ; then
+		log "Restoring section $nfo_file ..."
+		. "$nfo_file"
+	fi
+
 	if [ -z "$LIST_3D_OBEJCTS" ] ; then
 		log "Downloading objects list ..."
 		placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
@@ -1829,7 +1846,7 @@ tot="${#good_tile[@]}"
 
 SHIT_COLOR="E4E3DF"
 
-for c2 in ${good_tile[@]} ; do
+[ -z "$BUILDINGS_ONLY" ] && for c2 in ${good_tile[@]} ; do
 	# break # TO BE REMOVED
 	log  "$cnt / $tot"
 
@@ -1918,7 +1935,7 @@ tot="${#good_tile[@]}"
 
 # REMAKE_TILE="yes"
 
-for cursor_huge in ${good_tile[@]} ; do
+[ -z "$BUILDINGS_ONLY" ] && for cursor_huge in ${good_tile[@]} ; do
 	# break # TO BE REMOVED
 	cursor_tmp="${cursor_huge}qqq"
 
@@ -2027,7 +2044,7 @@ fi
 
 
 
-if [ "$MASH_SCENARY" = "yes" ] ; then
+if [ -z "$BUILDINGS_ONLY" ] && [ "$MASH_SCENARY" = "yes" ] ; then
 	if [ ! -d  "$TER_DIR" ] ; then
 	        log "Creating directory $TER_DIR ..."
 	        mkdir -p -- "$TER_DIR"
@@ -2054,9 +2071,13 @@ if [ "$MASH_SCENARY" = "yes" ] ; then
 	log "Found ${#PATCH_VERTEX[*]} vertex, $[ ${#PATCH_VERTEX[*]} / 3 ] triangles ..."
 fi
 
+if [ "$BUILDINGS_ONLY" = "true" ] ; then
+	dim_x="8" ; dim_y="8"
+fi
 
-dim_x=$[  ( $dim_x + ( 8 % $dim_x ) ) / 8 ]
-dim_y=$[  ( $dim_y + ( 8 % $dim_y ) ) / 8 ]
+
+dim_x="$[  ( ${dim_x} + ( 8 % ${dim_x} ) ) / 8 ]"
+dim_y="$[  ( ${dim_y} + ( 8 % ${dim_y} ) ) / 8 ]"
 
 [ "$dim_x" = "0" ] && dim_x="1"
 [ "$dim_y" = "0" ] && dim_y="1"
@@ -2074,7 +2095,7 @@ if [  "$DSF_CREATION" = "true" ] ; then
 	log "Creation $DSF_TARGET_FILE file only ..."
 fi
 
-for x in $( seq 0 $dim_x ) ; do
+[ -z "$BUILDINGS_ONLY" ] && for x in $( seq 0 $dim_x ) ; do
 	# break # TO BE REMOVED
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
@@ -2675,6 +2696,53 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		fi		
 
 		unset obj_list; unset dsf_body
+
+		if [ "$BUILDINGS_ONLY" = "true" ] ; then
+			REFERENCE_POINT_LAT="${Location[1]}"
+			REFERENCE_POINT_LON="${Location[2]}"
+			dfs_file="$( getDSFName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )" 
+			dfs_dir="$(  getDirName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )"
+			dfs_list="$dfs_dir/${dfs_file}"
+			[ ! -d "$output_dir/$output_sub_dir/$dfs_dir" ] && mkdir -p "$output_dir/$output_sub_dir/$dfs_dir"
+
+			dsf_body="$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}_body.txt"
+			[ ! -f "$dsf_body" ] && touch "$dsf_body"
+
+			[ "$( echo "$REFERENCE_POINT_LAT < 0" | bc )" = 1  ] && \
+				max_lat="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LAT'		}' )" && \
+				min_lat="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LAT' - 1	}' )"
+
+			[ "$( echo "$REFERENCE_POINT_LAT > 0" | bc )" = 1  ] && 
+				max_lat="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LAT' + 1	}' )" && \
+				min_lat="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LAT' 		}' )"
+
+			[ "$( echo "$REFERENCE_POINT_LON < 0" | bc )" = 1  ] && \
+				max_lon="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LON' 		}' )" && \
+				min_lon="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LON' - 1	}' )"
+
+			[ "$( echo "$REFERENCE_POINT_LON > 0" | bc )" = 1  ] && 
+				max_lon="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LON' + 1	}' )" && \
+				min_lon="$( awk 'BEGIN { printf "%d", '$REFERENCE_POINT_LON' 		}' )"
+
+
+			if [ ! -f "$output_dir/$output_sub_dir/$dfs_dir/$dfs_file.txt" ] ; then
+				log "Creating file $dfs_file ..."
+				echo "PROPERTY sim/planet earth" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/overlay 1" 					>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/require_object 1/0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/require_facade 1/0"				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/creation_agent $( basename -- "$0" )"	>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+ 				echo "PROPERTY sim/west $min_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/east $max_lon" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/north $max_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo "PROPERTY sim/south $min_lat" 				>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+				echo 								>> "$output_dir/$output_sub_dir/$dfs_dir/${dfs_file}.txt"
+			fi
+			
+
+		fi
+
+
 		for i in ${dfs_list[*]} ; do
 			PROPERTY="$( cat "$output_dir/$output_sub_dir/${i}.txt" | grep "PROPERTY" )"
 			cnt="0"
@@ -2698,6 +2766,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			cnt_3Dobjects=$[ $cnt_3Dobjects + 1 ]
 			continue
 		fi
+
+
+
 
 #		log "Checking around buildings ..."
 #		otherObj_coords="$( cat "$dsf_body" | grep "OBJECT" | awk '{ printf "%f_%f\n", $3, $4}' | sort -u | tr "\n" " " )"
