@@ -150,7 +150,7 @@ done
 
 # Input is a KML file
 if [ -f "$file" ] ; then
-	ext="$( echo "$file" | rev | awk -F. {'print $1'} | rev | tr [A-Z] [a-z] )"
+	ext="$( echo "$file" | awk -F. '{print $NF}' | tr [A-Z] [a-z] )"
 	if [ "$ext" = "kmz" ] ; then
 		echo "Searching information in the KMZ file \"$( basename -- "$file" )\"..."
 		kml=( $( unzip -p "$file" | tr -d " " | tr "\n" " " ) )
@@ -374,6 +374,35 @@ if [ "$( uname -s )" = "Linux" ] ; then
 	dsftool="$( dirname -- "$0" )/ext_app/linux/tools/DSFTool"
 	ddstool="$( dirname -- "$0" )/ext_app/linux/tools/DDSTool"
 fi	
+
+
+if [ ! -z "$( uname -s | grep -i "CYGWIN" )" ] ; then
+	# Dsf tool
+	if [ -z "$( which convert 2> /dev/null )" ] ; then
+		echo "ERROR: Utility missing, you must install the ImageMagick package"
+		exit 3
+	fi
+	if [ -z "$( which wget 2> /dev/null )" ] ; then
+		echo "ERROR: Utility missing, you must install the Wget package"
+		exit 3
+	fi
+	dsftool="$( dirname -- "$0" )/ext_app/win/tools/DSFTool"
+	ddstool="$( dirname -- "$0" )/ext_app/win/tools/DDSTool"
+	
+	uname(){
+		echo "Linux"
+	}
+	rev(){
+		while read arg ; do
+			cnt=$[ ${#arg} - 1 ]
+			while [ $cnt -gt -1 ] ; do
+				echo -n "${arg:$cnt:1}"
+				cnt=$[ $cnt - 1 ]
+			done
+		done
+	}
+fi	
+
 
 ################################################################################################################33
 
