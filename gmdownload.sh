@@ -76,6 +76,7 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		output_dir="${args[$cnt]}"
 		cnt="$[ $cnt + 1 ]"
+		continue
 	fi
 
 
@@ -85,6 +86,7 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		point_lon="${args[$cnt]}"
 		cnt="$[ $cnt + 1 ]"
+		continue
 	fi
 
 	if [ "${args[$cnt]}" = "-lr" ] && [ -z "$lowright_lat" ] && [ -z "$lowright_lon" ] ; then
@@ -93,6 +95,7 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		lowright_lon="${args[$cnt]}"
 		cnt="$[ $cnt + 1 ]"
+		continue
 	fi
 
 
@@ -108,6 +111,7 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		rot_fix="${args[$cnt]}"
 		cnt="$[ $cnt + 1 ]"
+		continue
 	fi
 
 	
@@ -115,7 +119,7 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		file="${args[$cnt]}"
 		cnt="$[ $cnt + 1 ]"
-
+		continue
 	fi
 
 	if [ "${args[$cnt]}" = "-dsf" ] && [ -z "$lowright_lat" ] && [ -z "$point_lon" ] ; then
@@ -127,6 +131,7 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		lowright_lon="$[ $point_lon + 1 ]"
 		point_lat="$[ $lowright_lat + 1 ]"
 		DSF_CREATION="true"
+		continue
 	fi
 	
 	if [ "${args[$cnt]}" = "-zoomref" ] && [ -z "$zoom_reference_lat" ] && [ -z "$zoom_reference_lon" ] ; then
@@ -135,15 +140,20 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		zoom_reference_lon="${args[$cnt]}"
 		cnt="$[ $cnt + 1 ]"
+		continue
 	fi
 
 	if [ "${args[$cnt]}" = "-bonly" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 		cnt="$[ $cnt + 1 ]"
 		BUILDINGS_ONLY="true"
 		BUILDINGS_OVERLAY="yes"
+		continue
 	fi
 
 	[ "${args[$cnt]}" = "-help" ] && Usage && exit 1
+
+	echo "Unknown option: ${args[$cnt]} (Try -help)"
+	exit 1	
 
 done
 
