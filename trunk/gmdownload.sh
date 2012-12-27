@@ -41,7 +41,11 @@ TMPFILE="tmp$$"
 output=()
 
 
-DEM_SERVER="ftp://xftp.jrc.it/pub/srtmV4/arcasci/"
+DEM_SERVERS[0]="ftp://srtm.csi.cgiar.org/SRTM_v41/SRTM_Data_ArcASCII"
+DEM_SERVERS[1]="http://srtm.csi.cgiar.org/SRT-ZIP/SRTM_v41/SRTM_Data_ArcASCII"
+DEM_SERVERS[2]="ftp://xftp.jrc.it/pub/srtmV4/arcasci"
+
+
 DemInMemory=""
 DEM_LINE_OFFSET="6"
 padfTransform=()
@@ -1181,7 +1185,6 @@ setAltitudeEnv(){
 	lat="$2"
 	[ -z "$lon" ] && exit 1
 	[ -z "$lat" ] && exit 1
-
 	srtm_x="$( awk 'BEGIN { printf "%02d", int( ( 180 + '"$lon"'  		  ) / ( 360 / 72 ) ) + 1 }' )"
 	srtm_y="$( awk 'BEGIN { printf "%02d", int( ( 60  - '"$lat"' + ( 120 / 24 ) ) / ( 120 / 24 ) )	 }' )"
 	dem="srtm_${srtm_x}_${srtm_y}"
@@ -1191,10 +1194,12 @@ setAltitudeEnv(){
 			log "Missing DEM file $dem ..."
 
 			cnt="1"
+			server="0"
 			while [  "$( unzip -t -q "$tiles_dir/dem/${dem}.zip" &> /dev/null ; echo -n $? )" -ne "0" ] ; do
 				log "Downloading attempt $cnt ..."
-				wget  --timeout 10 -c "ftp://xftp.jrc.it/pub/srtmV4/arcasci/${dem}.zip" -O "$tiles_dir/dem/${dem}.zip"
+				wget  --timeout 10 -c "${DEM_SERVERS[$server]}/${dem}.zip" -O "$tiles_dir/dem/${dem}.zip"
 				cnt=$[ $cnt + 1 ]
+				[ "$[ $cnt % 10 ]" -eq "0" ] && server="$[ ( $server + 1 ) % ${#DEM_SERVERS[*]} ]"
 			done
 			log "Uncompress $dem Zip archive ..."
 			unzip -o -q "$tiles_dir/dem/${dem}.zip" -d "$tiles_dir/dem/"
@@ -2235,7 +2240,7 @@ fi
 			else
 	                	c_last="$c2"
 	                	c2="$( GetNextTileY $c2 1 )"
-				contine
+				continue
 			fi
 		fi
 
