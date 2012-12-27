@@ -409,6 +409,7 @@ if [ ! -z "$( uname -s | grep -i "CYGWIN" )" ] ; then
 				echo -n "${arg:$cnt:1}"
 				cnt=$[ $cnt - 1 ]
 			done
+			echo
 		done
 	}
 fi	
