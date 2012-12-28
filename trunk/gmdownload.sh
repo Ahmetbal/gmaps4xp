@@ -603,25 +603,25 @@ middlePoint(){
 divideSquare(){
         coorners=( $* )
         
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[0]%,*}', '${coorners[0]#*,}' }'
+	awk 'BEGIN {  printf "%.10f,%.10f ", '${coorners[0]%,*}', '${coorners[0]#*,}' }'
         middlePoint ${coorners[0]} ${coorners[1]}                                
         middlePoint ${coorners[1]} ${coorners[3]}                                
         middlePoint ${coorners[3]} ${coorners[0]}                                
                                                                                  
         middlePoint ${coorners[0]} ${coorners[1]}	                         
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[1]%,*}', '${coorners[1]#*,}' }'
+	awk 'BEGIN {  printf "%.10f,%.10f ", '${coorners[1]%,*}', '${coorners[1]#*,}' }'
         middlePoint ${coorners[1]} ${coorners[2]}                                
         middlePoint ${coorners[1]} ${coorners[3]}                                
                                                                                  
         middlePoint ${coorners[1]} ${coorners[3]}                                
         middlePoint ${coorners[1]} ${coorners[2]}                                
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[2]%,*}', '${coorners[2]#*,}' }'
+	awk 'BEGIN {  printf "%.10f,%.10f ", '${coorners[2]%,*}', '${coorners[2]#*,}' }'
         middlePoint ${coorners[2]} ${coorners[3]}                                
                                                                                  
         middlePoint ${coorners[3]} ${coorners[0]}                                
         middlePoint ${coorners[1]} ${coorners[3]}                                
         middlePoint ${coorners[2]} ${coorners[3]}                                
-	awk 'BEGIN {  printf "%.8f,%.8f ", '${coorners[3]%,*}', '${coorners[3]#*,}' }'
+	awk 'BEGIN {  printf "%.10f,%.10f ", '${coorners[3]%,*}', '${coorners[3]#*,}' }'
 
 }
 
@@ -2136,7 +2136,12 @@ prog="1"
 cursor_tmp="$( echo "$cursor"  | rev | cut -c 4- | rev )"
 
 if [  "$DSF_CREATION" = "true" ] ; then
-	DSF_TARGET_FILE="$( getDSFName $lowright_lat $point_lon  )"
+	lat="$lowright_lat"
+	lon="$point_lon"
+	[ "$( echo "$lat < 0" | bc )" = 1 ] && lat="$( echo "scale = 6; $lat + 0.5" | bc )"
+	[ "$( echo "$lon < 0" | bc )" = 1 ] && lon="$( echo "scale = 6; $lon + 0.5" | bc )"
+
+	DSF_TARGET_FILE="$( getDSFName $lat $lon )"
 	log "Creation $DSF_TARGET_FILE file only ..."
 fi
 
@@ -2351,7 +2356,8 @@ fi
 						if [ "$( echo "$ll_lat < $min_lat" | bc )" = 1  ] ; then
 							ll_lat_px="$( echo "scale = 8; $( pointDist $ll_lon $ll_lat $ll_lon $min_lat ) / $( pointDist $ll_lon $ll_lat $ul_lon $ul_lat  )" | bc )"
 							ll_lat_dsf="${min_lat}.000000"
-							[ "$MASH_SCENARY" = "yes" ] &&  ll_lat_dsf="${min_lat}.000002"
+							#[ "$MASH_SCENARY" = "yes" ] &&  ll_lat_dsf="${min_lat}.000002"
+							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${min_lat}' > 0 ) ? '${min_lat}' + 0.000002 : '${min_lat}' - 0.000002 }' )"
 							CROSS_CHECK_FIXED="yes"
 						fi
 						
@@ -2368,7 +2374,7 @@ fi
 						if [ "$( echo "$lr_lat < $min_lat" | bc )" = 1  ] ; then
 							lr_lat_px="$( echo "scale = 8; $( pointDist $lr_lon $lr_lat $lr_lon $min_lat ) / $( pointDist $lr_lon $lr_lat $ur_lon $ur_lat  )" | bc )"
 							lr_lat_dsf="${min_lat}.000000"
-							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="${min_lat}.000002"
+							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${min_lat}' > 0 ) ? '${min_lat}' + 0.000002 : '${min_lat}' - 0.000002 }' )"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
