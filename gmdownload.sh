@@ -1747,6 +1747,7 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 
 	dim_x=$[ $dim_x - 1 ]
 	dim_y=$[ $dim_y - 1 ]
+	[ "$DSF_CREATION" = "true" ] && dim_y=$[ $dim_y + 1 ]
 
 
 	log "Randomizing tile list..."
@@ -2356,8 +2357,7 @@ fi
 						if [ "$( echo "$ll_lat < $min_lat" | bc )" = 1  ] ; then
 							ll_lat_px="$( echo "scale = 8; $( pointDist $ll_lon $ll_lat $ll_lon $min_lat ) / $( pointDist $ll_lon $ll_lat $ul_lon $ul_lat  )" | bc )"
 							ll_lat_dsf="${min_lat}.000000"
-							#[ "$MASH_SCENARY" = "yes" ] &&  ll_lat_dsf="${min_lat}.000002"
-							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${min_lat}' > 0 ) ? '${min_lat}' + 0.000002 : '${min_lat}' - 0.000002 }' )"
+							[ "$MASH_SCENARY" = "yes" ] && ll_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${min_lat}' > 0 ) ? '${min_lat}' + 0.000002 : '${min_lat}' }' )"
 							CROSS_CHECK_FIXED="yes"
 						fi
 						
@@ -2374,7 +2374,7 @@ fi
 						if [ "$( echo "$lr_lat < $min_lat" | bc )" = 1  ] ; then
 							lr_lat_px="$( echo "scale = 8; $( pointDist $lr_lon $lr_lat $lr_lon $min_lat ) / $( pointDist $lr_lon $lr_lat $ur_lon $ur_lat  )" | bc )"
 							lr_lat_dsf="${min_lat}.000000"
-							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${min_lat}' > 0 ) ? '${min_lat}' + 0.000002 : '${min_lat}' - 0.000002 }' )"
+							[ "$MASH_SCENARY" = "yes" ] && lr_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${min_lat}' > 0 ) ? '${min_lat}' + 0.000002 : '${min_lat}' }' )"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
@@ -2390,6 +2390,7 @@ fi
 						 if [ "$( echo "$ul_lat > $max_lat" | bc )" = 1  ] ; then
 							ul_lat_px="$( echo "scale = 8; 1.0 - $( pointDist $ul_lon $ul_lat $ul_lon $max_lat ) / $( pointDist $ul_lon $ul_lat $ll_lon $ll_lat  )" | bc )"
 							ul_lat_dsf="${max_lat}.000000"
+							[ "$MASH_SCENARY" = "yes" ] && ul_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${max_lat}' > 0 ) ? '${max_lat}' : '${max_lat}' - 0.000002 }' )"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
@@ -2405,6 +2406,7 @@ fi
 						 if [ "$( echo "$ur_lat > $max_lat" | bc )" = 1  ] ; then
 							ur_lat_px="$( echo "scale = 8; 1.0 - $( pointDist $ur_lon $ur_lat $ur_lon $max_lat ) / $( pointDist $ur_lon $ur_lat $lr_lon $lr_lat  )" | bc )"
 							ur_lat_dsf="${max_lat}.000000"
+							[ "$MASH_SCENARY" = "yes" ] && ur_lat_dsf="$( awk 'BEGIN { printf "%f", ( '${max_lat}' > 0 ) ? '${max_lat}' : '${max_lat}' - 0.000002 }' )"
 							CROSS_CHECK_FIXED="yes"
 						fi
 
