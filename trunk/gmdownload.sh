@@ -1212,16 +1212,21 @@ setAltitudeEnv(){
 
 		info=( $( cat "$tiles_dir/dem/${dem}.asc" | head -n "$DEM_LINE_OFFSET" | tr -d "\r" | awk '{ print $2 }' | tr "\n" " " ) )
 
-		info[3]="$( awk 'BEGIN { printf "%d", '${info[3]}' + ( 120 / 24 ) }' )"
-		padfTransform=( ${info[2]} ${info[4]} 0 ${info[3]} 0 -${info[4]}  )
-		[ ! -f "$tiles_dir/dem/${dem}.asc.filter" ] && cat "$tiles_dir/dem/${dem}.asc" | sed -e s/"${info[5]}"/"0"/g >  "$tiles_dir/dem/${dem}.asc.filter"
+		[ ! -f "$tiles_dir/dem/${dem}.asc.filter" ] && cat "$tiles_dir/dem/${dem}.asc" | tr -d "\r" | tail -n +$[ DEM_LINE_OFFSET + 1 ] | sed -e s/"${info[5]}"/"0"/g >  "$tiles_dir/dem/${dem}.asc.filter"
 
 		while read DEM[$cnt] ; do cnt="$[ $cnt + 1 ]"; done < "$tiles_dir/dem/${dem}.asc.filter"
 
-                padfTransform[1]="${info[4]}"  	# Pixel X size 
-                padfTransform[5]="-${info[4]}"	# Pixel Y size
-                padfTransform[0]="${info[2]}"	# Lon upper left
-                padfTransform[3]="${info[3]}"	# Lat upper left
+	# ncols         6001
+	# nrows         6001
+	# xllcorner     9.9995836238757
+	# yllcorner     39.999583575447
+	# cellsize      0.00083333333333333
+	# NODATA_value  -9999
+
+                padfTransform[1]="$( awk 'BEGIN { printf "%f", '${info[4]}' }' )" 	# Pixel X size 
+                padfTransform[5]="$( awk 'BEGIN { printf "%f", '${info[4]}' * -1}' )"	# Pixel Y size
+                padfTransform[0]="$( awk 'BEGIN { printf "%f", '${info[2]}' }' )"	# Lon upper left
+                padfTransform[3]="$( awk 'BEGIN { printf "%f", '${info[3]}' }' )"	# Lat upper left
                 padfTransform[2]="0"		# Rotation zero
 		padfTransform[4]="0"
 		padfTransformInv=( $( InvGeoTransform ${padfTransform[*]} ) )
@@ -1232,18 +1237,17 @@ setAltitudeEnv(){
 getAltitude(){
 	lon="$1"
 	lat="$2"
+	# *pdfGeoX = padfGeoTransform[0] + dfPixel * padfGeoTransform[1] + dfLine * padfGeoTransform[2]; 
+	# *pdfGeoY = padfGeoTransform[3] + dfPixel * padfGeoTransform[4] + dfLine * padfGeoTransform[5];
 
+	Xp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[0]}' + '$lon' * '${padfTransformInv[1]}' + '$lat' * '${padfTransformInv[2]}' }' )"
+	Yp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' }' )"
 
-	Xp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[0]}' + '$lon' * '${padfTransformInv[1]}' + '$lat' * '${padfTransformInv[2]}' 			}' )"
-	Yp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' + '$DEM_LINE_OFFSET' 	}' )"
 
 	xCoords=( $( awk 'BEGIN { printf "%d %d %d %d", '$Xp', '$Yp', '$Xp' + 1, '$Yp' + 1 }' ) )
- #	x0=( $( echo "${DEM[${xCoords[1]}]}" | sed -e 's/-9999/0/g' ) )
- #	x1=( $( echo "${DEM[${xCoords[3]}]}" | sed -e 's/-9999/0/g' ) )
 
  	x0=( ${DEM[${xCoords[1]}]} )
  	x1=( ${DEM[${xCoords[3]}]} )
-
 
 
 	alt="$( awk 'BEGIN { printf "%f", '${x0[${xCoords[0]}]}' + 0.'${Xp#*.}' * ( '${x0[${xCoords[2]}]}' - '${x0[${xCoords[0]}]}' ) + 0.'${Yp#*.}' * ( '${x1[${xCoords[0]}]}' - '${x0[${xCoords[0]}]}') + 0.'${Xp#*.}' * 0.'${Yp#*.}' * ( '${x1[${xCoords[2]}]}' + '${x0[${xCoords[0]}]}' - '${x1[${xCoords[0]}]}' - '${x0[${xCoords[2]}]}' ) }' )"
@@ -1258,10 +1262,14 @@ getAltitude(){
 	awk 'BEGIN { printf "%f", '$alt' }' 
 }
 
-# setAltitudeEnv 12.332153 45.452424
-# getAltitude 12.332153 45.452424
+# setAltitudeEnv 10.19875029 44.33041691
+# echo "${padfTransform[*]}"
+# getAltitude 10.19875029 44.33041691
 # echo
 # exit 0
+
+
+
 
 #########################################################################3
 
