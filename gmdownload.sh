@@ -1223,10 +1223,10 @@ setAltitudeEnv(){
 	# cellsize      0.00083333333333333
 	# NODATA_value  -9999
 
-                padfTransform[1]="$( awk 'BEGIN { printf "%f", '${info[4]}' }' )" 	# Pixel X size 
-                padfTransform[5]="$( awk 'BEGIN { printf "%f", '${info[4]}' * -1}' )"	# Pixel Y size
-                padfTransform[0]="$( awk 'BEGIN { printf "%f", '${info[2]}' }' )"	# Lon upper left
-                padfTransform[3]="$( awk 'BEGIN { printf "%f", '${info[3]}' }' )"	# Lat upper left
+                padfTransform[1]="$( awk 'BEGIN { printf "%f", '${info[4]}' }' )" 				# Pixel X size 
+                padfTransform[5]="$( awk 'BEGIN { printf "%f", '${info[4]}' * -1 }' )"				# Pixel Y size
+                padfTransform[0]="$( awk 'BEGIN { printf "%f", '${info[2]}' }' )"				# Lon upper left
+                padfTransform[3]="$( awk 'BEGIN { printf "%f", '${info[3]}' + '${info[4]}' * '${info[1]}' }' )"	# Lat upper left
                 padfTransform[2]="0"		# Rotation zero
 		padfTransform[4]="0"
 		padfTransformInv=( $( InvGeoTransform ${padfTransform[*]} ) )
@@ -1240,9 +1240,9 @@ getAltitude(){
 	# *pdfGeoX = padfGeoTransform[0] + dfPixel * padfGeoTransform[1] + dfLine * padfGeoTransform[2]; 
 	# *pdfGeoY = padfGeoTransform[3] + dfPixel * padfGeoTransform[4] + dfLine * padfGeoTransform[5];
 
-	Xp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[0]}' + '$lon' * '${padfTransformInv[1]}' + '$lat' * '${padfTransformInv[2]}' }' )"
-	Yp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[3]}' + '$lon' * '${padfTransformInv[4]}' + '$lat' * '${padfTransformInv[5]}' }' )"
 
+	Xp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[0]}' + ( '$lon' * '${padfTransformInv[1]}' ) + ( '$lat' * '${padfTransformInv[2]}' ) }' )"
+	Yp="$( awk 'BEGIN { printf "%f", '${padfTransformInv[3]}' + ( '$lon' * '${padfTransformInv[4]}' ) + ( '$lat' * '${padfTransformInv[5]}' ) }' )"
 
 	xCoords=( $( awk 'BEGIN { printf "%d %d %d %d", '$Xp', '$Yp', '$Xp' + 1, '$Yp' + 1 }' ) )
 
@@ -1251,7 +1251,6 @@ getAltitude(){
 
 
 	alt="$( awk 'BEGIN { printf "%f", '${x0[${xCoords[0]}]}' + 0.'${Xp#*.}' * ( '${x0[${xCoords[2]}]}' - '${x0[${xCoords[0]}]}' ) + 0.'${Yp#*.}' * ( '${x1[${xCoords[0]}]}' - '${x0[${xCoords[0]}]}') + 0.'${Xp#*.}' * 0.'${Yp#*.}' * ( '${x1[${xCoords[2]}]}' + '${x0[${xCoords[0]}]}' - '${x1[${xCoords[0]}]}' - '${x0[${xCoords[2]}]}' ) }' )"
-
 
 	if [ -z "$alt" ] ; then
 		log "SEVERE ERROR! This is a BUG!"
@@ -1262,9 +1261,9 @@ getAltitude(){
 	awk 'BEGIN { printf "%f", '$alt' }' 
 }
 
-# setAltitudeEnv 10.19875029 44.33041691
+# setAltitudeEnv 13.12458362 42.44791691
 # echo "${padfTransform[*]}"
-# getAltitude 10.19875029 44.33041691
+# getAltitude 	13.12458362 42.44791691
 # echo
 # exit 0
 
@@ -1630,6 +1629,7 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 		echo -n "Searching X size..."
 	
 		dim_x="0"
+		# echo "$lon $lat $lon_min $lat_min $lon_max $lat_max"
 
 		cursor_tmp="$cursor"
 		while : ; do
@@ -1638,10 +1638,9 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 			cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 	
 			info=( $( GetCoordinatesFromAddress $c2 ) )
-			x_lon=${info[4]}
-	
-			[  "$( echo "$x_lon > $lowright_lon" | bc )" = 1 ] && break 
+			x_lon="${info[0]}"
 			dim_x=$[ $dim_x + 1 ]
+			[  "$( echo "$x_lon > $lowright_lon" | bc )" -eq "1" ] && break 
 		done
 		
 		echo
@@ -1657,18 +1656,17 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 			cursor_tmp="$( GetNextTileY $cursor_tmp 1 )"
 	
 			info=( $( GetCoordinatesFromAddress $c2 ) )
-			y_lat=${info[5]}
-
-			[  "$( echo "$y_lat < $lowright_lat" | bc )" = 1 ] && break 
+			y_lat="${info[1]}"
 			dim_y=$[ $dim_y + 1 ]
+			[  "$( echo "$y_lat < $lowright_lat" | bc )" -eq "1" ] && break 
 		done
 		echo
 
 		if [ "$dim_x" -eq "0" ] || [ "$dim_y" -eq "0" ] ; then
 			echo "AOI selected is smaller than one tile, I take the entire tile to create texture..."
 		fi
-		[ "$dim_x" -le "1" ] && dim_x="8"
-		[ "$dim_y" -le "1" ] && dim_y="8"
+		[ "$dim_x" -lt "8" ] && dim_x="8"
+		[ "$dim_y" -lt "8" ] && dim_y="8"
 	
 		log "Size of tiles $dim_x x $dim_y ..."
 
@@ -1686,8 +1684,7 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 			read -n 1 x
 			echo
 			[ -z "$x" ] 	&& break
-			[ "$x" = "-" ] 	&& break
-			
+			[ "$x" = "-" ] 	&& break	
 		done
 		[ -z "$x" ] && break	
 		log "Dezooming one step..."
@@ -1764,13 +1761,12 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 	[ "$( uname -s )" = "Linux"  ] && tile_index=( $( seq 0 $[ $tot - 1 ] | sort -R | tr "\n" " " ) )
 
 	i="0"
-	cnt=1
+	cnt="0"
 	cursor_tmp="$cursor"
 	for x in $( seq 0 $dim_x ) ; do	
 		c2="$cursor_tmp"
 		cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
 
-		log "Step 2: $cnt / $tot, found ${#good_tile[*]} good tiles ..."
 		for y in $( seq 0 $dim_y  ) ; do
 			tile_check="in"
 
@@ -1779,7 +1775,6 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 					tmp_poly="$( echo ${poly[*]} | tr " " "\n" | grep "^${j}," | awk -F, {'print $2","$3'} | tr "\n" " " )"
 						info=( $( GetCoordinatesFromAddress $c2 ) )
 						# $lon $lat $lon_min $lat_min $lon_max $lat_max
-	
 						tile_check="$( pointInPolygon "${info[2]}" "${info[3]}" "$tmp_poly" )"
 						if [ "$tile_check" = "out" ] ; then tile_check="$( pointInPolygon "${info[4]}" "${info[5]}" "$tmp_poly" )" ; else break ; fi
 						if [ "$tile_check" = "out" ] ; then tile_check="$( pointInPolygon "${info[2]}" "${info[5]}" "$tmp_poly" )" ; else break ; fi
@@ -1794,6 +1789,7 @@ if [ "$RESTORE" = "no" ] && [ -z "$BUILDINGS_ONLY" ] ; then
 			cnt=$[ $cnt + 1 ]
 			i=$[ $i + 1 ]
 		done
+		log "Step 2: $cnt / $tot, found ${#good_tile[*]} good tiles ..."
 	done
 	
 	echo
@@ -1987,7 +1983,7 @@ tile_seq="$( seq 0 7 )"
 prog="1"
 tot="${#good_tile[@]}"
 
-# REMAKE_TILE="yes"
+REMAKE_TILE="yes"
 
 [ -z "$BUILDINGS_ONLY" ] && for cursor_huge in ${good_tile[@]} ; do
 	# break # TO BE REMOVED
@@ -2024,7 +2020,7 @@ tot="${#good_tile[@]}"
 					echo -n ""  >  "${tiles_dir}/mask/mask-${cursor_huge}.png"	
 				fi
 
-				echo -n "Done "
+				echo  "Done "
 				
 
 			fi
@@ -2032,22 +2028,28 @@ tot="${#good_tile[@]}"
 
 
 		cnt="0"
-		for x in $tile_seq ; do
+		log "Mosaicing maps (#: get, .: miss):"
+		for y in $tile_seq ; do
 			c2="$cursor_tmp"
-			cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
-			for y in $tile_seq ; do
+			cursor_tmp="$( GetNextTileY $cursor_tmp 1 )"
+			for x in $tile_seq ; do
 				in_file="$( dirname -- "$0" )/ext_app/images/trans.png"
+				if [ -f "$tiles_dir/tile/tile-$c2.png" ] ; then
+					in_file="${tiles_dir}/tile/tile-${c2}.png"
+					echo -ne "# "
+				else
+					echo -ne ". "
+				fi
 
-				[ -f "$tiles_dir/tile/tile-$c2.png" ] && in_file="${tiles_dir}/tile/tile-${c2}.png"
-					
 	                        convert -page +$[ 256 * $x  ]+$[ 256 * $y ] "$in_file" "${tiles_dir}/tile/tile-${cursor_huge}-${x}-${y}.png"
 				texture_tile[$cnt]="tile-${cursor_huge}-${x}-${y}.png"
-				echo -ne "."
 				cnt=$[ $cnt + 1 ]
 	
 		                c_last="$c2"
-		                c2="$( GetNextTileY $c2 1 )"
+
+		                c2="$( GetNextTileX $c2 1 )"
 		        done
+			echo
 		done
 		if [ "$WATER_MASK" = "yes" ] ;then
 			if [ "$( du -k  "$tiles_dir/mask/mask-$cursor_huge.png" | awk {'print $1'} )" != "0" ] ; then
@@ -2106,6 +2108,15 @@ if [ -z "$BUILDINGS_ONLY" ] && [ "$MASH_SCENARY" = "yes" ] ; then
 	        log "Directory $TER_DIR already exists ..."
 	fi
 
+	cursor_tmp="$( echo "$cursor"  | rev | cut -c 4- | rev )"
+	tile_size="$( tile_resolution $cursor_tmp | awk '{ printf "%f", $1 * 256 }' )"
+	info=( $( GetCoordinatesFromAddress $cursor_tmp ) )
+	setAltitudeEnv "${info[0]}" "${info[1]}"
+	#  9.999584 0.000833 0 45.000417 0 -0.000833
+	cell_size="$( pointDist $( awk 'BEGIN { printf "%f %f %f %f", '${padfTransform[0]}', '${padfTransform[3]}', '${padfTransform[0]}', '${padfTransform[3]}' + '${padfTransform[1]}' }' ) )"
+
+	MESH_LEVEL="$( awk 'BEGIN { printf "%d", (( '$tile_size' / '$cell_size' )^2 )^(1/4) - 1 }' )"
+	
 	log "Creating MESH grid using level $MESH_LEVEL ..."
 	square=( "0,0"  "1,0"  "1,1"  "0,1"  )
 	step="1"
@@ -2158,7 +2169,6 @@ fi
 	# break # TO BE REMOVED
         c2="$cursor_tmp"
         cursor_tmp="$( GetNextTileX $cursor_tmp 1 )"
-
         for y in $( seq 0 $dim_y  ) ; do
 		if [ !  -f "$tiles_dir/tile/tile-$c2.png" ] ; then
                 	c_last="$c2"
@@ -2240,23 +2250,29 @@ fi
 		TEXTURE="img_${point_lat}_${point_lon}.dds"
 		TER="ter_${point_lat}_${point_lon}.ter"
 
-		DSF_LIST="$( for p in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do getDSFName "${p#*,}" "${p%,*}" ; done | sort -u  )"
 
+		unset lon_test_list; unset lat_test_list; unset coord_test_list
+		lon_test_list="$( seq "${ul_lon%.*}" "${ur_lon%.*}" ; seq "${ll_lon%.*}" "${lr_lon%.*}" | sort -u )"
+		lat_test_list="$( seq "${ll_lat%.*}" "${ul_lat%.*}" ; seq "${lr_lat%.*}" "${ur_lat%.*}" | sort -u )"	
+		coord_test_list="$( for y in $lat_test_list ; do for x in $lon_test_list ; do echo "$x,$y"; done ; done | sort -u  | tr "\n" " " )"				
 
-		if [  "$DSF_CREATION" = "true" ] && [ ! -z "$DSF_TARGET_FILE" ] ; then
-			
-			to_elaborate="false"
-			for dsf in $DSF_LIST ; do
-				[ "$dsf" = "$DSF_TARGET_FILE" ] && to_elaborate="true" && break
-			done
-			if [ "$to_elaborate" = "true" ] ; then
-				DSF_LIST="$DSF_TARGET_FILE"
-			else
-	                	c_last="$c2"
-	                	c2="$( GetNextTileY $c2 1 )"
-				continue
-			fi
-		fi
+		# DSF_LIST="$( for p in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do getDSFName "${p#*,}" "${p%,*}" ; done | sort -u  )"
+		DSF_LIST="$( for p in  $coord_test_list ; do getDSFName "${p#*,}" "${p%,*}" ; done | sort -u  )"
+
+ 		if [  "$DSF_CREATION" = "true" ] && [ ! -z "$DSF_TARGET_FILE" ] ; then
+ 			
+ 			to_elaborate="false"
+ 			for dsf in $DSF_LIST ; do
+ 				[ "$dsf" = "$DSF_TARGET_FILE" ] && to_elaborate="true" && break
+ 			done
+ 			if [ "$to_elaborate" = "true" ] ; then
+ 				DSF_LIST="$DSF_TARGET_FILE"
+ 			else
+ 	                	c_last="$c2"
+ 	                	c2="$( GetNextTileY $c2 1 )"
+ 				continue
+ 			fi
+ 		fi
 
 		[ "$REMAKE_TILE" = "yes" ] && [ -f "$tiles_dir/dds/tile-$c2.dds" ] && rm -f "$tiles_dir/dds/tile-$c2.dds"
 
@@ -2267,14 +2283,16 @@ fi
 			
 		fi
 
+#		for REFERENCE_POINT in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do
+		for REFERENCE_POINT in $coord_test_list ; do
 
-		for REFERENCE_POINT in "$ul_lon,$ul_lat" "$ur_lon,$ur_lat" "$ll_lon,$ll_lat" "$lr_lon,$ll_lat" ; do
 			REFERENCE_POINT_LON="${REFERENCE_POINT%,*}"
 			REFERENCE_POINT_LAT="${REFERENCE_POINT#*,}"
 			########################################################3
 
 			dfs_file="$( getDSFName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )" 
 			dfs_dir="$(  getDirName "$REFERENCE_POINT_LAT" "$REFERENCE_POINT_LON" )"
+
 			[ -z "$( echo "$DSF_LIST" | grep -- "$dfs_file" )" ] && continue
 
 			########################################################3
