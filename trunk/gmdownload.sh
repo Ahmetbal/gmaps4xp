@@ -1983,7 +1983,7 @@ tile_seq="$( seq 0 7 )"
 prog="1"
 tot="${#good_tile[@]}"
 
-REMAKE_TILE="yes"
+# REMAKE_TILE="yes"
 
 [ -z "$BUILDINGS_ONLY" ] && for cursor_huge in ${good_tile[@]} ; do
 	# break # TO BE REMOVED
