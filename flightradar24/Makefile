@@ -5,7 +5,7 @@ TARGET		:= flightradar24
 SOURCES = \
 	flightradar24.cpp
 
-LIBS = 
+LIBS = -lcurl -lm
 
 INCLUDES = \
 	-I$(SRC_BASE)/SDK/CHeaders/XPLM \
@@ -28,11 +28,11 @@ CXXOBJECTS	:= $(patsubst %.cpp, $(BUILDDIR)/obj32/%.o, $(CXXSOURCES))
 ALL_DEPS	:= $(sort $(CDEPS) $(CXXDEPS))
 ALL_OBJECTS	:= $(sort $(COBJECTS) $(CXXOBJECTS))
 
-CDEPS64			:= $(patsubst %.c, $(BUILDDIR)/obj64/%.cdep, $(CSOURCES))
-CXXDEPS64		:= $(patsubst %.cpp, $(BUILDDIR)/obj64/%.cppdep, $(CXXSOURCES))
-COBJECTS64		:= $(patsubst %.c, $(BUILDDIR)/obj64/%.o, $(CSOURCES))
+CDEPS64		:= $(patsubst %.c, $(BUILDDIR)/obj64/%.cdep, $(CSOURCES))
+CXXDEPS64	:= $(patsubst %.cpp, $(BUILDDIR)/obj64/%.cppdep, $(CXXSOURCES))
+COBJECTS64	:= $(patsubst %.c, $(BUILDDIR)/obj64/%.o, $(CSOURCES))
 CXXOBJECTS64	:= $(patsubst %.cpp, $(BUILDDIR)/obj64/%.o, $(CXXSOURCES))
-ALL_DEPS64		:= $(sort $(CDEPS64) $(CXXDEPS64))
+ALL_DEPS64	:= $(sort $(CDEPS64) $(CXXDEPS64))
 ALL_OBJECTS64	:= $(sort $(COBJECTS64) $(CXXOBJECTS64))
 
 CFLAGS := $(DEFINES) $(INCLUDES) -fPIC -fvisibility=hidden
@@ -54,7 +54,7 @@ $(TARGET): $(BUILDDIR)/$(TARGET)/32/lin.xpl $(BUILDDIR)/$(TARGET)/64/lin.xpl
 $(BUILDDIR)/$(TARGET)/64/lin.xpl: $(ALL_OBJECTS64)
 	@echo Linking $@
 	mkdir -p $(dir $@)
-	gcc -m64 -static-libgcc -shared -Wl,--version-script=exports.txt -o $@ $(ALL_OBJECTS64) $(LIBS)
+	gcc -D__arch64__ -m64 -static-libgcc -shared -Wl,--version-script=exports.txt -o $@ $(ALL_OBJECTS64) $(LIBS)
 
 $(BUILDDIR)/$(TARGET)/32/lin.xpl: $(ALL_OBJECTS)
 	@echo Linking $@
@@ -86,7 +86,7 @@ $(BUILDDIR)/obj64/%.o : %.c
 
 $(BUILDDIR)/obj64/%.o : %.cpp
 	mkdir -p $(dir $@)
-	g++ $(CFLAGS) -m64 -c $< -o $@
+	g++ $(CFLAGS) -D__arch64__ -m64 -c $< -o $@
 	g++ $(CFLAGS) -MM -MT $@ -o $(@:.o=.cppdep) $<
 
 clean:
