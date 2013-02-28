@@ -5,7 +5,7 @@ TARGET		:= flightradar24
 SOURCES = \
 	flightradar24.cpp
 
-LIBS = -lcurl -lm
+LIBS = -lcurl -lm -lpthread
 
 INCLUDES = \
 	-I$(SRC_BASE)/SDK/CHeaders/XPLM \
