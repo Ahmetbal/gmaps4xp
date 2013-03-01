@@ -26,10 +26,15 @@
 #include <pthread.h>
 #include <curl/curl.h>
 #include <curl/easy.h>
+
 #include "XPLMPlanes.h"
 #include "XPLMDataAccess.h"
 #include "XPLMProcessing.h"
 #include "XPLMGraphics.h"
+#include "XPLMDefs.h"
+#include "XPLMScenery.h"
+
+
 
 #ifdef __arch64__
 #define CURL_SIZEOF_LONG 8
@@ -41,7 +46,7 @@
 #define	TRUE			1
 #define CODE_LENGHT		128
 #define MAX_AIR_CRAFT_NUM 	19
-#define MAX_AIR_CRAFT_DIST	50 // Km
+#define MAX_AIR_CRAFT_DIST	10 // Km
 
 XPLMDataRef	gPlaneLat;
 XPLMDataRef 	gPlaneLon;
@@ -54,6 +59,7 @@ XPLMDataRef	gPlanePhi;
 XPLMDataRef	gPlanePsi;
 XPLMDataRef	gOverRidePlanePosition;
 XPLMDataRef	gAGL;
+XPLMProbeRef	myProbe;
 
 struct MemoryStruct {
         char *memory;
@@ -63,7 +69,6 @@ struct MemoryStruct {
 
 void *getDataFromFlightRadar24(void *arg);
 
-// -------------------------------------------------------------------------------------------------- //
 
 class Aircraft {
 	private:
@@ -162,7 +167,8 @@ struct AircraftData{
 	char		*name;
 	int		time;
 	Aircraft	*obj;
-
+	struct AircraftData *next;
+	int		index;
 };
 
 struct AirplaneData{
@@ -181,10 +187,19 @@ struct AirplaneData{
 };
 
 
-struct AircraftData *AircraftDataArray;
-struct AirplaneData myPlaneInfo;
+struct  AircraftData *AircraftDataArray;
+struct  AirplaneData myPlaneInfo;
+int	DownloadStatus;
 
 // -------------------------------------------------------------------------------------------------- //
+
+double	coordsZone[32][4];
+char 	namesZone[32][20]={ "europe", "poland", "germany", "uk", "london", "ireland", "spain", "france", "ceur", "scandinavia", "italy", "northamerica", "na_n", "na_c", "na_cny", "na_cla", "na_cat", "na_cse", "na_nw", "na_ne", "na_sw", "na_se", "na_cc", "na_s", "southamerica", "oceania", "asia", "japan", "africa", "atlantic", "maldives", "northatlantic" };
+
+
+           
+// -------------------------------------------------------------------------------------------------- //
+
 
 
 // Aircraft Aircraft1(1);
@@ -247,13 +262,15 @@ PLUGIN_API int XPluginStart(	char *		outName,
 			1.0,			/* Interval */
 			NULL);			/* refcon not used. */
 
+	myProbe = XPLMCreateProbe(xplm_ProbeY);
 
 	AircraftDataArray = (struct AircraftData *)malloc(sizeof( struct AircraftData ) * MAX_AIR_CRAFT_NUM );
 	if ( AircraftDataArray == NULL ) return 0;
-	for ( int i = 0; i < MAX_AIR_CRAFT_NUM; i++ ) {
+	for ( int i = 1; i < MAX_AIR_CRAFT_NUM; i++ ) {
 		AircraftDataArray[i].status 	= FREE;
 		AircraftDataArray[i].name	= (char *)malloc(sizeof(char) * CODE_LENGHT); bzero(AircraftDataArray[i].name, CODE_LENGHT - 1);
 		AircraftDataArray[i].obj	= NULL;
+		AircraftDataArray[i].index	= -1;
 	}
 
 	myPlaneInfo.x		= 0;
@@ -267,6 +284,40 @@ PLUGIN_API int XPluginStart(	char *		outName,
 	myPlaneInfo.ele      	= 0;
 	myPlaneInfo.alt		= 0;
 	myPlaneInfo.elapsed 	= 0;	
+	DownloadStatus		= TRUE;
+
+	coordsZone[0 ][0]=72.570000;	coordsZone[0 ][1]=-16.960000;	coordsZone[0 ][2]=33.570000;	coordsZone[0 ][3]=53.050000;
+	coordsZone[1 ][0]=56.860000;	coordsZone[1 ][1]=11.060000;	coordsZone[1 ][2]=48.220000;	coordsZone[1 ][3]=28.260000;
+	coordsZone[2 ][0]=57.920000;	coordsZone[2 ][1]=1.810000;	coordsZone[2 ][2]=45.810000;	coordsZone[2 ][3]=16.830000;
+	coordsZone[3 ][0]=62.610000;	coordsZone[3 ][1]=-13.070000;	coordsZone[3 ][2]=49.710000;	coordsZone[3 ][3]=3.460000;
+	coordsZone[4 ][0]=53.060000;	coordsZone[4 ][1]=-2.870000;	coordsZone[4 ][2]=50.070000;	coordsZone[4 ][3]=3.260000;
+	coordsZone[5 ][0]=56.220000;	coordsZone[5 ][1]=-11.710000;	coordsZone[5 ][2]=50.910000;	coordsZone[5 ][3]=-4.400000;
+	coordsZone[6 ][0]=44.360000;	coordsZone[6 ][1]=-11.060000;	coordsZone[6 ][2]=35.760000;	coordsZone[6 ][3]=4.040000;
+	coordsZone[7 ][0]=51.070000;	coordsZone[7 ][1]=-5.180000;	coordsZone[7 ][2]=42.170000;	coordsZone[7 ][3]=8.900000;
+	coordsZone[8 ][0]=51.390000;	coordsZone[8 ][1]=11.250000;	coordsZone[8 ][2]=39.720000;	coordsZone[8 ][3]=32.550000;
+	coordsZone[9 ][0]=72.120000;	coordsZone[9 ][1]=-0.730000;	coordsZone[9 ][2]=53.820000;	coordsZone[9 ][3]=40.670000;
+	coordsZone[10][0]=47.670000;	coordsZone[10][1]=5.260000;	coordsZone[10][2]=36.270000;	coordsZone[10][3]=20.640000;
+	coordsZone[11][0]=75.000000;	coordsZone[11][1]=-180.000000;	coordsZone[11][2]=3.000000;	coordsZone[11][3]=-52.000000;
+	coordsZone[12][0]=72.820000;	coordsZone[12][1]=-177.970000;	coordsZone[12][2]=41.920000;	coordsZone[12][3]=-52.480000;
+	coordsZone[13][0]=54.660000;	coordsZone[13][1]=-134.680000;	coordsZone[13][2]=22.160000;	coordsZone[13][3]=-56.910000;
+	coordsZone[14][0]=45.060000;	coordsZone[14][1]=-83.690000;	coordsZone[14][2]=35.960000;	coordsZone[14][3]=-64.290000;
+	coordsZone[15][0]=37.910000;	coordsZone[15][1]=-126.120000;	coordsZone[15][2]=30.210000;	coordsZone[15][3]=-110.020000;
+	coordsZone[16][0]=35.860000;	coordsZone[16][1]=-92.610000;	coordsZone[16][2]=22.560000;	coordsZone[16][3]=-71.190000;
+	coordsZone[17][0]=49.120000;	coordsZone[17][1]=-126.150000;	coordsZone[17][2]=42.970000;	coordsZone[17][3]=-111.920000;
+	coordsZone[18][0]=54.120000;	coordsZone[18][1]=-134.130000;	coordsZone[18][2]=38.320000;	coordsZone[18][3]=-96.750000;
+	coordsZone[19][0]=53.720000;	coordsZone[19][1]=-98.760000;	coordsZone[19][2]=38.220000;	coordsZone[19][3]=-57.360000;
+	coordsZone[20][0]=38.920000;	coordsZone[20][1]=-133.980000;	coordsZone[20][2]=22.620000;	coordsZone[20][3]=-96.750000;
+	coordsZone[21][0]=38.520000;	coordsZone[21][1]=-98.620000;	coordsZone[21][2]=22.520000;	coordsZone[21][3]=-57.360000;
+	coordsZone[22][0]=45.920000;	coordsZone[22][1]=-116.880000;	coordsZone[22][2]=27.620000;	coordsZone[22][3]=-75.910000;
+	coordsZone[23][0]=41.920000;	coordsZone[23][1]=-177.830000;	coordsZone[23][2]=3.820000;	coordsZone[23][3]=-52.480000;
+	coordsZone[24][0]=16.000000;	coordsZone[24][1]=-96.000000;	coordsZone[24][2]=-57.000000;	coordsZone[24][3]=-31.000000;
+	coordsZone[25][0]=19.620000;	coordsZone[25][1]=88.400000;	coordsZone[25][2]=-55.080000;	coordsZone[25][3]=180.000000;
+	coordsZone[26][0]=79.980000;	coordsZone[26][1]=40.910000;	coordsZone[26][2]=12.480000;	coordsZone[26][3]=179.770000;
+	coordsZone[27][0]=60.380000;	coordsZone[27][1]=113.500000;	coordsZone[27][2]=22.580000;	coordsZone[27][3]=176.470000;
+	coordsZone[28][0]=39.000000;	coordsZone[28][1]=-29.000000;	coordsZone[28][2]=-39.000000;	coordsZone[28][3]=55.000000;
+	coordsZone[29][0]=52.620000;	coordsZone[29][1]=-50.900000;	coordsZone[29][2]=15.620000;	coordsZone[29][3]=-4.750000;
+	coordsZone[30][0]=10.720000;	coordsZone[30][1]=63.100000;	coordsZone[30][2]=-6.080000;	coordsZone[30][3]=86.530000;
+	coordsZone[31][0]=82.620000;	coordsZone[31][1]=-84.530000;	coordsZone[31][2]=59.020000;	coordsZone[31][3]=4.450000;
 
 	return 1;
 }
@@ -345,6 +396,11 @@ float	MyFlightLoopCallback1(
                                    void *               inRefcon){
 
 	pthread_t thread;
+
+	if ( myPlaneInfo.elapsed == 0 	) return 1.0;
+	if ( DownloadStatus != TRUE	) return 1.0;
+
+	DownloadStatus = FALSE;
 	pthread_create(&thread, NULL, getDataFromFlightRadar24, (void *)NULL);
 
 	return 30.0;
@@ -359,11 +415,16 @@ float	MyFlightLoopCallback(
                                    int                  inCounter,    
                                    void *               inRefcon){
 
-	int	GearState;
-	double	elapsed	= 0;
+	int	GearState, k, i, j;
 	double	outX, outY, outZ;
 	double	tmp;	
-	Aircraft *aircraft = NULL;
+	Aircraft 	*aircraft 		= NULL;
+	int		outTotalAircraft	= 0;
+	int		outActiveAircraft	= 0;    
+	XPLMPluginID	*outController		= NULL;	
+	float		delay 			= 1.1;
+	double		elapsed			= 0;
+	int		firstTime		= TRUE;
 
 	// Get User Aircraft data
 	myPlaneInfo.x		= XPLMGetDataf(gPlaneX);
@@ -379,47 +440,88 @@ float	MyFlightLoopCallback(
 	elapsed			= XPLMGetElapsedTime();
 	elapsed			= elapsed - myPlaneInfo.elapsed;
 	myPlaneInfo.elapsed 	= XPLMGetElapsedTime();
+	XPLMProbeInfo_t  outInfo;
+	XPLMProbeResult  result;
 
-	for ( int j = 0; j < MAX_AIR_CRAFT_NUM; j++) {
-		if ( AircraftDataArray[j].status == FREE ) continue;
+	outInfo.structSize = sizeof(outInfo);
 
-		aircraft = AircraftDataArray[j].obj;
+	XPLMCountAircraft(&outTotalAircraft, &outActiveAircraft, outController); 
 
-		if ( AircraftDataArray[j].ele > 200 ) XPLMWorldToLocal( AircraftDataArray[j].lat, AircraftDataArray[j].lon, AircraftDataArray[j].ele, &outX, &outY, &outZ );
-		else {
-			outX = aircraft->plane_x;
-			outY = aircraft->plane_y;
-			outZ = aircraft->plane_z;
+	for (  i = 1; i < outActiveAircraft; i++ ) {
+
+
+		for ( k = 0; k < MAX_AIR_CRAFT_NUM; k++){
+			if ( ( AircraftDataArray[k].status == USED ) && ( AircraftDataArray[k].index == i ) && ( AircraftDataArray[k].obj != NULL ) ) break;
 		}
+
+
+		if ( k == MAX_AIR_CRAFT_NUM ) {
+			for ( k = 0; k < MAX_AIR_CRAFT_NUM; k++){
+				if ( AircraftDataArray[k].status == USED ) break;
+			}
+			if ( k == MAX_AIR_CRAFT_NUM ) return delay;
+
+			if ( AircraftDataArray[k].obj != NULL ){
+				delete AircraftDataArray[k].obj;
+				AircraftDataArray[k].obj = NULL;
+			}
+
+			AircraftDataArray[k].obj 	= new Aircraft(i); 
+			firstTime			= TRUE;
+		} else	firstTime			= FALSE;
+
+			
+
+
+		aircraft			= AircraftDataArray[k].obj;
+		AircraftDataArray[k].index 	= i;
+
+		
+		if ( ( AircraftDataArray[k].ele > 10  ) && ( AircraftDataArray[k].ele < 200 ) && ( firstTime == FALSE ) ) {
+			outX	 = aircraft->plane_x;
+			outY 	 = aircraft->plane_y;
+			outZ 	 = aircraft->plane_z;
+		} else XPLMWorldToLocal( AircraftDataArray[k].lat, AircraftDataArray[k].lon, AircraftDataArray[k].ele, &outX, &outY, &outZ );
+
+
 
 
 		if ( ( (int)aircraft->plane_x == (int)outX ) && ( (int)aircraft->plane_y == (int)outY ) && ( (int)aircraft->plane_z == (int)outZ ) ){
-			outX = outX + cos( (float)(( (int)AircraftDataArray[j].course - 90 ) % 360 ) * M_PI / 180.0  ) * ( AircraftDataArray[j].speed * elapsed);
-			outZ = outZ + sin( (float)(( (int)AircraftDataArray[j].course - 90 ) % 360 ) * M_PI / 180.0  ) * ( AircraftDataArray[j].speed * elapsed);
-			outY = outY + ( AircraftDataArray[j].vspeed * elapsed );
+			outX = outX + cos( (float)(( (int)AircraftDataArray[k].course - 90 ) % 360 ) * M_PI / 180.0  ) * ( AircraftDataArray[k].speed * elapsed);
+			outZ = outZ + sin( (float)(( (int)AircraftDataArray[k].course - 90 ) % 360 ) * M_PI / 180.0  ) * ( AircraftDataArray[k].speed * elapsed);
+			outY = outY + ( AircraftDataArray[k].vspeed * elapsed );
 
-			XPLMLocalToWorld(outX, outY, outZ, &(AircraftDataArray[j].lat), &(AircraftDataArray[j].lon), &(AircraftDataArray[j].ele));
+			XPLMLocalToWorld(outX, outY, outZ, &(AircraftDataArray[k].lat), &(AircraftDataArray[k].lon), &(AircraftDataArray[k].ele));
+			if ( AircraftDataArray[k].ele < 0.0 ) AircraftDataArray[k].ele = 0.0;
 		}
+		if (AircraftDataArray[k].ele <= 0 ){
+			XPLMProbeTerrainXYZ(myProbe, outX, outY, outZ, &outInfo);   
+			// printf("%f %f %f %d\n", outY, outInfo.locationY, outInfo.normalY, outInfo.is_wet);
+			// if( result == xplm_ProbeHitTerrain ) printf("hit"); 
+			outY += outInfo.normalY;
+		}
+
+//		printf("%f %f %f %f\n", AircraftDataArray[k].lat, AircraftDataArray[k].lon, AircraftDataArray[k].ele, distAprox(myPlaneInfo.lon, myPlaneInfo.lat, AircraftDataArray[k].lon, AircraftDataArray[k].lat) );
 
 		aircraft->plane_x 	= outX;
 		aircraft->plane_y 	= outY;
 		aircraft->plane_z 	= outZ;
 		aircraft->plane_the	= 0.0;
 		aircraft->plane_phi	= 0.0;
-		aircraft->plane_psi	= AircraftDataArray[j].course;
+		aircraft->plane_psi	= AircraftDataArray[k].course;
 
 	
-		if (AircraftDataArray[j].ele > 200 ) 	GearState = 0;
+		if (AircraftDataArray[k].ele > 200 ) 	GearState = 0;
 		else					GearState = 1;
 		for (int Gear=0; Gear<5; Gear++) aircraft->plane_gear_deploy[Gear]	= GearState;
 		for (int Thro=0; Thro<8; Thro++) aircraft->plane_throttle[Thro]		= 1;
 		
 
 		aircraft->SetAircraftData();
-
+		i++;
 	}
 
-	return 0.1;
+	return delay;
 }
 
 
@@ -431,6 +533,7 @@ void *getDataFromFlightRadar24(void *arg){
 	CURLcode 	res;
 	char		*token	= NULL;
 	int		i 	= 0;
+	int		cnt	= 0;
 	int		j 	= 0;
         float   	lat     = 0; 
         float   	lon     = 0;
@@ -444,32 +547,57 @@ void *getDataFromFlightRadar24(void *arg){
 	float		plane_course	= 0;
 	float		plane_speed	= 0;
 	int		plane_time	= 0;
+	double		area		= 0;
+	double		area_old	= 0;
+	char		url[255];
+	struct AircraftData *head	= NULL;
+	struct AircraftData *cursor	= NULL;
+	struct AircraftData *tmp	= NULL; // User for bubble sort
+	struct AircraftData *a		= NULL; 
+	struct AircraftData *b		= NULL;
+	struct AircraftData *c		= NULL;
+	struct AircraftData *d		= NULL;
+	struct AircraftData *e		= NULL;
 
-	if ( myPlaneInfo.elapsed == 0 ) return (void*)(1);
+
+
 	chunk.memory    = NULL;
         chunk.size      = 0;
 	curl_handle	= curl_easy_init();
 
-	// http://db.flightradar24.com/zones/full_all.js
+	for ( i = 0, j = -1; i < 32 ; i++ ){
+		if ( coordsZone[i][0] < myPlaneInfo.lat ) continue;
+		if ( coordsZone[i][2] > myPlaneInfo.lat ) continue;		
+		if ( coordsZone[i][1] > myPlaneInfo.lon ) continue;
+		if ( coordsZone[i][3] < myPlaneInfo.lon ) continue;
+	
+
+		if ( j < 0 ) 	area_old = ( coordsZone[i][0] - coordsZone[i][2] ) * ( coordsZone[i][3] - coordsZone[i][1] );
+		else		area	 = ( coordsZone[i][0] - coordsZone[i][2] ) * ( coordsZone[i][3] - coordsZone[i][1] );
+
+		if ( area <= area_old ) j = i;
+		area_old = area;
+	}
+
+	bzero(url, 254);
+	sprintf(url, "http://db.flightradar24.com/zones/%s_all.js", namesZone[j]); 
+
 	curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 		0);
-	curl_easy_setopt(curl_handle, CURLOPT_URL,		"http://db.flightradar24.com/zones/italy_all.js");
+	curl_easy_setopt(curl_handle, CURLOPT_URL,		url);
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION,    WriteMemoryCallback);     
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA,        (void *)&chunk);
-	printf("Downloading Flightradar24 information ...\n");
+
+	printf("Downloading Flightradar24 information from %s ...\n", namesZone[j]);
 	res = curl_easy_perform(curl_handle);
         if (res != CURLE_OK) {
                 fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
+		DownloadStatus = TRUE;
                 return (void*)(1);
         }
 
-// 0 pd_callback({"eecfc7":["400068"
-// 1 26.3076
-// 2 49.8746
-// 3 241
-// 4 1825
-// 5 200
-	plane_code = (char *)malloc(sizeof(char ) *  CODE_LENGHT);
+	plane_code 	= (char *)malloc(sizeof(char ) *  CODE_LENGHT);
 
+	cnt = 0;
 	for ( token = strtok(chunk.memory, ","), i = 0, bzero(plane_code, CODE_LENGHT - 1); token != NULL; token = strtok(NULL, ",") ){
 		if 	( i == 0  ) plane_code 		= strcpy(plane_code, token);
 		else if	( i == 1  ) plane_lat 		= atof(token);
@@ -480,53 +608,117 @@ void *getDataFromFlightRadar24(void *arg){
 		else if ( i == 10 ) plane_time		= atoi(token);
 
 		if ( i >= 17 ){
-			dist = distAprox(myPlaneInfo.lon, myPlaneInfo.lat, plane_lon, plane_lat);
-			for ( j = 0; j < MAX_AIR_CRAFT_NUM; j++) {
-				if ( ! strcmp(AircraftDataArray[j].name, plane_code) && ( AircraftDataArray[j].status == USED )) break;
-			}
+			if ( plane_speed <= 0.0 ) { i = 0; bzero(plane_code, CODE_LENGHT - 1); continue; }
+			//if ( plane_ele   <= 0.0 ) { i = 0; bzero(plane_code, CODE_LENGHT - 1); continue; }
 
-			if ( dist <= MAX_AIR_CRAFT_DIST ) {
 
-				if ( j != MAX_AIR_CRAFT_NUM ){
+			if ( head == NULL ) 	{ head 		= (struct AircraftData *)malloc(sizeof(struct AircraftData)); cursor = head; 		}
+			else			{ cursor->next 	= (struct AircraftData *)malloc(sizeof(struct AircraftData)); cursor = cursor->next; 	}
 
-					AircraftDataArray[j].lat	= plane_lat;
-					AircraftDataArray[j].lon	= plane_lon;
-					AircraftDataArray[j].course	= plane_course;
-					AircraftDataArray[j].vspeed	= ( plane_ele - AircraftDataArray[j].ele ) / ( plane_time - AircraftDataArray[j].time );
-					AircraftDataArray[j].ele	= plane_ele;
-					AircraftDataArray[j].speed	= plane_speed;
-					AircraftDataArray[j].time	= plane_time;
-					AircraftDataArray[j].status	= USED;
-					printf("Old Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,
-																	AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
-	
-					
-				} else {
-					for ( j = 0; j < MAX_AIR_CRAFT_NUM; j++) { if ( AircraftDataArray[j].status == FREE ) break; }
-					if ( j == MAX_AIR_CRAFT_NUM ) return (void*)(1);
-					
-					AircraftDataArray[j].lat	= plane_lat;
-					AircraftDataArray[j].lon	= plane_lon;
-					AircraftDataArray[j].course	= plane_course;
-					AircraftDataArray[j].ele	= plane_ele;
-					AircraftDataArray[j].speed	= plane_speed;
-					AircraftDataArray[j].vspeed	= 0.0;
-					AircraftDataArray[j].time	= plane_time;
-					AircraftDataArray[j].status	= USED;
-					if ( AircraftDataArray[j].obj == NULL )	AircraftDataArray[j].obj = new Aircraft(j);
-					strcpy(AircraftDataArray[j].name, plane_code);
-					printf("New Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,
-																	AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
-				
-				}
-			} else {
-				if ( j != MAX_AIR_CRAFT_NUM ) AircraftDataArray[j].status = FREE;
-			}
+
+			cursor->name	= (char *)malloc(sizeof(char) * CODE_LENGHT); bzero(cursor->name, CODE_LENGHT - 1); 
+			cursor->lat	= plane_lat;
+			cursor->lon	= plane_lon;
+			cursor->course	= plane_course;
+			cursor->ele	= plane_ele;
+			cursor->speed	= plane_speed;
+			cursor->vspeed	= 0.0;
+			cursor->time	= plane_time;
+			cursor->status	= FREE;
+			cursor->next	= NULL;
+			strcpy(cursor->name, plane_code);
+			
 
 			i = 0; bzero(plane_code, CODE_LENGHT - 1);
-		} else i++;
+			cnt++;
 
+
+		} else i++;
 	}
+	
+
+	printf("Found %d airplanes ...\n", cnt);
+
+
+ 	while(e != head->next) {
+ 		c = a = head;
+		b = a->next;
+		while( a != e) {
+			if( distAprox(myPlaneInfo.lon, myPlaneInfo.lat, a->lon, a->lat) > distAprox(myPlaneInfo.lon, myPlaneInfo.lat, b->lon, b->lat) ) {
+				if(a == head) {
+					tmp 	= b->next;
+					b->next = a;
+					a->next = tmp;
+					head 	= b;
+					c 	= b;
+				} else {
+					tmp 	= b->next;
+					b->next = a;
+					a->next = tmp;
+					c->next = b;
+					c 	= b;
+				}
+			} else {
+				c = a;
+				a = a->next;
+			}
+			b = a->next;
+			if(b == e) e = a;
+		}
+		
+ 	}
+
+	printf("Planes sorted my dist ...\n");
+
+	for ( cursor = head; cursor->next != NULL ; cursor = cursor->next ){
+		dist = distAprox(myPlaneInfo.lon, myPlaneInfo.lat, cursor->lon, cursor->lat);
+
+		for ( j = 1; j < MAX_AIR_CRAFT_NUM; j++) {
+			if ( ! strcmp(AircraftDataArray[j].name, cursor->name) && ( AircraftDataArray[j].status == USED )) break;
+		}
+
+		if ( dist <= MAX_AIR_CRAFT_DIST ) {
+
+			if ( j != MAX_AIR_CRAFT_NUM ){
+				AircraftDataArray[j].lat	= cursor->lat;
+				AircraftDataArray[j].lon	= cursor->lon;
+				AircraftDataArray[j].course	= cursor->course;
+				AircraftDataArray[j].vspeed	= ( cursor->time != AircraftDataArray[j].time ) ? ( cursor->ele - AircraftDataArray[j].ele ) / (float)( cursor->time - AircraftDataArray[j].time ) : 0.0;
+				AircraftDataArray[j].ele	= cursor->ele;
+				AircraftDataArray[j].speed	= cursor->speed;
+				AircraftDataArray[j].time	= cursor->time;
+
+				printf("Old Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,	
+																AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
+			
+			} else {
+				for ( j = 1; j < MAX_AIR_CRAFT_NUM; j++) { if ( AircraftDataArray[j].status == FREE ) break; }
+				if  ( j == MAX_AIR_CRAFT_NUM ) { DownloadStatus = TRUE; return (void*)(1); }
+				
+				AircraftDataArray[j].lat	= cursor->lat;
+				AircraftDataArray[j].lon	= cursor->lon;
+				AircraftDataArray[j].course	= cursor->course;
+				AircraftDataArray[j].ele	= cursor->ele;
+				AircraftDataArray[j].speed	= cursor->speed;
+				AircraftDataArray[j].vspeed	= 0.0;
+				AircraftDataArray[j].time	= cursor->time;
+				AircraftDataArray[j].status	= USED;
+				AircraftDataArray[j].obj 	= NULL;
+				strcpy(AircraftDataArray[j].name, cursor->name);
+
+
+				printf("New Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,
+																AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
+			
+			}
+		} else {
+			if ( j != MAX_AIR_CRAFT_NUM ) AircraftDataArray[j].status = FREE;
+
+		}
+
+	} 
+
+	DownloadStatus = TRUE;
         return (void*)(1);
 }
 
