@@ -1,24 +1,3 @@
-
-
-/*
-	DrawAircraft example
-	Written by Sandy Barbour - 11/02/2003
-
-	Modified by Sandy Barbour - 07/12/2009
-	Combined source files and fixed a few bugs.
-	
-	This examples Draws 7 AI aircraft around the user aicraft.
-	It also uses an Aircraft class to simplify things.
-
-	This is a very simple example intended to show how to use the AI datarefs.
-	In a production plugin Aircraft Aquisition and Release would have to be handled.
-	Also loading the approriate aircraft model would also have to be done.
-	This example may be updated to do that at a later time.
-
-	NOTE
-	Set the aircraft number to 8 in the XPlane Aircraft & Situations settings screen.
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,11 +21,14 @@
 
 #define FREE			0
 #define	USED			1
+#define OLD			2
+#define NEW			3
 #define FALSE			0
 #define	TRUE			1
 #define CODE_LENGHT		128
 #define MAX_AIR_CRAFT_NUM 	19
-#define MAX_AIR_CRAFT_DIST	10 // Km
+#define MAX_AIR_CRAFT_DIST	20 // Km
+
 
 XPLMDataRef	gPlaneLat;
 XPLMDataRef 	gPlaneLon;
@@ -80,6 +62,7 @@ class Aircraft {
 		XPLMDataRef	dr_plane_psi;
 		XPLMDataRef	dr_plane_gear_deploy;
 		XPLMDataRef	dr_plane_throttle;
+		XPLMDataRef	dr_plane_el;
 	public:
 		float		plane_x;
 		float		plane_y;
@@ -89,6 +72,8 @@ class Aircraft {
 		float		plane_psi;
 		float		plane_gear_deploy[5];
 		float		plane_throttle[8];
+		float		plane_el;
+
 		Aircraft(int AircraftNo);
 		void GetAircraftData(void);
 		void SetAircraftData(void);
@@ -103,6 +88,7 @@ Aircraft::Aircraft(int AircraftNo){
 	char	psi_str[80];
 	char	gear_deploy_str[80];
 	char	throttle_str[80];
+	char	el_str[80];
 
 	strcpy(x_str, 		"sim/multiplayer/position/planeX_x");
 	strcpy(y_str,		"sim/multiplayer/position/planeX_y");
@@ -112,6 +98,8 @@ Aircraft::Aircraft(int AircraftNo){
 	strcpy(psi_str,		"sim/multiplayer/position/planeX_psi");
 	strcpy(gear_deploy_str,	"sim/multiplayer/position/planeX_gear_deploy");
 	strcpy(throttle_str, 	"sim/multiplayer/position/planeX_throttle");
+	strcpy(el_str,		"sim/multiplayer/position/planeX_el");
+
 
 	char cTemp = (AircraftNo + 0x30);
 	x_str[30]		=	cTemp;
@@ -122,6 +110,7 @@ Aircraft::Aircraft(int AircraftNo){
 	psi_str[30]		=	cTemp;
 	gear_deploy_str[30] 	=	cTemp;
 	throttle_str[30]	=	cTemp;
+	el_str[30]		=	cTemp;
 
 	dr_plane_x		= XPLMFindDataRef(x_str);
 	dr_plane_y		= XPLMFindDataRef(y_str);
@@ -131,26 +120,32 @@ Aircraft::Aircraft(int AircraftNo){
 	dr_plane_psi		= XPLMFindDataRef(psi_str);
 	dr_plane_gear_deploy	= XPLMFindDataRef(gear_deploy_str);
 	dr_plane_throttle	= XPLMFindDataRef(throttle_str);
+	dr_plane_el		= XPLMFindDataRef(el_str);
+
 }
 
 void Aircraft::GetAircraftData(void){
-	plane_x = XPLMGetDataf(dr_plane_x);
-	plane_y = XPLMGetDataf(dr_plane_y);
-	plane_z = XPLMGetDataf(dr_plane_z);
-	plane_the = XPLMGetDataf(dr_plane_the);
-	plane_phi = XPLMGetDataf(dr_plane_phi);
-	plane_psi = XPLMGetDataf(dr_plane_psi);
+	plane_x		= XPLMGetDataf(dr_plane_x);
+	plane_y		= XPLMGetDataf(dr_plane_y);
+	plane_z		= XPLMGetDataf(dr_plane_z);
+	plane_the	= XPLMGetDataf(dr_plane_the);
+	plane_phi	= XPLMGetDataf(dr_plane_phi);
+	plane_psi	= XPLMGetDataf(dr_plane_psi);
+	plane_el	= XPLMGetDataf(dr_plane_el);
+
 	XPLMGetDatavf(dr_plane_gear_deploy, plane_gear_deploy, 0, 5);
 	XPLMGetDatavf(dr_plane_throttle, plane_throttle, 0, 8);
 }
 
 void Aircraft::SetAircraftData(void){
-	XPLMSetDataf(dr_plane_x, plane_x);
-	XPLMSetDataf(dr_plane_y, plane_y);
-	XPLMSetDataf(dr_plane_z, plane_z);
-	XPLMSetDataf(dr_plane_the, plane_the);
-	XPLMSetDataf(dr_plane_phi, plane_phi);
-	XPLMSetDataf(dr_plane_psi, plane_psi);
+	XPLMSetDataf(dr_plane_x, 	plane_x);
+	XPLMSetDataf(dr_plane_y, 	plane_y);
+	XPLMSetDataf(dr_plane_z, 	plane_z);
+	XPLMSetDataf(dr_plane_the, 	plane_the);
+	XPLMSetDataf(dr_plane_phi, 	plane_phi);
+	XPLMSetDataf(dr_plane_psi, 	plane_psi);
+
+
 	XPLMSetDatavf(dr_plane_gear_deploy, plane_gear_deploy, 0, 5);
 	XPLMSetDatavf(dr_plane_throttle, plane_throttle, 0, 8);
 }
@@ -164,6 +159,7 @@ struct AircraftData{
 	double		speed;
 	double		vspeed;
 	int		status;
+	int		age;
 	char		*name;
 	int		time;
 	Aircraft	*obj;
@@ -383,7 +379,8 @@ float	MyFlightLoopCallback0(
                                    void *               inRefcon){
 
 	// Disable AI for each aircraft.
-	for (int AircraftIndex = 1; AircraftIndex < MAX_AIR_CRAFT_NUM ; AircraftIndex++) XPLMDisableAIForPlane(AircraftIndex);    
+	for (int AircraftIndex = 1; AircraftIndex < MAX_AIR_CRAFT_NUM ; AircraftIndex++) XPLMDisableAIForPlane(AircraftIndex);
+	
 
 
 	return 0;
@@ -403,7 +400,7 @@ float	MyFlightLoopCallback1(
 	DownloadStatus = FALSE;
 	pthread_create(&thread, NULL, getDataFromFlightRadar24, (void *)NULL);
 
-	return 30.0;
+	return 5.0;
 }
 
 
@@ -422,7 +419,7 @@ float	MyFlightLoopCallback(
 	int		outTotalAircraft	= 0;
 	int		outActiveAircraft	= 0;    
 	XPLMPluginID	*outController		= NULL;	
-	float		delay 			= 1.1;
+	float		delay 			= 0.05;
 	double		elapsed			= 0;
 	int		firstTime		= TRUE;
 
@@ -449,7 +446,6 @@ float	MyFlightLoopCallback(
 
 	for (  i = 1; i < outActiveAircraft; i++ ) {
 
-
 		for ( k = 0; k < MAX_AIR_CRAFT_NUM; k++){
 			if ( ( AircraftDataArray[k].status == USED ) && ( AircraftDataArray[k].index == i ) && ( AircraftDataArray[k].obj != NULL ) ) break;
 		}
@@ -475,37 +471,35 @@ float	MyFlightLoopCallback(
 
 		aircraft			= AircraftDataArray[k].obj;
 		AircraftDataArray[k].index 	= i;
+		aircraft->GetAircraftData();
+
+
+		if ( AircraftDataArray[k].age == NEW ){
+			XPLMWorldToLocal( AircraftDataArray[k].lat, AircraftDataArray[k].lon, AircraftDataArray[k].ele, &outX, &outY, &outZ );
+		} else {
+		
+			outX = aircraft->plane_x + cos( fmod( AircraftDataArray[k].course - 90, 360 ) * M_PI / 180.0  ) * AircraftDataArray[k].speed * elapsed;
+			outZ = aircraft->plane_z + sin( fmod( AircraftDataArray[k].course - 90, 360 ) * M_PI / 180.0  ) * AircraftDataArray[k].speed * elapsed;
+			outY = aircraft->plane_y + AircraftDataArray[k].vspeed * elapsed;
+			
+		}
+
+		result = XPLMProbeTerrainXYZ(myProbe, outX, outY, outZ, &outInfo);
+		if ( outY < outInfo.locationY ) outY = outInfo.locationY;	
+
+
+		if ( ( outInfo.is_wet == TRUE ) && ( ( outY - outInfo.locationY ) <= 3.0 ) && ( AircraftDataArray[k].age == OLD ) ){
+			AircraftDataArray[k].course += 1.0;
+			outX = aircraft->plane_x;
+			outY = outInfo.locationY + 3.0;
+			outZ = aircraft->plane_z;
+		}
 
 		
-		if ( ( AircraftDataArray[k].ele > 10  ) && ( AircraftDataArray[k].ele < 200 ) && ( firstTime == FALSE ) ) {
-			outX	 = aircraft->plane_x;
-			outY 	 = aircraft->plane_y;
-			outZ 	 = aircraft->plane_z;
-		} else XPLMWorldToLocal( AircraftDataArray[k].lat, AircraftDataArray[k].lon, AircraftDataArray[k].ele, &outX, &outY, &outZ );
-
-
-
-
-		if ( ( (int)aircraft->plane_x == (int)outX ) && ( (int)aircraft->plane_y == (int)outY ) && ( (int)aircraft->plane_z == (int)outZ ) ){
-			outX = outX + cos( (float)(( (int)AircraftDataArray[k].course - 90 ) % 360 ) * M_PI / 180.0  ) * ( AircraftDataArray[k].speed * elapsed);
-			outZ = outZ + sin( (float)(( (int)AircraftDataArray[k].course - 90 ) % 360 ) * M_PI / 180.0  ) * ( AircraftDataArray[k].speed * elapsed);
-			outY = outY + ( AircraftDataArray[k].vspeed * elapsed );
-
-			XPLMLocalToWorld(outX, outY, outZ, &(AircraftDataArray[k].lat), &(AircraftDataArray[k].lon), &(AircraftDataArray[k].ele));
-			if ( AircraftDataArray[k].ele < 0.0 ) AircraftDataArray[k].ele = 0.0;
-		}
-		if (AircraftDataArray[k].ele <= 0 ){
-			XPLMProbeTerrainXYZ(myProbe, outX, outY, outZ, &outInfo);   
-			// printf("%f %f %f %d\n", outY, outInfo.locationY, outInfo.normalY, outInfo.is_wet);
-			// if( result == xplm_ProbeHitTerrain ) printf("hit"); 
-			outY += outInfo.normalY;
-		}
-
-//		printf("%f %f %f %f\n", AircraftDataArray[k].lat, AircraftDataArray[k].lon, AircraftDataArray[k].ele, distAprox(myPlaneInfo.lon, myPlaneInfo.lat, AircraftDataArray[k].lon, AircraftDataArray[k].lat) );
-
-		aircraft->plane_x 	= outX;
-		aircraft->plane_y 	= outY;
+		aircraft->plane_x 	= outX; 
+		aircraft->plane_y 	= outY;  
 		aircraft->plane_z 	= outZ;
+
 		aircraft->plane_the	= 0.0;
 		aircraft->plane_phi	= 0.0;
 		aircraft->plane_psi	= AircraftDataArray[k].course;
@@ -513,10 +507,11 @@ float	MyFlightLoopCallback(
 	
 		if (AircraftDataArray[k].ele > 200 ) 	GearState = 0;
 		else					GearState = 1;
-		for (int Gear=0; Gear<5; Gear++) aircraft->plane_gear_deploy[Gear]	= GearState;
-		for (int Thro=0; Thro<8; Thro++) aircraft->plane_throttle[Thro]		= 1;
-		
+		for (int Gear = 0; Gear < 5; Gear++) aircraft->plane_gear_deploy[Gear]	= GearState;
+		for (int Thro = 0; Thro < 8; Thro++) aircraft->plane_throttle[Thro]	= 0.6;
 
+		AircraftDataArray[k].age = OLD;
+		XPLMLocalToWorld(outX, outY, outZ, &(AircraftDataArray[k].lat), &(AircraftDataArray[k].lon), &(AircraftDataArray[k].ele));
 		aircraft->SetAircraftData();
 		i++;
 	}
@@ -580,14 +575,15 @@ void *getDataFromFlightRadar24(void *arg){
 	}
 
 	bzero(url, 254);
-	sprintf(url, "http://db.flightradar24.com/zones/%s_all.js", namesZone[j]); 
+	if ( j != -1 ) 	sprintf(url, "http://db.flightradar24.com/zones/%s_all.js",   namesZone[j]); 
+	else		sprintf(url, "http://db.flightradar24.com/zones/full_all.js", namesZone[j]);
 
 	curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 		0);
 	curl_easy_setopt(curl_handle, CURLOPT_URL,		url);
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION,    WriteMemoryCallback);     
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA,        (void *)&chunk);
 
-	printf("Downloading Flightradar24 information from %s ...\n", namesZone[j]);
+	printf("Downloading Flightradar24 information from %s ...\n", url);
 	res = curl_easy_perform(curl_handle);
         if (res != CURLE_OK) {
                 fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n", curl_easy_strerror(res));
@@ -609,8 +605,7 @@ void *getDataFromFlightRadar24(void *arg){
 
 		if ( i >= 17 ){
 			if ( plane_speed <= 0.0 ) { i = 0; bzero(plane_code, CODE_LENGHT - 1); continue; }
-			//if ( plane_ele   <= 0.0 ) { i = 0; bzero(plane_code, CODE_LENGHT - 1); continue; }
-
+			if ( plane_ele   <= 0.0 ) { i = 0; bzero(plane_code, CODE_LENGHT - 1); continue; }
 
 			if ( head == NULL ) 	{ head 		= (struct AircraftData *)malloc(sizeof(struct AircraftData)); cursor = head; 		}
 			else			{ cursor->next 	= (struct AircraftData *)malloc(sizeof(struct AircraftData)); cursor = cursor->next; 	}
@@ -620,7 +615,7 @@ void *getDataFromFlightRadar24(void *arg){
 			cursor->lat	= plane_lat;
 			cursor->lon	= plane_lon;
 			cursor->course	= plane_course;
-			cursor->ele	= plane_ele;
+			cursor->ele	= ( plane_ele < 0.0 ) ? 0.0 : plane_ele;
 			cursor->speed	= plane_speed;
 			cursor->vspeed	= 0.0;
 			cursor->time	= plane_time;
@@ -680,14 +675,17 @@ void *getDataFromFlightRadar24(void *arg){
 		if ( dist <= MAX_AIR_CRAFT_DIST ) {
 
 			if ( j != MAX_AIR_CRAFT_NUM ){
+
+				AircraftDataArray[j].speed	= ( cursor->time != AircraftDataArray[j].time ) ? 
+									distAprox(AircraftDataArray[j].lon, AircraftDataArray[j].lat, cursor->lon, cursor->lat) / (float)( cursor->time - AircraftDataArray[j].time ) * 1000.0 : 
+									cursor->speed;
 				AircraftDataArray[j].lat	= cursor->lat;
 				AircraftDataArray[j].lon	= cursor->lon;
 				AircraftDataArray[j].course	= cursor->course;
 				AircraftDataArray[j].vspeed	= ( cursor->time != AircraftDataArray[j].time ) ? ( cursor->ele - AircraftDataArray[j].ele ) / (float)( cursor->time - AircraftDataArray[j].time ) : 0.0;
 				AircraftDataArray[j].ele	= cursor->ele;
-				AircraftDataArray[j].speed	= cursor->speed;
 				AircraftDataArray[j].time	= cursor->time;
-
+				AircraftDataArray[j].age	= ( cursor->time != AircraftDataArray[j].time ) ? NEW : OLD;
 				printf("Old Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,	
 																AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
 			
@@ -702,6 +700,7 @@ void *getDataFromFlightRadar24(void *arg){
 				AircraftDataArray[j].speed	= cursor->speed;
 				AircraftDataArray[j].vspeed	= 0.0;
 				AircraftDataArray[j].time	= cursor->time;
+				AircraftDataArray[j].age	= NEW;
 				AircraftDataArray[j].status	= USED;
 				AircraftDataArray[j].obj 	= NULL;
 				strcpy(AircraftDataArray[j].name, cursor->name);
