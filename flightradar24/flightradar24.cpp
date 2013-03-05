@@ -400,7 +400,7 @@ float	MyFlightLoopCallback1(
 	DownloadStatus = FALSE;
 	pthread_create(&thread, NULL, getDataFromFlightRadar24, (void *)NULL);
 
-	return 5.0;
+	return 10.0;
 }
 
 
@@ -487,14 +487,14 @@ float	MyFlightLoopCallback(
 		result = XPLMProbeTerrainXYZ(myProbe, outX, outY, outZ, &outInfo);
 		if ( outY < outInfo.locationY ) outY = outInfo.locationY;	
 
-
+		/*
 		if ( ( outInfo.is_wet == TRUE ) && ( ( outY - outInfo.locationY ) <= 3.0 ) && ( AircraftDataArray[k].age == OLD ) ){
 			AircraftDataArray[k].course += 1.0;
 			outX = aircraft->plane_x;
 			outY = outInfo.locationY + 3.0;
 			outZ = aircraft->plane_z;
 		}
-
+		*/
 		
 		aircraft->plane_x 	= outX; 
 		aircraft->plane_y 	= outY;  
@@ -711,11 +711,17 @@ void *getDataFromFlightRadar24(void *arg){
 			
 			}
 		} else {
-			if ( j != MAX_AIR_CRAFT_NUM ) AircraftDataArray[j].status = FREE;
-
+			if ( j != MAX_AIR_CRAFT_NUM ) 	AircraftDataArray[j].status = FREE;
 		}
-
+		
 	} 
+	for ( j = 1; j < MAX_AIR_CRAFT_NUM; j++) {
+		if ( distAprox(myPlaneInfo.lon, myPlaneInfo.lat, AircraftDataArray[j].lon, AircraftDataArray[j].lat ) > MAX_AIR_CRAFT_DIST ) 	AircraftDataArray[j].status = FREE;
+		if ( AircraftDataArray[j].ele <= 0.0 )												AircraftDataArray[j].status = FREE;
+
+	}
+	
+
 
 	DownloadStatus = TRUE;
         return (void*)(1);
