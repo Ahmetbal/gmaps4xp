@@ -158,6 +158,7 @@ struct AircraftData{
 	double		ele;
 	double		speed;
 	double		vspeed;
+	double		itime;
 	int		status;
 	int		age;
 	char		*name;
@@ -447,7 +448,10 @@ float	MyFlightLoopCallback(
 	for (  i = 1; i < outActiveAircraft; i++ ) {
 
 		for ( k = 0; k < MAX_AIR_CRAFT_NUM; k++){
-			if ( ( AircraftDataArray[k].status == USED ) && ( AircraftDataArray[k].index == i ) && ( AircraftDataArray[k].obj != NULL ) ) break;
+			if ( 	( AircraftDataArray[k].status == USED ) 		&& 
+				( AircraftDataArray[k].index == i ) 			&&
+				( AircraftDataArray[k].itime < myPlaneInfo.elapsed ) 	&&
+				( AircraftDataArray[k].obj != NULL ) 			) break;
 		}
 
 
@@ -510,7 +514,8 @@ float	MyFlightLoopCallback(
 		for (int Gear = 0; Gear < 5; Gear++) aircraft->plane_gear_deploy[Gear]	= GearState;
 		for (int Thro = 0; Thro < 8; Thro++) aircraft->plane_throttle[Thro]	= 0.6;
 
-		AircraftDataArray[k].age = OLD;
+		AircraftDataArray[k].age 	= OLD;
+		AircraftDataArray[k].itime 	= myPlaneInfo.elapsed;
 		XPLMLocalToWorld(outX, outY, outZ, &(AircraftDataArray[k].lat), &(AircraftDataArray[k].lon), &(AircraftDataArray[k].ele));
 		aircraft->SetAircraftData();
 		i++;
@@ -675,21 +680,22 @@ void *getDataFromFlightRadar24(void *arg){
 		if ( dist <= MAX_AIR_CRAFT_DIST ) {
 
 			if ( j != MAX_AIR_CRAFT_NUM ){
-
-				AircraftDataArray[j].speed	= ( cursor->time != AircraftDataArray[j].time ) ? 
+				printf("Old ");
+				AircraftDataArray[j].speed	= ( cursor->time > AircraftDataArray[j].time ) ? 
 									distAprox(AircraftDataArray[j].lon, AircraftDataArray[j].lat, cursor->lon, cursor->lat) / (float)( cursor->time - AircraftDataArray[j].time ) * 1000.0 : 
 									cursor->speed;
+				
+
 				AircraftDataArray[j].lat	= cursor->lat;
 				AircraftDataArray[j].lon	= cursor->lon;
 				AircraftDataArray[j].course	= cursor->course;
-				AircraftDataArray[j].vspeed	= ( cursor->time != AircraftDataArray[j].time ) ? ( cursor->ele - AircraftDataArray[j].ele ) / (float)( cursor->time - AircraftDataArray[j].time ) : 0.0;
+				AircraftDataArray[j].vspeed	= ( cursor->time > AircraftDataArray[j].time ) ? ( cursor->ele - AircraftDataArray[j].ele ) / (float)( cursor->time - AircraftDataArray[j].time ) : 0.0;
 				AircraftDataArray[j].ele	= cursor->ele;
 				AircraftDataArray[j].time	= cursor->time;
-				AircraftDataArray[j].age	= ( cursor->time != AircraftDataArray[j].time ) ? NEW : OLD;
-				printf("Old Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,	
-																AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
+				AircraftDataArray[j].age	= ( cursor->time > AircraftDataArray[j].time ) ? NEW : OLD;
 			
 			} else {
+				printf("New ");
 				for ( j = 1; j < MAX_AIR_CRAFT_NUM; j++) { if ( AircraftDataArray[j].status == FREE ) break; }
 				if  ( j == MAX_AIR_CRAFT_NUM ) { DownloadStatus = TRUE; return (void*)(1); }
 				
@@ -703,17 +709,22 @@ void *getDataFromFlightRadar24(void *arg){
 				AircraftDataArray[j].age	= NEW;
 				AircraftDataArray[j].status	= USED;
 				AircraftDataArray[j].obj 	= NULL;
+				AircraftDataArray[j].itime	= 0.0;
 				strcpy(AircraftDataArray[j].name, cursor->name);
-
-
-				printf("New Aircraft %d: Coord: %f / %f, Course: %d, Speed: %f, Alt: %f, Dist: %f\n", j, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, (int)AircraftDataArray[j].course,
-																AircraftDataArray[j].speed, 	AircraftDataArray[j].ele, dist );
 			
 			}
+			AircraftDataArray[j].vspeed 	= ( AircraftDataArray[j].vspeed < 25.0 		) ? AircraftDataArray[j].vspeed : 0.0;
+			AircraftDataArray[j].speed	= ( AircraftDataArray[j].speed  < cursor->speed ) ? AircraftDataArray[j].speed 	: cursor->speed;
+
+
+printf("Aircraft %d: Coord: %f / %f,\tCourse: %d,\tSpeed: %f,\tvSpeed: %f,\tAlt: %f,\tDist: %f\n", AircraftDataArray[j].time, 	AircraftDataArray[j].lat, 	AircraftDataArray[j].lon, 	(int)AircraftDataArray[j].course,	
+																AircraftDataArray[j].speed, 	AircraftDataArray[j].vspeed, 	AircraftDataArray[j].ele, dist );
+
 		} else {
 			if ( j != MAX_AIR_CRAFT_NUM ) 	AircraftDataArray[j].status = FREE;
 		}
 		
+
 	} 
 	for ( j = 1; j < MAX_AIR_CRAFT_NUM; j++) {
 		if ( distAprox(myPlaneInfo.lon, myPlaneInfo.lat, AircraftDataArray[j].lon, AircraftDataArray[j].lat ) > MAX_AIR_CRAFT_DIST ) 	AircraftDataArray[j].status = FREE;
