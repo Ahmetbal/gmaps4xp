@@ -39,7 +39,7 @@ output_index="0"
 REMAKE_TILE="no"
 TMPFILE="tmp$$"
 output=()
-
+GOOGLE_MAPS_SSL="no"
 
 DEM_SERVERS[0]="ftp://srtm.csi.cgiar.org/SRTM_v41/SRTM_Data_ArcASCII"
 DEM_SERVERS[1]="http://srtm.csi.cgiar.org/SRT-ZIP/SRTM_v41/SRTM_Data_ArcASCII"
@@ -67,6 +67,7 @@ cat << EOF
 	-dsf	: DSF Tile coordiantes ( Latitude Longitude )
 	-zoomref: Coordinates used for scenery resolution ( Latitude Longitude )
 	-bonly	: Create only 3d buildings
+	-ssl	: Use SSL Protocol (https)
 EOF
 
 }
@@ -151,6 +152,14 @@ while [ ! -z "${args[$cnt]}" ] ; do
 		cnt="$[ $cnt + 1 ]"
 		BUILDINGS_ONLY="true"
 		BUILDINGS_OVERLAY="yes"
+		continue
+	fi
+
+	if [ "${args[$cnt]}" = "-ssl" ] ; then
+		cnt="$[ $cnt + 1 ]"
+		GOOGLE_MAPS_SSL="yes"
+		HTTP_SSL_FLAG="s"
+		HTTP_SSL_WGET="--no-check-certificate"
 		continue
 	fi
 
@@ -442,7 +451,7 @@ getCookies(){
 			--header='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
 			--header='Accept-Encoding: deflate,sdch' \
 			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
-			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' -q -O- --server-response "http://maps.google.com"  2>&1  )"
+			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' -q -O- --server-response ${HTTP_SSL_WGET} "http${HTTP_SSL_FLAG}://maps.google.com"  2>&1  )"
 
 
 	khcookie="khcookie=$(   echo "$indexContent" | tr "[]" "\n"  | grep "Map data" | rev | awk -F "\"" {'print $2'} | rev | tr -d " " )"
@@ -454,7 +463,7 @@ getCookies(){
 				--header='Accept-Encoding: deflate,sdch' \
 				--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
 				--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
-				--header="Cookie: $khcookie;$PREF" -q -O- --server-response "http://maps.google.com/maps/vp?spn=$1&t=h&z=4&vpsrc=6&vp=$2"  2>&1  )"
+				--header="Cookie: $khcookie;$PREF" -q -O- --server-response ${HTTP_SSL_WGET} "http${HTTP_SSL_FLAG}://maps.google.com/maps/vp?spn=$1&t=h&z=4&vpsrc=6&vp=$2"  2>&1  )"
 
 	NID="$( echo "$indexContent" | grep " Set-Cookie: NID" | cut -f 2- -d ":" | awk -F\; {'print $1'}  | tr -d " " )"
 
@@ -483,7 +492,7 @@ ewget(){
 			--header='Accept-Encoding: deflate,sdch' \
 			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
 			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
-			--header="Cookie: $COOKIES" -q -O "$out" "$url" )"
+			--header="Cookie: $COOKIES" -q ${HTTP_SSL_WGET} -O "$out" "$url" )"
 	
 	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
 		log "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
@@ -510,7 +519,7 @@ swget(){
 			--header='Accept-Encoding: deflate,sdch' \
 			--header='Accept-Language: en-US,en;q=0.8,it;q=0.6' \
 			--header='Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3' \
-			--header="Cookie: $COOKIES" -S --spider "$url" )"
+			--header="Cookie: $COOKIES" ${HTTP_SSL_WGET} -S --spider "$url" )"
 	
 	if [ ! -z "$( echo $result | grep -i "sorry.google.com" )" ] ; then
 		log "Google Maps forbids download of image... Maybe you have to refresh your cookie file!"
@@ -1059,15 +1068,26 @@ upDateServer(){
 	# server=( "http://${servers_tile[$server_index]}/kh/v=104&" "http://${servers_maps[$server_index]}/vt/lyrs=m@169000000&style=3&" )
 
 	if [ "${#MAPS_VERSION[*]}" -ne "2" ] ; then
+		if [ "$GOOGLE_MAPS_SSL" = "yes" ] ; then
+			log "Using SSL Protocol (HTTPS) for download Maps ..."
+		fi
+
 		log "Downloading and update Map Version ..."
-		googleMainContent="$( wget -q -O- http://maps.google.com/ | tr ",\"\[\]" "\n" )"
+		googleMainContent="$( wget -q -O- ${HTTP_SSL_WGET} http${HTTP_SSL_FLAG}://maps.google.com/ | tr ",\"\[\]" "\n" )"
 		MAPS_VERSION[0]="$( echo "$googleMainContent" | grep '/kh/v='		| head -n 1 | sed -e 's/&amp;/=/g' | sed -e 's/\\x26/=/g' | awk -F= {'print $2'} )"
 		MAPS_VERSION[1]="$( echo "$googleMainContent" | grep '/vt/lyrs=m@'	| head -n 1 | sed -e 's/&amp;/=/g' | sed -e 's/\\x26/=/g' | awk -F= {'print $2'} )"
+		MAPS_VERSION=( ${MAPS_VERSION[*]} )
+		if [ "${#MAPS_VERSION[*]}" -ne "2" ]  ; then
+			unset MAPS_VERSION[0]
+			unset MAPS_VERSION[1]
+			return
+		fi
+
 		log "Image  Map version: ${MAPS_VERSION[0]}"
 		log "Street Map version: ${MAPS_VERSION[1]}"
 	fi
 
-	server=( "http://${servers_tile[$server_index]}/kh/v=${MAPS_VERSION[0]}&" "http://${servers_maps[$server_index]}/vt/lyrs=${MAPS_VERSION[1]}&style=3&" )
+	server=( "http${HTTP_SSL_FLAG}://${servers_tile[$server_index]}/kh/v=${MAPS_VERSION[0]}&" "http${HTTP_SSL_FLAG}://${servers_maps[$server_index]}/vt/lyrs=${MAPS_VERSION[1]}&style=3&" )
 
 	server_index=$[ $[ $server_index + 1 ] %  ${#servers_maps[@]} ]	
 }
