@@ -3,7 +3,7 @@ SRC_BASE	:=	.
 TARGET		:= air_navigation_linux
 
 SOURCES = \
-	air_navigation_linux
+	air_navigation_linux.cpp
 
 LIBS = -lcurl -lm -lpthread
 
