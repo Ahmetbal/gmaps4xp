@@ -62,7 +62,8 @@ PLUGIN_API void XPluginReceiveMessage(	XPLMPluginID	inFromWho,
 
 
 void MyMenuHandlerCallback(void *inMenuRef, void *inItemRef){
-	switch((int) inItemRef){
+	int s = *((int*)(&inItemRef));
+	switch(s){
 		case startBridge:
 			printf("Starting Air Navigation bridge ...\n");
 			if ( BridgeStatus == STOP ){

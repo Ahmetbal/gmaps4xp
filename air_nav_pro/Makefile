@@ -5,7 +5,7 @@ TARGET		:= air_navigation_linux
 SOURCES = \
 	air_navigation_linux.cpp
 
-LIBS = -lcurl -lm -lpthread
+LIBS = -lm -lpthread
 
 INCLUDES = \
 	-I$(SRC_BASE)/SDK/CHeaders/XPLM \
