@@ -54,7 +54,14 @@ padfTransformInv=()
 COOKIES=""
 
 
-args=( $* )
+cnt="0"
+while [ ! -z "$1" ]; do
+	args[$cnt]="$1"
+	cnt="$[ $cnt + 1 ]"
+	shift
+done
+
+
 
 Usage(){
 echo "Usage: $( basename -- $0 ) [options...]"
@@ -75,8 +82,6 @@ EOF
 
 cnt="0"
 while [ ! -z "${args[$cnt]}" ] ; do
-
-
 	if [ "${args[$cnt]}" = "-o" ] && [ -z "$output_dir" ] ; then
 		cnt="$[ $cnt + 1 ]"
 		output_dir="${args[$cnt]}"
@@ -164,26 +169,36 @@ while [ ! -z "${args[$cnt]}" ] ; do
 	fi
 
 	[ "${args[$cnt]}" = "-help" ] && Usage && exit 1
-
+	echo "${args[$cnt]}"
 	echo "Unknown option: ${args[$cnt]} (Try -help)"
 	exit 1	
 
 done
-
 
 # Input is a KML file
 if [ -f "$file" ] ; then
 	ext="$( echo "$file" | awk -F. '{print $NF}' | tr [A-Z] [a-z] )"
 	if [ "$ext" = "kmz" ] ; then
 		echo "Searching information in the KMZ file \"$( basename -- "$file" )\"..."
-		kml=( $( unzip -p "$file" | tr -d " " | tr "\n" " " ) )
+		kml=( $( unzip -p "$file" "doc.kml"	| tr -d " " | tr "\n" " " ) )
 	else
 		echo "Searching information in the KML file \"$( basename -- "$file" )\"..."
-		kml=( $( cat "$file" | tr -d " " | tr "\n" " " ) )
+		kml=( $( cat "$file"			| tr -d " " | tr "\n" " " ) )
 	fi
+
+	
+
+
 	cnt="0"
 	while [ ! -z "${kml[$cnt]}" ] ; do
-
+		if [ ! -z "$( echo "${kml[$cnt]}" | grep -i ".dae" )" ]  ; then
+			echo "Found KMZ 3D Model ..."
+			BUILDINGS_ONLY="true"
+			BUILDINGS_OVERLAY="yes"
+			BUILDING_FROM_INPUT="$file"
+			break
+		fi
+		
 		i="0"	
 	        for label in $UL_LABEL $LR_LABEL $PLANE_LABEL $AIRPORT_LABEL $PLANE_LABEL_ROT $AIRPORT_LABEL_ROT $ZOOM_REFERENCE_LABEL ; do
 	                if [ "${kml[$cnt]}" = "<name>$label</name>" ] ; then
@@ -203,6 +218,7 @@ if [ -f "$file" ] ; then
 	        cnt=$[ $cnt + 1 ]
 	done
 
+
 	point_lat="$( 	 echo "${coord[0]}" | awk {'print $1'} )"
 	point_lon="$( 	 echo "${coord[0]}" | awk {'print $2'} )"
 
@@ -211,6 +227,31 @@ if [ -f "$file" ] ; then
 
 	zoom_reference_lat="$( echo "${coord[6]}" | awk {'print $1'} )"
 	zoom_reference_lon="$( echo "${coord[6]}" | awk {'print $2'} )"
+
+	if [ -f "$BUILDING_FROM_INPUT" ] ; then
+		echo "Getting location information of 3D Model ..."
+		cnt="0"
+		LocationTag="$( echo "${kml[*]}" | awk 'BEGIN{IGNORECASE=1;FS="<Location>|</Location>";RS=EOF} {print $2}' )"
+
+		if [ ! -z "$LocationTag" ] ; then
+			longitudeTag="$( echo "$LocationTag" | awk 'BEGIN{IGNORECASE=1;FS="<longitude>|</longitude>";RS=EOF} {print $2}' )"
+			latitudeTag="$(	 echo "$LocationTag" | awk 'BEGIN{IGNORECASE=1;FS="<latitude>|</latitude>";RS=EOF}  {print $2}' )"
+		fi
+		if [ -z "$longitudeTag" ] ; then
+			echo "Unable to get geoinformation ..."
+			exit 1
+		fi
+		if [ -z "$latitudeTag" ] ; then
+			echo "Unable to get geoinformation ..."
+			exit 1
+		fi
+		point_lat="$latitudeTag"
+		lowright_lat="$latitudeTag"
+		point_lon="$longitudeTag"
+		lowright_lon="$longitudeTag"
+	fi
+
+
 
 	if [ -z "$point_lat" ] || [ -z "$point_lon" ] || [ -z "$lowright_lat" ] || [ -z "$lowright_lon" ] ; then
 		echo "Unable to find Upper left and Lower right corners..."
@@ -1866,6 +1907,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		. "$nfo_file"
 	fi
 
+	[ -f "$BUILDING_FROM_INPUT" ] && LIST_3D_OBEJCTS="$BUILDING_FROM_INPUT"
+
 	if [ -z "$LIST_3D_OBEJCTS" ] ; then
 		log "Downloading objects list ..."
 		placemarksanon="$( wget -O- -q "http://sketchup.google.com/3dwarehouse/placemarksanon?hl=en&bbox=${point_lon}%2C${lowright_lat}%2C$lowright_lon%2C${point_lat}" )"
@@ -1902,6 +1945,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	else
 		log "Restore list from cache ..."
 		list3Dobjects="$( echo "$LIST_3D_OBEJCTS" | tr " " "\n" )"
+		[ -f "$LIST_3D_OBEJCTS" ] && list3Dobjects="$LIST_3D_OBEJCTS"
 
 	fi
 
@@ -2681,6 +2725,14 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	obj_index="0"
 	cnt_3Dobjects="1"
 	tot_3Dobjects="$( echo "$list3Dobjects" | wc -l | tr -d " " )"
+
+	if [ -f "$list3Dobjects" ] ; then
+		md5="$( md5sum "$list3Dobjects" | awk '{ print $1 }' )"
+		[ ! -d "$overLayDir/kmz" ] 	 	&& mkdir -p "$overLayDir/kmz"
+		[ ! -f "$overLayDir/kmz/${md5}.kmz" ] 	&& cp "$list3Dobjects" "$overLayDir/kmz/${md5}.kmz"
+		list3Dobjects="$md5"
+	fi
+
 	for i in $list3Dobjects ; do
 
 	        name="${i}.kmz"
