@@ -1378,13 +1378,15 @@ r2(){
 
 #########################################################################3
 
+
+
 getTagContent(){
         local contentGetTagContent="$1"
-	[ -z "$contentGetTagContent" ] && return
+
+	[ -z "$contentGetTagContent" ] 	&& return
         local key=( $2 )
 	[ -z "${key[0]}" ] 		&& return
 	[ "${key[0]:0:2}" = "</" ]	&& return
-
 
 	line="$( echo "$contentGetTagContent" | grep -i -n -w "${key[0]}" )"
 
@@ -1394,13 +1396,13 @@ getTagContent(){
 
 	echo "$line" | while read tag ; do
 	        local startTag="$( echo "${tag#*:}" | awk {'print $1'} )"
-		[ "${startTag:0:2}"  = "</" ] 	&& continue
-		[ "${tag:(-2)}" = "/>" ]	&& echo "${tag#*:}" && continue	
+		[ "${startTag:0:2}"  	= "</" ] 	&& continue
+		[ "${tag:(-2)}" 	= "/>" ]	&& echo "${tag#*:}" && continue	
 
 	        local endTag="$(   echo "$startTag"  | sed -e s/"<"/"<\/"/g | tr -d ">" )>"
 
 	        ntag="1"
-	        echo "$contentGetTagContent" | tail -n +$[ ${tag%:*} + 1 ] | tr -d "\r" | while read line ; do
+	        echo "$contentGetTagContent" | tail -n +$[ ${tag%:*} + 1 ] | while read line ; do
 			[ -z "$line" ] && continue
 			array=( $line )
 	                [ "${array[0]}"  = "$startTag" ]	&& ntag="$[ $ntag + 1 ]" 	&& [ "${line:(-2)}" = "/>" ] && ntag="$[ $ntag - 1 ]"
@@ -1408,8 +1410,10 @@ getTagContent(){
 	                [ "$ntag" -eq "0" ] 			&& break
 			echo "$line"
 		done
+	
         done 
 }
+
 
 getTagList(){
         local contentGetTagList="$1"
@@ -1439,23 +1443,23 @@ searchLeafs(){
 		[ -z "$line" ] 		 	&& continue
 		[ "${line:0:1}"	!= "<" ] 	&& continue
 		[ "${line:0:2}"	= "</" ] 	&& continue
+
 		data="$( getTagContent "$contentSearchTagPath" "$line"  )"
 
 		[ "$line" = "<matrix>" ]	&& echo "${2}${line}" 1>&2 && continue
 		[ "$data" = "$line" ] 		&& echo "${2}${line}" 1>&2 && continue
-
 		[ "${line:(-2)}" = "/>" ] 	&& continue
+
+
 		searchLeafs "$data" "${2}${line}"
 	done
-
-
 }
 
 
 
 explodeDAEtoObjects(){
 	[ -f "$kmlDir/geometry_material_cache.dat" ] && rm -f "$kmlDir/geometry_material_cache.dat"
-	#searchPathToMaterial "$( getTagContent "$1" "<node id=\"Model\"" )" 
+
 	searchPathToMaterial "$1" 
 
 	if [ -f "$kmlDir/geometry_material_cache.dat" ] ; then
@@ -1464,21 +1468,16 @@ explodeDAEtoObjects(){
 			echo "; $line"
 		done < "$kmlDir/geometry_material_cache.dat"
 	fi
-
-	
-
 }
 
 
 searchPathToMaterial(){
-
 	local contentSearchPathToMaterial="$1"
 	[ -z "$contentSearchPathToMaterial" ] && return
 	local matrixPath="$2"
 
 	searchLeafs "$contentSearchPathToMaterial" 2>&1 | while read leaf ; do
 		[ -z "$leaf" ] && continue
-
 
 		tags="$( echo "$leaf" | sed -e s/"><"/">;<"/g  )"
 		cnt="0"; unset tokens
@@ -2775,8 +2774,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		fi
 
 		if [ "$( uname -s )" = "Linux" ] ; then
-		        model_dae="$(   cat "${model_file}" | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
-		        kml="$(         cat "${kml_file}"   | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed '/^$/d' )"
+		        model_dae="$(   cat "${model_file}" | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed 's/^ *//; s/ *$//; /^$/d'  )"
+		        kml="$(         cat "${kml_file}"   | tr -d "\r" | sed -e s/"<"/"\n<"/g | sed -e s/">"/">\n"/g | sed 's/^ *//; s/ *$//; /^$/d'  )"
 		fi
 		if [ "$( uname -s )" = "Darwin" ] ; then
 		        model_dae="$(   cat "${model_file}" | tr -d "\r" | perl -pe 's/</\n</g' | perl -pe 's/>/>\n/g' | awk 'NF' 2> /dev/null )"
@@ -2976,47 +2975,44 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		cd "$( dirname -- "$model_file" )"
 	        cnt="0"; unset texture_list;
 	        for mat in ${materials[*]} ; do
+
 			effect="$( getTagContent "$library_materials" "<material id=\"${mat}\"" | tr " " "\n" | grep "url=\"" | awk -F\" {'print $2'} | tr -d "#" )"
 			[ -z "$effect" ] && continue
 
 			effectData="$( getTagContent "$library_effects" "<effect id=\"${effect}\"" |  sed 's/<[^>]*>//g' )"
 			[ -z "$effectData" ] && continue
+
 			for eD in $effectData ; do
 				image="$( echo "${images[*]}" | tr " " "\n" | grep -x "$eD" )"
 				[ ! -z "$image" ] && break
 			done
-						
-
 
         	        if [ -z "$image" ] ; then
 				data="$( getTagContent "$library_effects" "<effect id=\"${effect}\"" )"
 				color="$( getTagContent "$data" "<diffuse>"  | tr -d "\n" |  sed 's/<[^>]*>//g' | tr " " "_" )"
 				[ -z "$color" ] && color="0.000000_0.000000_0.000000_1"
 				texture="$color"
-
 			else
 				texture="$( getTagContent "$library_images" "<image id=\"$image\"" |  sed 's/<[^>]*>//g'  | tr -d "\n" )"
 				tex_dir="$( dirname -- "$texture" )"
 				[ ! -d "$tex_dir" ] && tex_dir="$( dirname -- "$( find . -name "$( basename -- "$texture" )" )" )"
+			
 				texture="$( cd "$tex_dir" ; pwd )/$( basename -- "$texture" )"
         	        fi
-
         	        texture_list[$cnt]="${mat},$texture"
         	        cnt=$[ $cnt + 1 ]
+			log "Progress $cnt / ${#materials[*]} ..."
         	done
 		cd - &> /dev/null
 
-
         	[ ! -d "$OUTPUT/objects"   ]  && mkdir -p "$OUTPUT/objects"
 
-
-
 		log "Starting objects generation ..."
+
 		explodeDAEtoObjects "$library_visual_scenes" | while read line ; do
 			[ -z "$line" ] && continue
 			srcs=( $( echo "$line" | awk -F\; {'print $2'}  ) )
 			[ "${#srcs[*]}" -ne "2" ] && continue
-
 			cnt="0"; unset matrix
 			for i in $( echo "$line" | awk -F\; {'print $1'} ) ; do
 				matrix[$cnt]="$( echo "$i"|  tr "_" " " )"
@@ -3032,8 +3028,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			geometry="$( getTagContent "$geometry" "<mesh>" )"
 			material_name="$( getTagList "$library_materials" | grep "id=\"${material}\"" | tr " " "\n" | grep "name=\"" | awk -F\" {'print $2'} )" 
 
-			[ -z "$material_name" ] && material_name="$( getTagContent "$library_visual_scenes" "<instance_material target=\"#${material}\"" | tr " " "\n" | grep "symbol=\"" | awk -F\" {'print $2'} )"
-			[ -z "$material_name" ] && material_name="$( getTagContent "$library_nodes" "<instance_material target=\"#${material}\"" | tr " " "\n" | grep "symbol=\"" | awk -F\" {'print $2'} )"
+			[ -z "$material_name" ] && material_name="$( getTagContent "$library_visual_scenes" 	"<instance_material target=\"#${material}\"" | tr " " "\n" | grep "symbol=\"" | awk -F\" {'print $2'} )"
+			[ -z "$material_name" ] && material_name="$( getTagContent "$library_nodes" 		"<instance_material target=\"#${material}\"" | tr " " "\n" | grep "symbol=\"" | awk -F\" {'print $2'} )"
 			[ -z "$material_name" ] && log "Unkown link from material and geometry, skip ..." && continue
 
 			triangleData="$( getTagContent "$geometry" "<triangles material=\"$material_name\"" )"
@@ -3049,44 +3045,39 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			POSITION="$( getTagParameter "$( getTagContent "$geometry" "<vertices id=\"$VERTEX\">" | grep "semantic=\"POSITION\"" )" "source" | tr -d "#" )"
 
 
+
 			log "Reading POSITION information ..."
-        	        cnt="0"; i="0"; unset position_array; unset coord
+        	        cnt="0"; unset position_array; unset coord
 			default_rot="$( awk 'BEGIN { printf "%f", '$pi' * 3.0 / 2.0  }' )"
-        	        for e in $(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" ) ; do
-        	                line[$i]="$e"; i=$[ $i + 1 ]
-        	                [ "${#line[*]}" -lt "3" ] && continue
-
+			while read -a line ; do
 				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
-				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }' ) )
-				coord[0]="$( awk 'BEGIN { printf "%f", ( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[2]}' ) }' )"
-				coord[1]="${line[1]}"
-				coord[2]="$( awk 'BEGIN { printf "%f", ( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[2]}' ) }' )"
-				position_array[$cnt]="${coord[*]}"
 
-        	                unset line; i="0"
-                	        cnt=$[ $cnt + 1 ]
-                        done
+				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }' ) )
+
+				position_array[$cnt]="$( awk 'BEGIN { printf "%f %f %f", 
+								( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[2]}' ), 
+								'${line[1]}', 
+								( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[2]}' ) }' )"
+
+
+	               	        cnt=$[ $cnt + 1 ]
+                        done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+			log "Fetched $cnt POSITION elements ..."
 
 
 			log "Reading NORMAL information ..."
-	                cnt="0"; i="0"; unset normal_array
-	                [ ! -z "$NORMAL" ] && for e in $(  getTagContent "$( getTagContent "$geometry" "source id=\"$NORMAL\"" )" "<float_array" ) ; do
-	                        line[$i]="$e"; i=$[ $i + 1 ]
-	                        [ "${#line[*]}" -lt "3" ] && continue
-	                        normal_array[$cnt]="${line[*]}"
-	                        unset line; i="0"
+	                cnt="0"; unset normal_array
+	                [ ! -z "$NORMAL" ] && while read normal_array[$cnt] ; do
 	                        cnt=$[ $cnt + 1 ]
-	                done
+	                done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$NORMAL\"" )"   "<float_array" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+			log "Fetched $cnt NORMAL elements ..."
 
 			log "Reading TEXCOORD information ..."
-        	        cnt="0"; i="0"; unset uv_array
-        	        [ ! -z "$TEXCOORD" ] && for e in $( getTagContent "$( getTagContent "$geometry" "source id=\"$TEXCOORD\"" )" "<float_array" ) ; do
-        	                line[$i]="$e"; i=$[ $i + 1 ]
-        	                [ "${#line[*]}" -lt "2" ] && continue
-        	                uv_array[$cnt]="${line[*]}"
-        	                unset line; i="0"
+        	        cnt="0"; unset uv_array
+        	        [ ! -z "$TEXCOORD" ] && while read uv_array[$cnt] ; do
         	                cnt=$[ $cnt + 1 ]
-        	        done
+        	        done <<< "$( getTagContent "$( getTagContent "$geometry" "source id=\"$TEXCOORD\"" )"  "<float_array" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%f ", $1 ; if ( ( i % 2 ) == 0 ) printf "\n" ; i++ }' )"
+			log "Fetched $cnt TEXCOORD elements ..."
 
 			log "Processing texture or color material ..."
  			unset texture_name; unset texturepng; unset texturedds; unset texture_color
@@ -3133,31 +3124,24 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                         [ -z "$texcoord_index" ]        && texcoord_index="z"
 
 			log "Reading triangles information ..."
-	                cnt="0"; i="0"; unset array
 
-
-	                for e in $( getTagContent "$triangleData" "<p>" ) ; do
-	                        line[$i]="$e"; i=$[ $i + 1 ]
-       	                        [ "${#line[*]}" -lt "$semantic_num" ] && continue
-
+	                cnt="0"; unset array
+			while read -a line ; do
                                 v="x"; n="y"; t="z"
                                 [ "$vertex_index"   != "x" ] && v="${line[$vertex_index]}"
                                 [ "$normal_index"   != "y" ] && n="${line[$normal_index]}"
                                 [ "$texcoord_index" != "z" ] && t="${line[$texcoord_index]}"
-
                                 array[$cnt]="$v $n $t"
-                                unset line; i="0"
-                                cnt=$[ $cnt + 1 ]
-                        done
 
-	                 array_uniq="$( cnt="0"; while [ ! -z "${array[$cnt]}" ] ; do echo "${array[$cnt]}"; cnt=$[ $cnt + 1 ]; done | sort -u )"
-			# array_uniq="$( echo "$array_uniq" | sed -e s/"x"/"0.000000 0.000000 0.000000"/g | sed -e s/"y"/"0.000000 0.000000 1.000000"/g | sed -e s/"z"/"0.000000 0.000000"/g )"
+                                cnt=$[ $cnt + 1 ]
+                        done <<< "$( getTagContent "$triangleData" "<p>" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%d ", $1 ; if ( ( i % '$semantic_num' ) == 0 ) printf "\n" ; i++ }' )" 
+
+			[ "$( uname -s )" = "Linux"  ] && array_uniq="$( echo "${array[*]}"  | tr " " "\n" | awk -v i=1 '{ printf "%d ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' | sort -u | sed 's/^ *//; s/ *$//; /^$/d' )"
+			[ "$( uname -s )" = "Darwin" ] && array_uniq="$( echo "${array[*]}"  | tr " " "\n" | awk -v i=1 '{ printf "%d ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' | sort -u | awk 'NF' 2> /dev/null )"
 
 			log "Checking $( echo "$array_uniq" | wc -l ) coordinates ..."
-
 	                unset VT; cnt="0"
-	                while read line ; do
-	                        p=( $line );
+	                while read -a p ; do
 				position="0.000000 0.000000 0.000000";	normal="0.000000 0.000000 1.000000"; uv="0.000000 0.000000"
 
 				[ "${p[0]}" != "x" ] && position="${position_array[${p[0]}]}"
@@ -3168,7 +3152,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 	                        VT[$cnt]=";VT $position $normal $uv"
 				
 	                        cnt=$[ $cnt + 1 ]
-	                done <<< "$( echo "$array_uniq" )"
+	                done <<< "$( echo "$array_uniq" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%d ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
         	        VT_COUNT="$cnt"
 
 			log "Re-ordering POSITION coordinates ..."
@@ -3191,8 +3175,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                 	        IDX[$cnt]="$( eval echo \"'$'vt_${p[0]}_${p[1]}_${p[2]}\" )"
                 	        cnt=$[ $cnt + 1 ]
                 	done
-
-
 	
 			[ ! -d "$OUTPUT/objects/${name%.*}" ] && mkdir -p "$OUTPUT/objects/${name%.*}"
 
@@ -3264,8 +3246,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 			objDir="$OUTPUT/objects/${name%.*}"
 			unset position_avg; position_sum=( "0.0" "0.0" "0.0" );
 			cnt="0"
-			while read line ; do
-				info=( ${line} )
+			while read -a info ; do
 				position_sum[0]="$( awk 'BEGIN { printf "%f", '${position_sum[0]}' + '${info[0]}' }' )"
 				position_sum[1]="$( awk 'BEGIN { printf "%f", '${position_sum[1]}' + '${info[1]}' }' )"
 				position_sum[2]="$( awk 'BEGIN { printf "%f", '${position_sum[2]}' + '${info[2]}' }' )"
@@ -3278,14 +3259,10 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 			find "$objDir" -type f | while read file ; do
 				log "Elaborating file ${name%.*}/$( basename $file ) ..."
-				while read line ; do
-					info=( ${line} )
-					[ "${info[0]}" != "VT" ] && echo "$line" && continue
+				while read -a info ; do
+					[ "${info[0]}" != "VT" ] && echo "${info[*]}" && continue
+					unset coord[0]
 					coord=( ${info[1]} ${info[2]} ${info[3]} )
-
-					#coord[0]="$( awk 'BEGIN { printf "%f", '${coord[0]}' - '${position_avg[0]}' }' )"
-					#coord[1]="$( awk 'BEGIN { printf "%f", '${coord[1]}' - '${position_avg[1]}' }' )"
-					#coord[2]="$( awk 'BEGIN { printf "%f", '${coord[2]}' - '${position_avg[2]}' }' )"
 
 					if [ ! -z "$heading" ] ; then
 					coord_new[0]="$( awk 'BEGIN { printf "%f", ( cos('$heading') * '${coord[0]}' ) - ( sin('$heading') * '${coord[2]}' ) }' )"
@@ -3306,15 +3283,10 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 					fi
 
 
-					#coord[0]="$( awk 'BEGIN { printf "%f", '${coord[0]}' + '${position_avg[0]}' }' )"
-					#coord[1]="$( awk 'BEGIN { printf "%f", '${coord[1]}' + '${position_avg[1]}' }' )"
-					#coord[2]="$( awk 'BEGIN { printf "%f", '${coord[2]}' + '${position_avg[2]}' }' )"
-
-
 					echo "VT ${coord[*]} ${info[4]} ${info[5]} ${info[6]} ${info[7]} ${info[8]}"
 
-				done < "$file" > "${file}.rot"
-				mv "${file}.rot" "$file"
+				done < "$file" #> "${file}.rot"
+				#mv "${file}.rot" "$file"
 			done
 
 		fi
