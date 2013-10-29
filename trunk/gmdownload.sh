@@ -3061,22 +3061,23 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
 			log "Reading POSITION information ..."
-        	        cnt="0"; unset position_array; unset coord
-			default_rot="$( awk 'BEGIN { printf "%f", '$pi' * 3.0 / 2.0  }' )"
+        	        cnt="0"; unset position_array
+			default_rot="$( awk 'BEGIN { printf "%f", '$pi' / 2.0 }' )"
 			while read -a line ; do
 				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do  line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
-
 				# The order of coods must be 1 2 0 
+				# 1: Y
+				# 2: Hight
+				# 0: X
 				position_array[$cnt]="$( awk 'BEGIN { printf "%f %f %f", 
-								'${line[1]}' * '$scale_factor', 
-								( cos('$default_rot') * '${line[0]}' * '$scale_factor' ) - ( sin('$default_rot') * '${line[2]}' * '$scale_factor') , 
-								( sin('$default_rot') * '${line[0]}' * '$scale_factor' ) + ( cos('$default_rot') * '${line[2]}' * '$scale_factor') }' )"
-
-
+								( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[1]}' ) ,
+								'${line[2]}',
+								( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[1]}' ) }' )" 
+ 
 	               	        cnt=$[ $cnt + 1 ]
-                        done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" | tr " " "\n" | awk -v i=1 '{ printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+                        done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" | tr " " "\n" | awk -v i=1 '{ printf "%f ", $1 * '$scale_factor'; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+
 			log "Fetched $cnt POSITION elements ..."
-			# if ( $1 != "" )
 
 			log "Reading NORMAL information ..."
 	                cnt="0"; unset normal_array
