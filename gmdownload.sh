@@ -1544,6 +1544,18 @@ matrixApply(){
         matrix=( $1 )
         coords=( $2 1 )
 
+        awk 'BEGIN { printf "%f %f %f", 	( '${coords[0]}' * '${matrix[0]}'  ) + ( '${coords[1]}' * '${matrix[1]}'  ) + ( '${coords[2]}' * '${matrix[2]}'  ) + ( '${coords[3]}' * '${matrix[3]}'  ),
+       						( '${coords[0]}' * '${matrix[4]}'  ) + ( '${coords[1]}' * '${matrix[5]}'  ) + ( '${coords[2]}' * '${matrix[6]}'  ) + ( '${coords[3]}' * '${matrix[7]}'  ),
+        					( '${coords[0]}' * '${matrix[8]}'  ) + ( '${coords[1]}' * '${matrix[9]}'  ) + ( '${coords[2]}' * '${matrix[10]}' ) + ( '${coords[3]}' * '${matrix[11]}' ) }'
+
+#       awk 'BEGIN { printf "%f",  ( '${coords[0]}' * '${matrix[12]}' ) + ( '${coords[1]}' * '${matrix[13]}' ) + ( '${coords[2]}' * '${matrix[14]}' ) + ( '${coords[3]}' * '${matrix[15]}'  ) }' 
+
+}
+
+matrixApplyOld(){
+        matrix=( $1 )
+        coords=( $2 1 )
+
         awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[0]}'  ) + ( '${coords[1]}' * '${matrix[1]}'  ) + ( '${coords[2]}' * '${matrix[2]}'  ) + ( '${coords[3]}' * '${matrix[3]}'  ) }'
         awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[4]}'  ) + ( '${coords[1]}' * '${matrix[5]}'  ) + ( '${coords[2]}' * '${matrix[6]}'  ) + ( '${coords[3]}' * '${matrix[7]}'  ) }'
         awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[8]}'  ) + ( '${coords[1]}' * '${matrix[9]}'  ) + ( '${coords[2]}' * '${matrix[10]}' ) + ( '${coords[3]}' * '${matrix[11]}' ) }'
@@ -2810,14 +2822,16 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		# rot_fix="0" # TO BE REMOVE
 		Location[2]="$( awk 'BEGIN { printf "%f", '${Location[2]}' + '$lon_fix' }' )"
 		Location[1]="$( awk 'BEGIN { printf "%f", '${Location[1]}' + '$lat_fix' }' )"
+		Location[0]="$( awk 'BEGIN { printf "%f", '${Location[0]}' 		}' )"
 	
 		if [ "$rot_fix" != "0" ] ; then
 			l_lat="$( echo "scale = 8; ${Location[1]} - $lat_plane" | bc -l )"
 			l_lon="$( echo "scale = 8; ${Location[2]} - $lon_plane" | bc -l )"
 			l_lon_n="$( echo "scale = 8; $l_lon * c( ($pi/180) * $rot_fix ) - $l_lat * s( ($pi/180) * $rot_fix )" | bc -l )"
 			l_lat_n="$( echo "scale = 8; $l_lon * s( ($pi/180) * $rot_fix ) + $l_lat * c( ($pi/180) * $rot_fix )" | bc -l )"
-			Location[1]="$( echo "scale = 8; $l_lat_n + $lat_plane" | bc -l )"
-			Location[2]="$( echo "scale = 8; $l_lon_n + $lon_plane" | bc -l )"
+
+			Location[1]="$( awk 'BEGIN { printf "%f", '$l_lat_n' + '$lat_plane' }' )"
+			Location[2]="$( awk 'BEGIN { printf "%f", '$l_lon_n' + '$lon_plane' }' )"
 		fi
 
 
@@ -3039,9 +3053,9 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
                 	log "$cnt_3Dobjects / $tot_3Dobjects: Creating object ${id} with material $material ..."
 
-        	        VERTEX="$(      echo "$triangleData" | grep "semantic=\"VERTEX\""				| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
-        	        NORMAL="$(      echo "$triangleData" | grep "semantic=\"NORMAL\""          			| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
-        	        TEXCOORD="$(    echo "$triangleData" | grep "semantic=\"TEXCOORD\""        			| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+        	        VERTEX="$(      echo "$triangleData" | grep "semantic=\"VERTEX\""	| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+        	        NORMAL="$(      echo "$triangleData" | grep "semantic=\"NORMAL\""      	| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
+        	        TEXCOORD="$(    echo "$triangleData" | grep "semantic=\"TEXCOORD\""    	| tr " " "\n" | grep "source=" | awk -F\" {'print $2'} | tr -d "#" )"
 			POSITION="$( getTagParameter "$( getTagContent "$geometry" "<vertices id=\"$VERTEX\">" | grep "semantic=\"POSITION\"" )" "source" | tr -d "#" )"
 
 
@@ -3050,33 +3064,32 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
         	        cnt="0"; unset position_array; unset coord
 			default_rot="$( awk 'BEGIN { printf "%f", '$pi' * 3.0 / 2.0  }' )"
 			while read -a line ; do
-				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
+				m="$[ ${#matrix[*]} - 1 ]"; while [ "$m" -ge "0" ] ; do  line=( $( matrixApply "${matrix[$m]}" "${line[*]}" ) ) ; m=$[ $m - 1 ] ; done
 
-				line=( $( awk 'BEGIN { printf "%f %f %f", '${line[1]}' * '$scale_factor' , '${line[2]}' * '$scale_factor' , '${line[0]}' * '$scale_factor' }' ) )
-
+				# The order of coods must be 1 2 0 
 				position_array[$cnt]="$( awk 'BEGIN { printf "%f %f %f", 
-								( cos('$default_rot') * '${line[0]}' ) - ( sin('$default_rot') * '${line[2]}' ), 
-								'${line[1]}', 
-								( sin('$default_rot') * '${line[0]}' ) + ( cos('$default_rot') * '${line[2]}' ) }' )"
+								'${line[1]}' * '$scale_factor', 
+								( cos('$default_rot') * '${line[0]}' * '$scale_factor' ) - ( sin('$default_rot') * '${line[2]}' * '$scale_factor') , 
+								( sin('$default_rot') * '${line[0]}' * '$scale_factor' ) + ( cos('$default_rot') * '${line[2]}' * '$scale_factor') }' )"
 
 
 	               	        cnt=$[ $cnt + 1 ]
-                        done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+                        done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$POSITION\"" )" "<float_array" | tr " " "\n" | awk -v i=1 '{ printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
 			log "Fetched $cnt POSITION elements ..."
-
+			# if ( $1 != "" )
 
 			log "Reading NORMAL information ..."
 	                cnt="0"; unset normal_array
 	                [ ! -z "$NORMAL" ] && while read normal_array[$cnt] ; do
 	                        cnt=$[ $cnt + 1 ]
-	                done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$NORMAL\"" )"   "<float_array" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+	                done <<< "$(  getTagContent "$( getTagContent "$geometry" "source id=\"$NORMAL\"" )"   "<float_array" | tr " " "\n" | awk -v i=1 '{ printf "%f ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
 			log "Fetched $cnt NORMAL elements ..."
 
 			log "Reading TEXCOORD information ..."
         	        cnt="0"; unset uv_array
         	        [ ! -z "$TEXCOORD" ] && while read uv_array[$cnt] ; do
         	                cnt=$[ $cnt + 1 ]
-        	        done <<< "$( getTagContent "$( getTagContent "$geometry" "source id=\"$TEXCOORD\"" )"  "<float_array" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%f ", $1 ; if ( ( i % 2 ) == 0 ) printf "\n" ; i++ }' )"
+        	        done <<< "$( getTagContent "$( getTagContent "$geometry" "source id=\"$TEXCOORD\"" )"  "<float_array" | tr " " "\n" | awk -v i=1 '{ printf "%f ", $1 ; if ( ( i % 2 ) == 0 ) printf "\n" ; i++ }' )"
 			log "Fetched $cnt TEXCOORD elements ..."
 
 			log "Processing texture or color material ..."
@@ -3132,12 +3145,11 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
                                 [ "$normal_index"   != "y" ] && n="${line[$normal_index]}"
                                 [ "$texcoord_index" != "z" ] && t="${line[$texcoord_index]}"
                                 array[$cnt]="$v $n $t"
-
                                 cnt=$[ $cnt + 1 ]
-                        done <<< "$( getTagContent "$triangleData" "<p>" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%d ", $1 ; if ( ( i % '$semantic_num' ) == 0 ) printf "\n" ; i++ }' )" 
+                        done <<< "$( getTagContent "$triangleData" "<p>" | tr " " "\n" | awk -v i=1 '{ printf "%d ", $1 ; if ( ( i % '$semantic_num' ) == 0 ) printf "\n" ; i++ }' )" 
 
-			[ "$( uname -s )" = "Linux"  ] && array_uniq="$( echo "${array[*]}"  | tr " " "\n" | awk -v i=1 '{ printf "%d ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' | sort -u | sed 's/^ *//; s/ *$//; /^$/d' )"
-			[ "$( uname -s )" = "Darwin" ] && array_uniq="$( echo "${array[*]}"  | tr " " "\n" | awk -v i=1 '{ printf "%d ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' | sort -u | awk 'NF' 2> /dev/null )"
+			[ "$( uname -s )" = "Linux"  ] && array_uniq="$( echo "${array[*]}"  | tr " " "\n" | awk -v i=1 '{ printf "%s ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' | sort -u | sed 's/^ *//; s/ *$//; /^$/d' )"
+			[ "$( uname -s )" = "Darwin" ] && array_uniq="$( echo "${array[*]}"  | tr " " "\n" | awk -v i=1 '{ printf "%s ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' | sort -u | awk 'NF' 2> /dev/null )"
 
 			log "Checking $( echo "$array_uniq" | wc -l ) coordinates ..."
 	                unset VT; cnt="0"
@@ -3148,11 +3160,11 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 				[ "${p[1]}" != "y" ] && normal="${normal_array[${p[1]}]}"
 				[ "${p[2]}" != "z" ] && uv="${uv_array[${p[2]}]}"
 
-	                        eval vt_${p[0]}_${p[1]}_${p[2]}="$cnt"
+				eval vt_${p[0]}_${p[1]}_${p[2]}="$cnt"
 	                        VT[$cnt]=";VT $position $normal $uv"
 				
 	                        cnt=$[ $cnt + 1 ]
-	                done <<< "$( echo "$array_uniq" | tr " " "\n" | awk -v i=1 '{ if ( $1 != "") printf "%d ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
+	                done <<< "$( echo "$array_uniq" | tr " " "\n" | awk -v i=1 '{ printf "%s ", $1 ; if ( ( i % 3 ) == 0 ) printf "\n" ; i++ }' )"
         	        VT_COUNT="$cnt"
 
 			log "Re-ordering POSITION coordinates ..."
@@ -3193,7 +3205,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 			log "Writing $( basename -- "$objFile" ) object file ..."
 
-                        echo "OBJECT_DEF objects/${name%.*}/$( basename -- "$objFile" )" 	  >> "$obj_list"
+                        echo "OBJECT_DEF objects/${name%.*}/$( basename -- "$objFile" )" 	 >> "$obj_list"
                         echo "OBJECT $obj_index ${Location[2]} ${Location[1]} ${Location[0]}"    >> "$dsf_body"
                 
 
@@ -3244,20 +3256,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 		if [ ! -z "$heading" ] || [ ! -z "$tilt" ] || [ ! -z "$roll" ] ; then
 			log "Applying position transformation ..."
 			objDir="$OUTPUT/objects/${name%.*}"
-			unset position_avg; position_sum=( "0.0" "0.0" "0.0" );
-			cnt="0"
-			while read -a info ; do
-				position_sum[0]="$( awk 'BEGIN { printf "%f", '${position_sum[0]}' + '${info[0]}' }' )"
-				position_sum[1]="$( awk 'BEGIN { printf "%f", '${position_sum[1]}' + '${info[1]}' }' )"
-				position_sum[2]="$( awk 'BEGIN { printf "%f", '${position_sum[2]}' + '${info[2]}' }' )"
-				cnt=$[ $cnt + 1 ]
-			done <<< "$( cat "$objDir/"* | grep "^VT" | awk '{ printf "%f %f %f\n", $2, $3, $4 }' )" 
 
-			position_avg[0]="$( awk 'BEGIN { printf "%f", '${position_sum[0]}' / '$cnt' }' )"
-			position_avg[1]="$( awk 'BEGIN { printf "%f", '${position_sum[1]}' / '$cnt' }' )"
-			position_avg[2]="$( awk 'BEGIN { printf "%f", '${position_sum[2]}' / '$cnt' }' )"
-
-			find "$objDir" -type f | while read file ; do
+			find "$objDir" -type f -name "*.obj" | while read file ; do
 				log "Elaborating file ${name%.*}/$( basename $file ) ..."
 				while read -a info ; do
 					[ "${info[0]}" != "VT" ] && echo "${info[*]}" && continue
@@ -3285,8 +3285,8 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 					echo "VT ${coord[*]} ${info[4]} ${info[5]} ${info[6]} ${info[7]} ${info[8]}"
 
-				done < "$file" #> "${file}.rot"
-				#mv "${file}.rot" "$file"
+				done < "$file" > "${file}.rot"
+				mv "${file}.rot" "$file"
 			done
 
 		fi
