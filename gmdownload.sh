@@ -1389,13 +1389,15 @@ getTagContent(){
 	[ -z "${key[0]}" ] 		&& return
 	[ "${key[0]:0:2}" = "</" ]	&& return
 
-	line="$( echo "$contentGetTagContent" | grep -i -n -w "${key[0]}" )"
+	line="$( echo "$contentGetTagContent" | LANG=C fgrep -F -n -w "${key[0]}" )"
 
-	[ "${#key[*]}" -gt "1" ] && for k in ${key[*]} ; do line="$( echo "$line" | grep -i -w "$k" )" ; done
+	[ "${#key[*]}" -gt "1" ] && for k in ${key[*]} ; do line="$( echo "$line" | LANG=C fgrep -F -w  "$k" )" ; done
 
+#	[ "${#key[*]}" -gt "1" ] && for k in ${key[*]} ; do line="$( echo "$line" | grep -i -w "$k" )" ; done
 #	[ "${#key[*]}" -gt "1" ] && line="$( echo "$line" | awk "/$( echo "${key[*]}" | sed -e 's/\//\\\//g' | sed -e 's/ /\/ \&\& \//g' )/" )"
-     	[ -z "$line" ] && return
 
+
+     	[ -z "$line" ] && return
 	echo "$line" | while read tag ; do
 	        local startTag="$( echo "${tag#*:}" | awk {'print $1'} )"
 		[ "${startTag:0:2}"  	= "</" ] 	&& continue
@@ -1445,20 +1447,19 @@ searchLeafs(){
 	local contentSearchTagPath="$1"
 	[ -z "$contentSearchTagPath" ] && return
 
-	[ -z "$cnt" ] && local cnt="0"	
-	cnt="$[ $cnt + 1 ]"
+	[ -z "$cntsearchLeafs" ] && local cntsearchLeafs="0"	
+	cntsearchLeafs="$[ $cntsearchLeafs + 1 ]"
 
 	getTagList "$contentSearchTagPath" | while read line ; do
 		[ -z "$line" ] 		 	&& continue
 		[ "${line:0:1}"	!= "<" ] 	&& continue
 		[ "${line:0:2}"	= "</" ] 	&& continue
 
-		data="$( getTagContent "$contentSearchTagPath" "$line"  )"
+		data="$( getTagContent "$contentSearchTagPath" "$line" )"
 
 		[ "$line" = "<matrix>" ]	&& echo "${2}${line}" 1>&2 && continue
 		[ "$data" = "$line" ] 		&& echo "${2}${line}" 1>&2 && continue
 		[ "${line:(-2)}" = "/>" ] 	&& continue
-
 
 		searchLeafs "$data" "${2}${line}"
 	done
