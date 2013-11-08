@@ -40,6 +40,7 @@ REMAKE_TILE="no"
 TMPFILE="tmp$$"
 output=()
 GOOGLE_MAPS_SSL="no"
+ATTR_LOD="60000.000000"
 
 DEM_SERVERS[0]="ftp://srtm.csi.cgiar.org/SRTM_v41/SRTM_Data_ArcASCII"
 DEM_SERVERS[1]="http://srtm.csi.cgiar.org/SRT-ZIP/SRTM_v41/SRTM_Data_ArcASCII"
@@ -1376,8 +1377,8 @@ r2(){
 
 }
 
-#########################################################################3
 
+#########################################################################3
 
 
 getTagContent(){
@@ -1392,44 +1393,52 @@ getTagContent(){
 
 	[ "${#key[*]}" -gt "1" ] && for k in ${key[*]} ; do line="$( echo "$line" | grep -i -w "$k" )" ; done
 
-        [ -z "$line" ] && return
+#	[ "${#key[*]}" -gt "1" ] && line="$( echo "$line" | awk "/$( echo "${key[*]}" | sed -e 's/\//\\\//g' | sed -e 's/ /\/ \&\& \//g' )/" )"
+     	[ -z "$line" ] && return
 
 	echo "$line" | while read tag ; do
 	        local startTag="$( echo "${tag#*:}" | awk {'print $1'} )"
 		[ "${startTag:0:2}"  	= "</" ] 	&& continue
 		[ "${tag:(-2)}" 	= "/>" ]	&& echo "${tag#*:}" && continue	
 
-	        local endTag="$(   echo "$startTag"  | sed -e s/"<"/"<\/"/g | tr -d ">" )>"
+	        local endTag="$( echo "$startTag"  | sed -e s/"<"/"<\/"/g | tr -d ">" )>"
 
-	        ntag="1"
-	        echo "$contentGetTagContent" | tail -n +$[ ${tag%:*} + 1 ] | while read line ; do
-			[ -z "$line" ] && continue
-			array=( $line )
-	                [ "${array[0]}"  = "$startTag" ]	&& ntag="$[ $ntag + 1 ]" 	&& [ "${line:(-2)}" = "/>" ] && ntag="$[ $ntag - 1 ]"
-	                [ "$line"        = "$endTag" ]      	&& ntag="$[ $ntag - 1 ]"
-	                [ "$ntag" -eq "0" ] 			&& break
-			echo "$line"
-		done
-	
+	        echo "$contentGetTagContent" | tail -n +$[ ${tag%:*} + 1 ] | awk -v startTag="$startTag" -v endTag="$endTag" -v ntag=1 '{
+			split($0,array," ");
+			if ( array[1] 	== startTag )	{
+							ntag = ntag + 1;
+							if ( substr( $0, length($0)-1, 2 ) == "/>" ) ntag = ntag - 1;
+							}	
+			if ( array[1] 	== endTag   ) 	ntag = ntag - 1 
+			if ( ntag 	== 0 )	 	exit	
+			print $0;
+		}'
         done 
 }
 
 
 getTagList(){
         local contentGetTagList="$1"
-	[ -z "$contentGetTagList" ]   && return
+        [ -z "$contentGetTagList" ]   && return
 
-        local startTag="$( echo "$contentGetTagList"  	| head -n 1 | awk {'print $1'} )"
-        local endTag="$(   echo "$startTag" 		| sed -e s/"<"/"<\/"/g | tr -d ">" )>"
-	local ntag="1"
-        echo "$contentGetTagList" | tail -n +1 | while read line ; do
-		[ -z "$line" ] && continue
-		array=( $line )
-                [ "$ntag" -eq "1" ]		&& echo "$line"
-                [ "${array[0]}" = "$startTag" ] && ntag="$[ $ntag + 1 ]" && [ "${line:(-2)}" = "/>" ] && ntag="$[ $ntag - 1 ]"
-                [ "$line"       = "$endTag" ] 	&& ntag="$[ $ntag - 1 ]"
-        done 
+        local startTag="$( echo "$contentGetTagList"    | head -n 1 | awk {'print $1'} )"
+        local endTag="$(   echo "$startTag"             | sed -e s/"<"/"<\/"/g | tr -d ">" )>"
+
+        echo "$contentGetTagList" | tail -n +1 | awk -v startTag="$startTag" -v endTag="$endTag" -v ntag=1 '{
+		split($0,array," ");
+		if ( ntag	== 1 ) 		print $0;
+		if ( array[1] 	== startTag )	{
+						ntag = ntag + 1;
+						if ( substr( $0, length($0)-1, 2 ) == "/>" ) ntag = ntag - 1;
+						}	
+		if ( array[1]   == endTag   )   ntag = ntag - 1 
+	}'
 }
+
+
+#########################################################################3
+
+
 
 
 searchLeafs(){
@@ -1454,7 +1463,7 @@ searchLeafs(){
 		searchLeafs "$data" "${2}${line}"
 	done
 }
-
+ 
 
 
 explodeDAEtoObjects(){
@@ -1478,7 +1487,6 @@ searchPathToMaterial(){
 
 	searchLeafs "$contentSearchPathToMaterial" 2>&1 | while read leaf ; do
 		[ -z "$leaf" ] && continue
-
 		tags="$( echo "$leaf" | sed -e s/"><"/">;<"/g  )"
 		cnt="0"; unset tokens
 		while : ; do
@@ -1489,7 +1497,6 @@ searchPathToMaterial(){
 		num_tokens="$[ ${#tokens[*]} - 1 ]"
 		lastTag=( ${tokens[$num_tokens]} )
 		[ "${lastTag[0]}" = "<bind_vertex_input" ] && num_tokens="$[ $num_tokens - 1 ]" && lastTag=( ${tokens[$num_tokens]} )
-
 
 		if [ "${lastTag[0]}" = "<instance_material" ] ; then
 			instance_geometry="$( echo "${tokens[*]}" 		| tr " " "\n" | grep "url=\""	 | awk -F\" {'print $2'} | tr -d "#" )"
@@ -1502,7 +1509,6 @@ searchPathToMaterial(){
 				fi
 				continue
 			fi
-
 			echo "$instance_geometry $instance_material" >> "$kmlDir/geometry_material_cache.dat"
 			continue
 		fi
@@ -1519,8 +1525,6 @@ searchPathToMaterial(){
 			searchPathToMaterial "$( getTagContent "$library_nodes" "<node id=\"$instance_node\"" )" "$matrixPath $matrix"
 			continue
 		fi
-
-
 	done 
 
 }
@@ -1551,19 +1555,6 @@ matrixApply(){
 #       awk 'BEGIN { printf "%f",  ( '${coords[0]}' * '${matrix[12]}' ) + ( '${coords[1]}' * '${matrix[13]}' ) + ( '${coords[2]}' * '${matrix[14]}' ) + ( '${coords[3]}' * '${matrix[15]}'  ) }' 
 
 }
-
-matrixApplyOld(){
-        matrix=( $1 )
-        coords=( $2 1 )
-
-        awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[0]}'  ) + ( '${coords[1]}' * '${matrix[1]}'  ) + ( '${coords[2]}' * '${matrix[2]}'  ) + ( '${coords[3]}' * '${matrix[3]}'  ) }'
-        awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[4]}'  ) + ( '${coords[1]}' * '${matrix[5]}'  ) + ( '${coords[2]}' * '${matrix[6]}'  ) + ( '${coords[3]}' * '${matrix[7]}'  ) }'
-        awk 'BEGIN { printf "%f ", ( '${coords[0]}' * '${matrix[8]}'  ) + ( '${coords[1]}' * '${matrix[9]}'  ) + ( '${coords[2]}' * '${matrix[10]}' ) + ( '${coords[3]}' * '${matrix[11]}' ) }'
-#       awk 'BEGIN { printf "%f",  ( '${coords[0]}' * '${matrix[12]}' ) + ( '${coords[1]}' * '${matrix[13]}' ) + ( '${coords[2]}' * '${matrix[14]}' ) + ( '${coords[3]}' * '${matrix[15]}'  ) }' 
-
-}
-
-
 
 #########################################################################3
 
@@ -2979,7 +2970,6 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
 
 	        unset geometries; unset materials; unset images
-
 		geometries=(	$( getTagList "$library_geometries" 	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
 		materials=( 	$( getTagList "$library_materials"	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
                 images=(	$( getTagList "$library_images" 	| tr " " "\n" | grep "id=\"" | awk -F\" {'print $2'} | tr "\n" " " ) )
@@ -3239,7 +3229,7 @@ if [ "$BUILDINGS_OVERLAY" = "yes" ] ; then
 
                        	echo                                                                    >> "$objFile"
 			echo "ATTR_reset"							>> "$objFile"
-                       	echo "ATTR_LOD 0.000000 6000.000000"                                    >> "$objFile"
+                       	echo "ATTR_LOD 0.000000 ${ATTR_LOD}"                                    >> "$objFile"
                        	echo "ATTR_no_blend"                                                    >> "$objFile"
 			echo "ATTR_no_cull"							>> "$objFile"
 			if [ "${#texture_color[*]}" -ge "3" ] ; then
