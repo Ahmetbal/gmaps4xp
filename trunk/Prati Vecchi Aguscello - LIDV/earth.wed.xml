@@ -17,155 +17,7 @@
             <children/>
             <hierarchy name="selection"/>
             <selection>
-                <sel id="5"/>
-                <sel id="17"/>
-                <sel id="272"/>
-                <sel id="280"/>
-                <sel id="281"/>
-                <sel id="285"/>
-                <sel id="290"/>
-                <sel id="291"/>
-                <sel id="292"/>
-                <sel id="293"/>
-                <sel id="294"/>
-                <sel id="302"/>
-                <sel id="307"/>
-                <sel id="309"/>
-                <sel id="313"/>
-                <sel id="314"/>
-                <sel id="315"/>
-                <sel id="316"/>
-                <sel id="317"/>
-                <sel id="336"/>
-                <sel id="337"/>
-                <sel id="338"/>
-                <sel id="339"/>
-                <sel id="340"/>
-                <sel id="341"/>
-                <sel id="342"/>
-                <sel id="343"/>
-                <sel id="344"/>
-                <sel id="345"/>
-                <sel id="346"/>
-                <sel id="347"/>
-                <sel id="348"/>
-                <sel id="349"/>
-                <sel id="350"/>
-                <sel id="351"/>
-                <sel id="352"/>
-                <sel id="353"/>
-                <sel id="354"/>
-                <sel id="355"/>
-                <sel id="356"/>
-                <sel id="357"/>
-                <sel id="358"/>
-                <sel id="359"/>
-                <sel id="360"/>
-                <sel id="361"/>
-                <sel id="362"/>
-                <sel id="363"/>
-                <sel id="364"/>
-                <sel id="365"/>
-                <sel id="366"/>
-                <sel id="411"/>
-                <sel id="413"/>
-                <sel id="431"/>
-                <sel id="432"/>
-                <sel id="433"/>
-                <sel id="434"/>
-                <sel id="435"/>
-                <sel id="436"/>
-                <sel id="437"/>
-                <sel id="438"/>
-                <sel id="439"/>
-                <sel id="440"/>
-                <sel id="441"/>
-                <sel id="442"/>
-                <sel id="443"/>
-                <sel id="444"/>
-                <sel id="445"/>
-                <sel id="446"/>
-                <sel id="447"/>
-                <sel id="448"/>
-                <sel id="449"/>
-                <sel id="450"/>
-                <sel id="451"/>
-                <sel id="452"/>
-                <sel id="454"/>
-                <sel id="456"/>
-                <sel id="457"/>
-                <sel id="458"/>
-                <sel id="459"/>
-                <sel id="460"/>
-                <sel id="461"/>
-                <sel id="462"/>
-                <sel id="463"/>
-                <sel id="464"/>
-                <sel id="465"/>
-                <sel id="466"/>
-                <sel id="467"/>
-                <sel id="468"/>
-                <sel id="469"/>
-                <sel id="470"/>
-                <sel id="471"/>
-                <sel id="472"/>
-                <sel id="473"/>
-                <sel id="474"/>
-                <sel id="475"/>
-                <sel id="476"/>
-                <sel id="477"/>
-                <sel id="479"/>
-                <sel id="480"/>
-                <sel id="481"/>
-                <sel id="485"/>
-                <sel id="488"/>
-                <sel id="491"/>
-                <sel id="492"/>
-                <sel id="504"/>
-                <sel id="509"/>
-                <sel id="527"/>
-                <sel id="537"/>
-                <sel id="571"/>
-                <sel id="618"/>
-                <sel id="709"/>
-                <sel id="710"/>
-                <sel id="711"/>
-                <sel id="712"/>
-                <sel id="713"/>
-                <sel id="714"/>
-                <sel id="715"/>
-                <sel id="716"/>
-                <sel id="717"/>
-                <sel id="718"/>
-                <sel id="719"/>
-                <sel id="720"/>
-                <sel id="722"/>
-                <sel id="723"/>
-                <sel id="724"/>
-                <sel id="725"/>
-                <sel id="726"/>
-                <sel id="727"/>
-                <sel id="728"/>
-                <sel id="729"/>
-                <sel id="730"/>
-                <sel id="731"/>
-                <sel id="732"/>
-                <sel id="733"/>
-                <sel id="734"/>
-                <sel id="735"/>
-                <sel id="736"/>
-                <sel id="737"/>
-                <sel id="738"/>
-                <sel id="739"/>
-                <sel id="740"/>
-                <sel id="741"/>
-                <sel id="760"/>
-                <sel id="799"/>
-                <sel id="837"/>
-                <sel id="838"/>
-                <sel id="839"/>
-                <sel id="840"/>
-                <sel id="841"/>
+                <sel id="842"/>
             </selection>
         </object>
         <object class="WED_KeyObjects" id="3" parent_id="1">
@@ -181,7 +33,7 @@
             <sources/>
             <viewers/>
             <children>
-                <child id="841"/>
+                <child id="842"/>
                 <child id="840"/>
                 <child id="839"/>
                 <child id="838"/>
@@ -553,13 +405,13 @@
             <point heading="200.42" latitude="44.791289171" longitude="11.672866778"/>
             <obj_placement custom_msl="0" msl="0.000" resource="opensceneryx/objects/aircraft/props/ga/c185e.obj" show_level="1 Default"/>
         </object>
-        <object class="WED_ObjPlacement" id="841" parent_id="4">
+        <object class="WED_ObjPlacement" id="842" parent_id="4">
             <sources/>
             <viewers/>
             <children/>
-            <hierarchy hidden="0" locked="0" name="hangar_1.obj"/>
-            <point heading="2.86" latitude="44.791439353" longitude="11.672802123"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="objs/hangar_1.obj" show_level="1 Default"/>
+            <hierarchy hidden="0" locked="0" name="hangar_1b.obj"/>
+            <point heading="3.35" latitude="44.791622634" longitude="11.672806070"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="objs/hangar_1b.obj" show_level="1 Default"/>
         </object>
         <object class="WED_AirportChain" id="135" parent_id="136">
             <sources/>
@@ -2640,14 +2492,14 @@
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="Start"/>
-            <point latitude="44.792650229" longitude="11.664514052"/>
+            <point latitude="44.792672257" longitude="11.664554403"/>
         </object>
         <object class="WED_SimpleBoundaryNode" id="487" parent_id="485">
             <sources/>
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="End"/>
-            <point latitude="44.788438900" longitude="11.680075556"/>
+            <point latitude="44.788460928" longitude="11.680115907"/>
         </object>
         <object class="WED_ObjPlacement" id="488" parent_id="4">
             <sources/>
@@ -4054,16 +3906,16 @@
         <pref name="PropertyPane0/Closed"/>
         <pref name="doc/export_target" value="1"/>
         <pref name="doc/use_feet" value="0"/>
-        <pref name="map/east" value="11.672685"/>
-        <pref name="map/north" value="44.792302"/>
+        <pref name="map/east" value="11.673483"/>
+        <pref name="map/north" value="44.791778"/>
         <pref name="map/obj_density" value="6"/>
         <pref name="map/pavement_alpha" value="4"/>
         <pref name="map/preview_vis" value="1"/>
         <pref name="map/real_lines_vis" value="1"/>
-        <pref name="map/south" value="44.791336"/>
+        <pref name="map/south" value="44.790849"/>
         <pref name="map/terraserver_vis" value="1"/>
         <pref name="map/vertices_vis" value="1"/>
-        <pref name="map/west" value="11.671694"/>
+        <pref name="map/west" value="11.672530"/>
         <pref name="map/world_map_vis" value="1"/>
         <pref name="map_Airport Beacon_Kind" value="69"/>
         <pref name="map_Boundary_.Markings" value=""/>
@@ -4085,7 +3937,7 @@
         <pref name="map_Light Fixture_Approach Angle" value="3.000000"/>
         <pref name="map_Light Fixture_Fixture Type" value="35"/>
         <pref name="map_Lines_Resource" value="opensceneryx/lines/airport/taxisign_parts/border_yellow.lin"/>
-        <pref name="map_Objects_Object" value="objs/hangar_1.obj"/>
+        <pref name="map_Objects_Object" value="objs/hangar_1b.obj"/>
         <pref name="map_Objects_Show with" value="527"/>
         <pref name="map_Polygons_Heading" value="0.000000"/>
         <pref name="map_Polygons_Resource" value="opensceneryx/polygons/airport/runway/runway_closed.pol"/>
@@ -4131,8 +3983,8 @@
         <pref name="window/height" value="1001"/>
         <pref name="window/main_split" value="336"/>
         <pref name="window/main_split2" value="1117"/>
-        <pref name="window/prev_split" value="393"/>
-        <pref name="window/prop_split" value="490"/>
+        <pref name="window/prev_split" value="403"/>
+        <pref name="window/prop_split" value="486"/>
         <pref name="window/width" value="1680"/>
         <pref name="window/x_loc" value="0"/>
         <pref name="window/y_loc" value="25"/>
