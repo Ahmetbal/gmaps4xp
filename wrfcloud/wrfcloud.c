@@ -158,6 +158,10 @@ int printWeatherParams(){
 }
 
 
+
+// http://wrf/?lon=11.672841&lat=44.79054
+
+
 int readWeatherData(){
 	int i;
 	FILE 	*fp 		= NULL;
