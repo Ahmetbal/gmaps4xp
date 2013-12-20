@@ -57,8 +57,9 @@ sim/weather/thermal_altitude_msl_m	float	y	m MSL >= 0		The top of thermals in me
 sim/weather/runway_friction		float	y	??	T		he friction constant for runways (how wet they are).
 */
 
-#define MAX_DATAREF 100
-
+#define MAX_DATAREF 		100
+#define FALSE			1
+#define TRUE			0
 
 XPLMDataRef use_real_weather_bool 	= NULL;
 XPLMDataRef cloud_type[3]		= { NULL, NULL, NULL };
@@ -98,6 +99,10 @@ struct datarefBox{
 } datarefBox;
 struct  datarefBox *datarefs = NULL;
 
+float 	latOld = 0; 
+float 	lonOld = 0;
+float 	eleOld = 0;
+int	eleWRF = 0;
 
 
 int printWeatherParams(){
@@ -160,7 +165,7 @@ int readWeatherData(){
 	float	value		= 0.0;
 	char	*dataref	= NULL;
 	int	buf_size	= 100;
-	static const char filename[] = "/home/cavicchi/Documents/Repository/gmaps4xp/cloudfck/cacca.txt";
+	static const char filename[] = "wrf.txt";
 
 	fp = fopen(filename, "r" );
 	if ( fp == NULL ){ printf("Unable to open file %s\n", filename ); return 1; }
@@ -199,6 +204,7 @@ int applyDataref(float ele){
 
 
 	// Init clouds conditions
+	printf("Update Dateref ...\n");
 
 	for ( i = 0; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
 		if ( ! strcmp ( datarefs[i].name, "sim/weather/visibility_reported_m"  	) ) { XPLMSetDataf(visibility_reported_m,	datarefs[i].value); 	continue; }
@@ -262,13 +268,20 @@ int applyDataref(float ele){
 		}
 	}
 
-
-
-
-
 	return 0;
 }
 
+
+int getWRFlevel(float ele){
+	int i;
+	if ( datarefs[0].value < ele ) return 0;
+
+	for ( i = 1; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
+		if ( strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   ) ) continue;
+		if ( ( datarefs[i-1].value > ele ) && ( datarefs[i].value < ele ) ) return i;
+	}
+	return i;
+}
 
 
 
@@ -278,19 +291,25 @@ float   MyFlightLoopCallback(
                                    int                  inCounter,
                                    void *               inRefcon){
 
-	float lat = XPLMGetDataf(latitude);
-	float lon = XPLMGetDataf(longitude);
-	float ele = XPLMGetDataf(elevation);
-
+	float 	lat 	= XPLMGetDataf(latitude);
+	float 	lon 	= XPLMGetDataf(longitude);
+	float 	ele 	= XPLMGetDataf(elevation);
+	int	update 	= FALSE;
+	int	wrf	= 0;
 
 	printf("lat: %f, lon: %f, ele: %f\n", lat, lon, ele);
 
-	// /home/cavicchi/Documents/Repository/gmaps4xp/cloudfck/cacca.txt
+	wrf = getWRFlevel(ele);
 
-	printWeatherParams();
-	readWeatherData();
-	applyDataref(ele);
+
+	if ( wrf != eleWRF ) { readWeatherData(); update = TRUE; };
+
+
+
+	if ( update == TRUE ) applyDataref(ele);
+	latOld = lat; lonOld = lon; eleOld = ele; eleWRF = wrf;
 	XPLMSetDatai(use_real_weather_bool, 0 );
+	printWeatherParams();
         return 2.0;
 }
 
@@ -374,9 +393,14 @@ PLUGIN_API int XPluginStart(
 	elevation		= XPLMFindDataRef("sim/flightmodel/position/elevation");	if ( elevation			== NULL ) return 0;
 
 
-
 	XPLMRegisterFlightLoopCallback( MyFlightLoopCallback, 1.0, NULL);                               
 
+	latOld = XPLMGetDataf(latitude);
+	lonOld = XPLMGetDataf(longitude);
+	eleOld = XPLMGetDataf(elevation);
+
+	if ( readWeatherData() == 1 ) return 0;
+	applyDataref(eleOld);
 	
 	return 1;
 }
