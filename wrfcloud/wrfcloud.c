@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <math.h>
 #include <float.h>
@@ -160,6 +161,22 @@ int printWeatherParams(){
 
 
 // http://wrf/?lon=11.672841&lat=44.79054
+int downloadData( float lon, float lat){
+	char 	*command	= NULL;
+	char 	*arguments[3]	= { NULL, NULL, NULL }; 
+	int	str_len		= 100;
+
+	command 	= (char *)malloc(sizeof(char) * str_len); bzero(command, 	str_len - 1 );
+	arguments[0] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[0], 	str_len - 1 );
+	arguments[1] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[1], 	str_len - 1 );
+
+	strcpy(command, 	"/usr/bin/wget");
+	strcpy(arguments[0],	"wget");
+	sprintf(arguments[1], 	"http://wrf/?lon=%f&lat=%f", lon, lat);	
+
+	execvp(command, arguments);
+	return 0;
+}
 
 
 int readWeatherData(){
@@ -403,6 +420,7 @@ PLUGIN_API int XPluginStart(
 	lonOld = XPLMGetDataf(longitude);
 	eleOld = XPLMGetDataf(elevation);
 
+	downloadData(lonOld, latOld);
 	if ( readWeatherData() == 1 ) return 0;
 	applyDataref(eleOld);
 	
