@@ -4,6 +4,11 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <signal.h>
 #include "XPLMDataAccess.h"
 #include "XPLMProcessing.h"
 /*
@@ -61,6 +66,9 @@ sim/weather/runway_friction		float	y	??	T		he friction constant for runways (how
 #define MAX_DATAREF 		100
 #define FALSE			1
 #define TRUE			0
+#define HOST_WRF		"localhost:1234"
+#define WRF_RESOLUTION		0.05
+
 
 XPLMDataRef use_real_weather_bool 	= NULL;
 XPLMDataRef cloud_type[3]		= { NULL, NULL, NULL };
@@ -100,10 +108,16 @@ struct datarefBox{
 } datarefBox;
 struct  datarefBox *datarefs = NULL;
 
-float 	latOld = 0; 
-float 	lonOld = 0;
-float 	eleOld = 0;
-int	eleWRF = 0;
+float 	latOld 		= -9999; 
+float 	lonOld 		= -9999;
+float 	eleOld 		= -9999;
+int	eleWRF 		= -1;
+int	downloading 	= FALSE;
+float 	vis		= 0;
+
+
+int readWeatherData();
+
 
 
 int printWeatherParams(){
@@ -163,18 +177,47 @@ int printWeatherParams(){
 // http://wrf/?lon=11.672841&lat=44.79054
 int downloadData( float lon, float lat){
 	char 	*command	= NULL;
-	char 	*arguments[3]	= { NULL, NULL, NULL }; 
+	char 	*arguments[7]	= { NULL, NULL, NULL, NULL, NULL, NULL, NULL }; 
 	int	str_len		= 100;
+	int 	child_status;
+	pid_t 	pid;
+
+	if ( lon <= -180 ) return 1;
+	if ( lon >=  180 ) return 1;
+	if ( lat <= -90  ) return 1;
+	if ( lat >=  90  ) return 1;
 
 	command 	= (char *)malloc(sizeof(char) * str_len); bzero(command, 	str_len - 1 );
 	arguments[0] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[0], 	str_len - 1 );
 	arguments[1] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[1], 	str_len - 1 );
+	arguments[2] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[2], 	str_len - 1 );
+	arguments[3] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[3], 	str_len - 1 );
+	arguments[4] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[4], 	str_len - 1 );
+	arguments[5] 	= (char *)malloc(sizeof(char) * str_len); bzero(arguments[5], 	str_len - 1 );
 
 	strcpy(command, 	"/usr/bin/wget");
-	strcpy(arguments[0],	"wget");
-	sprintf(arguments[1], 	"http://wrf/?lon=%f&lat=%f", lon, lat);	
+	strcpy( arguments[0],	"wget");
+	sprintf(arguments[1], 	"http://%s/?lon=%f&lat=%f", HOST_WRF, lon, lat);	
+	strcpy( arguments[2],	"-O");
+	strcpy( arguments[3],	"wrf.txt");
+	strcpy( arguments[4],	"--wait=5");
+	strcpy( arguments[5],	"--tries=1");
 
-	execvp(command, arguments);
+
+	printf("Download URL: %s\n", arguments[1]);
+        pid = fork();
+        if      ( pid <  0 ) return 0;
+        else if ( pid == 0 ) {
+                if ( execvp(command, arguments) ) {
+                        printf("Unable to run wget!\n");
+                        return 1;
+                }
+        }else{
+		printf("Waiting wget finish ...\n");
+		waitpid(pid, &child_status, 0);  
+		readWeatherData();
+	}
+
 	return 0;
 }
 
@@ -185,11 +228,13 @@ int readWeatherData(){
 	int 	idx 		= 0;
 	float	value		= 0.0;
 	char	*dataref	= NULL;
+	char	*buf		= NULL;
 	int	buf_size	= 100;
 	static const char filename[] = "wrf.txt";
 
 	fp = fopen(filename, "r" );
 	if ( fp == NULL ){ printf("Unable to open file %s\n", filename ); return 1; }
+
 
 	datarefs = (struct datarefBox *)malloc( sizeof(struct datarefBox) * MAX_DATAREF );
 	for ( i = 0; i < MAX_DATAREF; i++){
@@ -198,20 +243,30 @@ int readWeatherData(){
 		datarefs[i].name	= NULL;
 
 	}
+
+	buf = (char *)malloc(sizeof(char) * buf_size);
+
 	i = 0;
 	while(!feof(fp)){
+		bzero(buf, buf_size - 1);
+		if ( fgets(buf, buf_size, fp) == NULL ) break;
+		if ( buf[0] == ';'  ) continue;
+		if ( buf[0] == '\n' ) continue;
+
 		datarefs[i].name = (char *)malloc(sizeof(char) * buf_size); bzero(datarefs[i].name, buf_size - 1);
-		fscanf(fp,"%d %s %f\n", &(datarefs[i].idx), datarefs[i].name, &(datarefs[i].value) );
+		sscanf(buf,"%d %s %f\n", &(datarefs[i].idx), datarefs[i].name, &(datarefs[i].value) );
 		i++;
 		if ( i >= MAX_DATAREF ) break;
 	}
 
+	if ( i <= 5 ) return 1;
 
 	fclose(fp);
 	return 0;
 }
 
-
+int MySetDataf( XPLMDataRef ref, float value) { if ( XPLMGetDataf(ref) !=      value ) XPLMSetDataf( ref, 	value ); return 0; }
+int MySetDatai( XPLMDataRef ref, float value) { if ( XPLMGetDatai(ref) != (int)value ) XPLMSetDatai( ref,  (int)value ); return 0; }
 
 
 
@@ -223,27 +278,30 @@ int applyDataref(float ele){
 	float 	dist_clod[3] 	= { FLT_MAX,  	FLT_MAX,	FLT_MAX };
 	int	idxs_clod[3] 	= { -1,		-1, 		-1 };
 
+	if ( datarefs 		== NULL ) 	return 0; 
+	if ( datarefs[0].name 	== NULL ) 	return 0;
+
 
 	// Init clouds conditions
-	printf("Update Dateref ...\n");
+	// printf("Update Dateref ...\n");
 
 	for ( i = 0; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/visibility_reported_m"  	) ) { XPLMSetDataf(visibility_reported_m,	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/rain_percent"  		) ) { XPLMSetDataf(rain_percent,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/thunderstorm_percent"  	) ) { XPLMSetDataf(thunderstorm_percent,  	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_turbulence_percent" ) ) { XPLMSetDataf(wind_turbulence_percent,  	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/barometer_sealevel_inhg" ) ) { XPLMSetDataf(barometer_sealevel_inhg,  	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/use_real_weather_bool"  	) ) { XPLMSetDataf(use_real_weather_bool,  	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_amplitude"  	) ) { XPLMSetDataf(wave_amplitude,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_length"  		) ) { XPLMSetDataf(wave_length,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_speed"  		) ) { XPLMSetDataf(wave_speed,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_dir"  		) ) { XPLMSetDatai(wave_dir,  			(int)datarefs[i].value); continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/temperature_sealevel_c"  ) ) { XPLMSetDataf(temperature_sealevel_c,  	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/dewpoi_sealevel_c"  	) ) { XPLMSetDataf(dewpoi_sealevel_c,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/thermal_percent"  	) ) { XPLMSetDataf(thermal_percent,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/thermal_rate_ms"  	) ) { XPLMSetDataf(thermal_rate_ms,  		datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/thermal_altitude_msl_m"  ) ) { XPLMSetDataf(thermal_altitude_msl_m,  	datarefs[i].value); 	continue; }
-		if ( ! strcmp ( datarefs[i].name, "sim/weather/runway_friction"  	) ) { XPLMSetDataf(runway_friction,  		datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/visibility_reported_m"  	) ) { MySetDataf(visibility_reported_m,		datarefs[i].value);	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/rain_percent"  		) ) { MySetDataf(rain_percent,  		datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/thunderstorm_percent"  	) ) { MySetDataf(thunderstorm_percent,  	datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_turbulence_percent" ) ) { MySetDataf(wind_turbulence_percent,  	datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/barometer_sealevel_inhg" ) ) { MySetDataf(barometer_sealevel_inhg,  	datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/use_real_weather_bool"  	) ) { MySetDataf(use_real_weather_bool,  	datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_amplitude"  	) ) { MySetDataf(wave_amplitude,  		datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_length"  		) ) { MySetDataf(wave_length,  			datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_speed"  		) ) { MySetDataf(wave_speed,  			datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/wave_dir"  		) ) { MySetDatai(wave_dir,  			datarefs[i].value);	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/temperature_sealevel_c"  ) ) { MySetDataf(temperature_sealevel_c,  	datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/dewpoi_sealevel_c"  	) ) { MySetDataf(dewpoi_sealevel_c,  		datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/thermal_percent"  	) ) { MySetDataf(thermal_percent,  		datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/thermal_rate_ms"  	) ) { MySetDataf(thermal_rate_ms,  		datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/thermal_altitude_msl_m"  ) ) { MySetDataf(thermal_altitude_msl_m,  	datarefs[i].value); 	continue; }
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/runway_friction"  	) ) { MySetDataf(runway_friction,  		datarefs[i].value); 	continue; }
 
 
 		if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m" 	) ) {
@@ -261,47 +319,48 @@ int applyDataref(float ele){
 	}
 
 
-
+	/*
 	XPLMSetDatai(cloud_type[0], 		0 ); XPLMSetDatai(cloud_type[1], 	0 ); XPLMSetDatai(cloud_type[1], 	0 );
 	XPLMSetDataf(cloud_coverage[0], 	0 ); XPLMSetDataf(cloud_coverage[1], 	0 ); XPLMSetDataf(cloud_coverage[1], 	0 );
 	XPLMSetDataf(cloud_base_msl_m[0], 	0 ); XPLMSetDataf(cloud_base_msl_m[1], 	0 ); XPLMSetDataf(cloud_base_msl_m[1], 	0 );
 	XPLMSetDataf(cloud_tops_msl_m[0], 	0 ); XPLMSetDataf(cloud_tops_msl_m[1], 	0 ); XPLMSetDataf(cloud_tops_msl_m[1], 	0 );
+	*/
+
 
 	for ( j = 0; j < 3; j++) {
 
-		printf("idxs_wind[%d]: %d, idxs_clod[%d]: %d, dist_wind[%d]: %f, dist_clod[%d]: %f\n", j, idxs_wind[j], j, idxs_clod[j], j, dist_wind[j], j, dist_clod[j] );
+		//printf("idxs_wind[%d]: %d, idxs_clod[%d]: %d, dist_wind[%d]: %f, dist_clod[%d]: %f\n", j, idxs_wind[j], j, idxs_clod[j], j, dist_wind[j], j, dist_clod[j] );
 
 		for ( i = 0; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
+			if ( datarefs[i].idx < 0 ) continue;
+
 			if ( idxs_wind[j] != -1 ){
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   ) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { XPLMSetDataf(wind_altitude_msl_m[j], 	datarefs[i].value); continue; }
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_direction_degt"   ) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { XPLMSetDataf(wind_direction_degt[j], 	datarefs[i].value); continue; }
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_speed_kt"    	) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { XPLMSetDataf(wind_speed_kt[j], 		datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   ) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(wind_altitude_msl_m[j], 	datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_direction_degt"   ) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(wind_direction_degt[j], 	datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_speed_kt"    	) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(wind_speed_kt[j], 		datarefs[i].value); continue; }
+			}else{
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   	) ) { MySetDataf(wind_altitude_msl_m[j], 	0); continue; }
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_direction_degt"   	) ) { MySetDataf(wind_direction_degt[j], 	0); continue; }
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_speed_kt"         	) ) { MySetDataf(wind_speed_kt[j], 		0); continue; }
 			}
 
 			if ( idxs_clod[j] != -1 ){
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_coverage"    	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { XPLMSetDataf(cloud_coverage[j], 		datarefs[i].value); continue; }
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_type"    	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { XPLMSetDatai(cloud_type[j], 		(int)datarefs[i].value); continue; }
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_base_msl_m"   	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { XPLMSetDataf(cloud_base_msl_m[j], 	datarefs[i].value); continue; }
-			if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_tops_msl_m"   	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { XPLMSetDataf(cloud_tops_msl_m[j], 	datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_coverage"    	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDataf(cloud_coverage[j], 		datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_type"    	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDatai(cloud_type[j], 		datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_base_msl_m"   	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDataf(cloud_base_msl_m[j], 		datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_tops_msl_m"   	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDataf(cloud_tops_msl_m[j], 		datarefs[i].value); continue; }
+			}else{
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_coverage"		) ) { MySetDataf(cloud_coverage[j], 		0); continue; }
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_type"    		) ) { MySetDatai(cloud_type[j], 		0); continue; }
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_base_msl_m"   	) ) { MySetDataf(cloud_base_msl_m[j], 		0); continue; }
+				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_tops_msl_m"   	) ) { MySetDataf(cloud_tops_msl_m[j], 		0); continue; }
 			}
-
 
 		}
 	}
 
+
 	return 0;
-}
-
-
-int getWRFlevel(float ele){
-	int i;
-	if ( datarefs[0].value < ele ) return 0;
-
-	for ( i = 1; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
-		if ( strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   ) ) continue;
-		if ( ( datarefs[i-1].value > ele ) && ( datarefs[i].value < ele ) ) return i;
-	}
-	return i;
 }
 
 
@@ -315,22 +374,34 @@ float   MyFlightLoopCallback(
 	float 	lat 	= XPLMGetDataf(latitude);
 	float 	lon 	= XPLMGetDataf(longitude);
 	float 	ele 	= XPLMGetDataf(elevation);
-	int	update 	= FALSE;
-	int	wrf	= 0;
+	float	dist	= 0;
+
+	XPLMSetDatai(use_real_weather_bool, 0 );
+
+
+	if ( latOld == -9999 ){
+		latOld 	= XPLMGetDataf(latitude);
+		lonOld 	= XPLMGetDataf(longitude);
+		eleOld 	= XPLMGetDataf(elevation);
+		dist 	= 0;
+		if ( readWeatherData() == 1 ) { downloadData(lon, lat); readWeatherData(); }
+	} else	dist 	=  sqrt( ((lon - lonOld)*(lon - lonOld)) + ((lat-latOld)*(lat-latOld)) );
+
+	if ( dist > WRF_RESOLUTION ){
+		downloadData(lon, lat);
+		readWeatherData();
+		latOld = lat;
+		lonOld = lon;
+	}
+
 
 	printf("lat: %f, lon: %f, ele: %f\n", lat, lon, ele);
-
-	wrf = getWRFlevel(ele);
-
-
-	if ( wrf != eleWRF ) { readWeatherData(); update = TRUE; };
-
-
-
-	if ( update == TRUE ) applyDataref(ele);
-	latOld = lat; lonOld = lon; eleOld = ele; eleWRF = wrf;
-	XPLMSetDatai(use_real_weather_bool, 0 );
+	applyDataref(ele);
 	printWeatherParams();
+
+
+
+	eleOld = ele;
         return 2.0;
 }
 
@@ -414,15 +485,10 @@ PLUGIN_API int XPluginStart(
 	elevation		= XPLMFindDataRef("sim/flightmodel/position/elevation");	if ( elevation			== NULL ) return 0;
 
 
+
+	unlink("wrf.txt");
 	XPLMRegisterFlightLoopCallback( MyFlightLoopCallback, 1.0, NULL);                               
 
-	latOld = XPLMGetDataf(latitude);
-	lonOld = XPLMGetDataf(longitude);
-	eleOld = XPLMGetDataf(elevation);
-
-	downloadData(lonOld, latOld);
-	if ( readWeatherData() == 1 ) return 0;
-	applyDataref(eleOld);
 	
 	return 1;
 }

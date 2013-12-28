@@ -49,7 +49,8 @@ CFLAGS := $(DEFINES) $(INCLUDES) -fPIC -fvisibility=hidden
 
 # Target rules - these just induce the right .xpl files.
 
-$(TARGET): $(BUILDDIR)/$(TARGET)/32/lin.xpl $(BUILDDIR)/$(TARGET)/64/lin.xpl
+# $(TARGET): $(BUILDDIR)/$(TARGET)/32/lin.xpl $(BUILDDIR)/$(TARGET)/64/lin.xpl
+$(TARGET): $(BUILDDIR)/$(TARGET)/64/lin.xpl
 	
 
 $(BUILDDIR)/$(TARGET)/64/lin.xpl: $(ALL_OBJECTS64)
