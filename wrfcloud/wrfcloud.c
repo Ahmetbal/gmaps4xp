@@ -67,7 +67,13 @@ sim/weather/runway_friction		float	y	??	T		he friction constant for runways (how
 #define FALSE			1
 #define TRUE			0
 #define HOST_WRF		"localhost:1234"
-#define WRF_RESOLUTION		0.05
+#define WRF_RESOLUTION		0.10
+
+#define FIRST_START		0
+#define READY_TO_DOWNLOAD	1
+#define DOWNLOADING		2
+#define READY_TO_READ		3
+#define READY_TO_APPLY		4
 
 
 XPLMDataRef use_real_weather_bool 	= NULL;
@@ -114,6 +120,8 @@ float 	eleOld 		= -9999;
 int	eleWRF 		= -1;
 int	downloading 	= FALSE;
 float 	vis		= 0;
+int 	STATUS		= FIRST_START;
+pid_t 	pid;
 
 
 int readWeatherData();
@@ -180,7 +188,6 @@ int downloadData( float lon, float lat){
 	char 	*arguments[7]	= { NULL, NULL, NULL, NULL, NULL, NULL, NULL }; 
 	int	str_len		= 100;
 	int 	child_status;
-	pid_t 	pid;
 
 	if ( lon <= -180 ) return 1;
 	if ( lon >=  180 ) return 1;
@@ -212,12 +219,7 @@ int downloadData( float lon, float lat){
                         printf("Unable to run wget!\n");
                         return 1;
                 }
-        }else{
-		printf("Waiting wget finish ...\n");
-		waitpid(pid, &child_status, 0);  
-		readWeatherData();
-	}
-
+        }
 	return 0;
 }
 
@@ -318,15 +320,6 @@ int applyDataref(float ele){
 
 	}
 
-
-	/*
-	XPLMSetDatai(cloud_type[0], 		0 ); XPLMSetDatai(cloud_type[1], 	0 ); XPLMSetDatai(cloud_type[1], 	0 );
-	XPLMSetDataf(cloud_coverage[0], 	0 ); XPLMSetDataf(cloud_coverage[1], 	0 ); XPLMSetDataf(cloud_coverage[1], 	0 );
-	XPLMSetDataf(cloud_base_msl_m[0], 	0 ); XPLMSetDataf(cloud_base_msl_m[1], 	0 ); XPLMSetDataf(cloud_base_msl_m[1], 	0 );
-	XPLMSetDataf(cloud_tops_msl_m[0], 	0 ); XPLMSetDataf(cloud_tops_msl_m[1], 	0 ); XPLMSetDataf(cloud_tops_msl_m[1], 	0 );
-	*/
-
-
 	for ( j = 0; j < 3; j++) {
 
 		//printf("idxs_wind[%d]: %d, idxs_clod[%d]: %d, dist_wind[%d]: %f, dist_clod[%d]: %f\n", j, idxs_wind[j], j, idxs_clod[j], j, dist_wind[j], j, dist_clod[j] );
@@ -338,25 +331,24 @@ int applyDataref(float ele){
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   ) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(wind_altitude_msl_m[j], 	datarefs[i].value); continue; }
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_direction_degt"   ) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(wind_direction_degt[j], 	datarefs[i].value); continue; }
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/wind_speed_kt"    	) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(wind_speed_kt[j], 		datarefs[i].value); continue; }
-			}else{
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"   	) ) { MySetDataf(wind_altitude_msl_m[j], 	0); continue; }
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_direction_degt"   	) ) { MySetDataf(wind_direction_degt[j], 	0); continue; }
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_speed_kt"         	) ) { MySetDataf(wind_speed_kt[j], 		0); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/shear_direction_degt" 	) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(shear_direction_degt[j], 	datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/shear_speed_kt"    	) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(shear_speed_kt[j], 		datarefs[i].value); continue; }
+	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/turbulence"    	) ) && ( datarefs[i].idx == idxs_wind[j] ) ) { MySetDataf(turbulence[j], 		datarefs[i].value); continue; }
 			}
-
 			if ( idxs_clod[j] != -1 ){
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_coverage"    	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDataf(cloud_coverage[j], 		datarefs[i].value); continue; }
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_type"    	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDatai(cloud_type[j], 		datarefs[i].value); continue; }
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_base_msl_m"   	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDataf(cloud_base_msl_m[j], 		datarefs[i].value); continue; }
 	if ( ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_tops_msl_m"   	) ) && ( datarefs[i].idx == idxs_clod[j] ) ) { MySetDataf(cloud_tops_msl_m[j], 		datarefs[i].value); continue; }
-			}else{
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_coverage"		) ) { MySetDataf(cloud_coverage[j], 		0); continue; }
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_type"    		) ) { MySetDatai(cloud_type[j], 		0); continue; }
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_base_msl_m"   	) ) { MySetDataf(cloud_base_msl_m[j], 		0); continue; }
-				if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_tops_msl_m"   	) ) { MySetDataf(cloud_tops_msl_m[j], 		0); continue; }
 			}
 
 		}
+
+		
+		if ( idxs_wind[j] == -1 ) MySetDataf(wind_speed_kt[j], 		0.0);
+		if ( idxs_clod[j] == -1 ) MySetDatai(cloud_type[j], 		0);
+	
+
 	}
 
 
@@ -375,34 +367,59 @@ float   MyFlightLoopCallback(
 	float 	lon 	= XPLMGetDataf(longitude);
 	float 	ele 	= XPLMGetDataf(elevation);
 	float	dist	= 0;
+	int 	child_status;
 
 	XPLMSetDatai(use_real_weather_bool, 0 );
 
+	printf("STATUS: %d\n", STATUS);
 
-	if ( latOld == -9999 ){
+	if ( STATUS == FIRST_START ){
+		printf("First run, Init variables ...\n");
 		latOld 	= XPLMGetDataf(latitude);
 		lonOld 	= XPLMGetDataf(longitude);
 		eleOld 	= XPLMGetDataf(elevation);
-		dist 	= 0;
-		if ( readWeatherData() == 1 ) { downloadData(lon, lat); readWeatherData(); }
-	} else	dist 	=  sqrt( ((lon - lonOld)*(lon - lonOld)) + ((lat-latOld)*(lat-latOld)) );
+		STATUS  = READY_TO_DOWNLOAD;
+		return 1.0;
+	}
 
-	if ( dist > WRF_RESOLUTION ){
+	if (  STATUS == READY_TO_DOWNLOAD ){
 		downloadData(lon, lat);
-		readWeatherData();
-		latOld = lat;
+		STATUS = DOWNLOADING;
+		return 1.0;
+	}
+
+	if ( STATUS == DOWNLOADING ){
+		if ( waitpid(pid, &child_status, WNOHANG) != -1 ) return 1.0;
+		STATUS = READY_TO_READ;
+		return 1.0;
+	}
+
+	if ( STATUS == READY_TO_READ ){
+		if ( readWeatherData() == 1 ) 	STATUS = READY_TO_DOWNLOAD;
+		else				STATUS = READY_TO_APPLY;
+		return 1.0;
+
+	}
+
+
+
+	if ( STATUS != READY_TO_APPLY ) return 1.0;
+
+
+	dist = sqrt( ((lon - lonOld)*(lon - lonOld)) + ((lat-latOld)*(lat-latOld)) );
+	if ( dist > WRF_RESOLUTION ){
+		STATUS = READY_TO_DOWNLOAD;
+		latOld = lat; 
 		lonOld = lon;
 	}
 
 
-	printf("lat: %f, lon: %f, ele: %f\n", lat, lon, ele);
 	applyDataref(ele);
 	printWeatherParams();
-
-
-
 	eleOld = ele;
+
         return 2.0;
+
 }
 
 
