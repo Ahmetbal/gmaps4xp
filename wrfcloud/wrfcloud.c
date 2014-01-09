@@ -63,7 +63,7 @@ sim/weather/thermal_altitude_msl_m	float	y	m MSL >= 0		The top of thermals in me
 sim/weather/runway_friction		float	y	??	T		he friction constant for runways (how wet they are).
 */
 
-#define MAX_DATAREF 		100
+#define MAX_DATAREF 		200
 #define FALSE			1
 #define TRUE			0
 #define HOST_WRF		"localhost:1234"
@@ -74,6 +74,7 @@ sim/weather/runway_friction		float	y	??	T		he friction constant for runways (how
 #define DOWNLOADING		2
 #define READY_TO_READ		3
 #define READY_TO_APPLY		4
+#define WAITING_FOR_NEWS	5
 
 
 XPLMDataRef use_real_weather_bool 	= NULL;
@@ -117,12 +118,12 @@ struct  datarefBox *datarefs = NULL;
 float 	latOld 		= -9999; 
 float 	lonOld 		= -9999;
 float 	eleOld 		= -9999;
-int	eleWRF 		= -1;
+int	eleWRF 		= 0;
 int	downloading 	= FALSE;
 float 	vis		= 0;
 int 	STATUS		= FIRST_START;
 pid_t 	pid;
-
+float	*highLevels	= NULL;
 
 int readWeatherData();
 
@@ -225,38 +226,50 @@ int downloadData( float lon, float lat){
 
 
 int readWeatherData(){
-	int i;
+	int i, j;
 	FILE 	*fp 		= NULL;
 	int 	idx 		= 0;
 	float	value		= 0.0;
 	char	*dataref	= NULL;
 	char	*buf		= NULL;
-	int	buf_size	= 100;
+	int	buf_size	= 200;
+
+
+
+
 	static const char filename[] = "wrf.txt";
 
 	fp = fopen(filename, "r" );
 	if ( fp == NULL ){ printf("Unable to open file %s\n", filename ); return 1; }
 
-
-	datarefs = (struct datarefBox *)malloc( sizeof(struct datarefBox) * MAX_DATAREF );
+	highLevels	= (float *)malloc( sizeof(float) * MAX_DATAREF );
+	datarefs 	= (struct datarefBox *)malloc( sizeof(struct datarefBox) * MAX_DATAREF );
 	for ( i = 0; i < MAX_DATAREF; i++){
 		datarefs[i].idx 	= -1;
 		datarefs[i].value 	= -9999;
 		datarefs[i].name	= NULL;
+		highLevels[i]		= -9999;
 
 	}
 
 	buf = (char *)malloc(sizeof(char) * buf_size);
 
-	i = 0;
+	i = 0; j = 0;
 	while(!feof(fp)){
+		
 		bzero(buf, buf_size - 1);
 		if ( fgets(buf, buf_size, fp) == NULL ) break;
 		if ( buf[0] == ';'  ) continue;
 		if ( buf[0] == '\n' ) continue;
+		
 
 		datarefs[i].name = (char *)malloc(sizeof(char) * buf_size); bzero(datarefs[i].name, buf_size - 1);
+
 		sscanf(buf,"%d %s %f\n", &(datarefs[i].idx), datarefs[i].name, &(datarefs[i].value) );
+		//printf("Read: datarefs[%d].idx: %d,\tdatarefs[%d].name:  %s,\tdatarefs[%d].value:  %f\n", i, datarefs[i].idx, i, datarefs[i].name, i, datarefs[i].value );
+		
+		if ( ! strcmp ( datarefs[i].name, "sim/weather/wind_altitude_msl_m"     ) ) { highLevels[j] = datarefs[i].value; j++; }
+
 		i++;
 		if ( i >= MAX_DATAREF ) break;
 	}
@@ -267,8 +280,8 @@ int readWeatherData(){
 	return 0;
 }
 
-int MySetDataf( XPLMDataRef ref, float value) { if ( XPLMGetDataf(ref) !=      value ) XPLMSetDataf( ref, 	value ); return 0; }
-int MySetDatai( XPLMDataRef ref, float value) { if ( XPLMGetDatai(ref) != (int)value ) XPLMSetDatai( ref,  (int)value ); return 0; }
+int MySetDataf( XPLMDataRef ref, float value) { if ( XPLMGetDataf(ref) !=      value ) 			XPLMSetDataf( ref, 	 value ); return 0; }
+int MySetDatai( XPLMDataRef ref, float value) { if ( XPLMGetDatai(ref) != (int)value ) 			XPLMSetDatai( ref,  (int)value ); return 0; }
 
 
 
@@ -284,10 +297,9 @@ int applyDataref(float ele){
 	if ( datarefs[0].name 	== NULL ) 	return 0;
 
 
-	// Init clouds conditions
-	// printf("Update Dateref ...\n");
-
 	for ( i = 0; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
+
+		
 		if ( ! strcmp ( datarefs[i].name, "sim/weather/visibility_reported_m"  	) ) { MySetDataf(visibility_reported_m,		datarefs[i].value);	continue; }
 		if ( ! strcmp ( datarefs[i].name, "sim/weather/rain_percent"  		) ) { MySetDataf(rain_percent,  		datarefs[i].value); 	continue; }
 		if ( ! strcmp ( datarefs[i].name, "sim/weather/thunderstorm_percent"  	) ) { MySetDataf(thunderstorm_percent,  	datarefs[i].value); 	continue; }
@@ -311,7 +323,7 @@ int applyDataref(float ele){
 			for ( j = 0; j < 3; j++) if ( d < dist_wind[j] ) { dist_wind[j] = d; idxs_wind[j] = datarefs[i].idx; break; }
 			continue;
 		}
-
+		
 		if ( ! strcmp ( datarefs[i].name, "sim/weather/cloud_base_msl_m" 	) ) { 
 			d = fabs( ele - datarefs[i].value );
 			for ( j = 0; j < 3; j++) if ( d < dist_clod[j] ) { dist_clod[j] = d; idxs_clod[j] = datarefs[i].idx; break; }
@@ -320,9 +332,11 @@ int applyDataref(float ele){
 
 	}
 
+
+
 	for ( j = 0; j < 3; j++) {
 
-		//printf("idxs_wind[%d]: %d, idxs_clod[%d]: %d, dist_wind[%d]: %f, dist_clod[%d]: %f\n", j, idxs_wind[j], j, idxs_clod[j], j, dist_wind[j], j, dist_clod[j] );
+//		printf("idxs_wind[%d]: %d, idxs_clod[%d]: %d, dist_wind[%d]: %f, dist_clod[%d]: %f\n", j, idxs_wind[j], j, idxs_clod[j], j, dist_wind[j], j, dist_clod[j] );
 
 		for ( i = 0; i < MAX_DATAREF && datarefs[i].name != NULL ; i++){
 			if ( datarefs[i].idx < 0 ) continue;
@@ -345,14 +359,22 @@ int applyDataref(float ele){
 		}
 
 		
-		if ( idxs_wind[j] == -1 ) MySetDataf(wind_speed_kt[j], 		0.0);
 		if ( idxs_clod[j] == -1 ) MySetDatai(cloud_type[j], 		0);
 	
 
 	}
-
+	
 
 	return 0;
+}
+
+
+int getWRFlevel( float ele){
+	int i;
+	for ( i = 0; i < MAX_DATAREF && highLevels[i] != -9999 ; i++){
+		if ( highLevels[i] > ele ) break;
+	}
+	return i;
 }
 
 
@@ -369,7 +391,7 @@ float   MyFlightLoopCallback(
 	float	dist	= 0;
 	int 	child_status;
 
-	XPLMSetDatai(use_real_weather_bool, 0 );
+	MySetDatai(use_real_weather_bool, 0 );
 
 	printf("STATUS: %d\n", STATUS);
 
@@ -401,21 +423,35 @@ float   MyFlightLoopCallback(
 
 	}
 
+	if ( STATUS == READY_TO_APPLY ){
+	        applyDataref(ele);
+		STATUS = WAITING_FOR_NEWS;
+		return 1.0;
 
+	}
 
-	if ( STATUS != READY_TO_APPLY ) return 1.0;
-
+	if ( STATUS != WAITING_FOR_NEWS ) return 1.0;
 
 	dist = sqrt( ((lon - lonOld)*(lon - lonOld)) + ((lat-latOld)*(lat-latOld)) );
 	if ( dist > WRF_RESOLUTION ){
 		STATUS = READY_TO_DOWNLOAD;
 		latOld = lat; 
 		lonOld = lon;
+		return 1.0;
 	}
 
 
-	applyDataref(ele);
+	if ( eleWRF != getWRFlevel(ele) ){
+		STATUS = READY_TO_APPLY;
+		eleWRF = getWRFlevel(ele);
+		return 1.0;
+
+	}
+
 	printWeatherParams();
+
+
+
 	eleOld = ele;
 
         return 2.0;
