@@ -16,9 +16,7 @@
             <viewers/>
             <children/>
             <hierarchy name="selection"/>
-            <selection>
-                <sel id="567"/>
-            </selection>
+            <selection/>
         </object>
         <object class="WED_KeyObjects" id="3" parent_id="1">
             <sources/>
@@ -669,9 +667,9 @@
             <sources/>
             <viewers/>
             <children>
-                <child id="239"/>
                 <child id="228"/>
                 <child id="234"/>
+                <child id="577"/>
                 <child id="203"/>
                 <child id="202"/>
             </children>
@@ -960,14 +958,6 @@
             <hierarchy hidden="0" locked="0" name="Node 4"/>
             <point ctrl_latitude_hi="0.000000000" ctrl_latitude_lo="0.000000000" ctrl_longitude_hi="0.000000000" ctrl_longitude_lo="0.000000000" latitude="44.791632736" longitude="11.671815340" split="0"/>
             <markings/>
-        </object>
-        <object class="WED_ObjPlacement" id="239" parent_id="204">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791601465" longitude="11.671837745"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
         </object>
         <object class="WED_AirportChain" id="240" parent_id="241">
             <sources/>
@@ -1822,7 +1812,7 @@
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="car.obj"/>
-            <point heading="290.41" latitude="44.791416249" longitude="11.673274184"/>
+            <point heading="290.41" latitude="44.791444584" longitude="11.673297299"/>
             <obj_placement custom_msl="0" msl="0.000" resource="lib/cars/car.obj" show_level="1 Default"/>
         </object>
         <object class="WED_ObjPlacement" id="348" parent_id="298">
@@ -1838,7 +1828,7 @@
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="cars_bmw_3_touring.obj"/>
-            <point heading="110.39" latitude="44.791450703" longitude="11.673261630"/>
+            <point heading="110.39" latitude="44.791477049" longitude="11.673281943"/>
             <obj_placement custom_msl="0" msl="0.000" resource="objs/european_vehicles/cars_bmw_3_touring.obj" show_level="1 Default"/>
         </object>
         <object class="WED_ObjPlacement" id="350" parent_id="298">
@@ -1846,7 +1836,7 @@
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="cars_fiat_panda.obj"/>
-            <point heading="109.29" latitude="44.791477377" longitude="11.673286272"/>
+            <point heading="109.29" latitude="44.791498752" longitude="11.673294677"/>
             <obj_placement custom_msl="0" msl="0.000" resource="objs/european_vehicles/cars_fiat_panda.obj" show_level="1 Default"/>
         </object>
         <object class="WED_ObjPlacement" id="351" parent_id="298">
@@ -1854,7 +1844,7 @@
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="cars_vw_golf.obj"/>
-            <point heading="112.19" latitude="44.791503621" longitude="11.673296031"/>
+            <point heading="112.19" latitude="44.791530961" longitude="11.673308639"/>
             <obj_placement custom_msl="0" msl="0.000" resource="objs/european_vehicles/cars_vw_golf.obj" show_level="1 Default"/>
         </object>
         <object class="WED_ObjPlacement" id="353" parent_id="422">
@@ -1961,22 +1951,6 @@
             <point heading="0.00" latitude="44.791108331" longitude="11.674768972"/>
             <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
         </object>
-        <object class="WED_ObjPlacement" id="366" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791242540" longitude="11.674589397"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="367" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791150060" longitude="11.674546489"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
         <object class="WED_ObjPlacement" id="368" parent_id="422">
             <sources/>
             <viewers/>
@@ -1985,464 +1959,38 @@
             <point heading="0.00" latitude="44.791265096" longitude="11.674829360"/>
             <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
         </object>
-        <object class="WED_ObjPlacement" id="369" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791283679" longitude="11.674657877"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="370" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791208825" longitude="11.674502765"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="371" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791458046" longitude="11.674657877"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="372" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791397282" longitude="11.674611964"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="373" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791479182" longitude="11.674557364"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="374" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791471256" longitude="11.674453129"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="375" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791435149" longitude="11.674387362"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="376" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791578694" longitude="11.674394807"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="377" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791550514" longitude="11.674456852"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="380" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791633823" longitude="11.674042003"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="381" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791594194" longitude="11.674095362"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="382" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="90.00" latitude="44.791570417" longitude="11.673982440"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="383" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791529907" longitude="11.673981199"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="384" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791533430" longitude="11.674110252"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="385" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791557207" longitude="11.674058135"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="386" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791559849" longitude="11.674259160"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="387" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791574820" longitude="11.674209524"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="388" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791494681" longitude="11.674199597"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="389" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791470023" longitude="11.674085434"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="390" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="90.00" latitude="44.791434798" longitude="11.673951417"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="391" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791450649" longitude="11.674019667"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="392" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791396930" longitude="11.674092880"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="393" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791753590" longitude="11.674017185"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="394" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791698990" longitude="11.674157407"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="395" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791690184" longitude="11.674073025"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="396" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791750068" longitude="11.674104048"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="397" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791662884" longitude="11.674219452"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="398" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791619733" longitude="11.674318724"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="399" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791500871" longitude="11.673835835"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="400" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791466879" longitude="11.673868868"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="401" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791551272" longitude="11.673708659"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="402" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791630978" longitude="11.673693795"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="403" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791609879" longitude="11.673756557"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="404" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791657937" longitude="11.673515418"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="405" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791705994" longitude="11.673569922"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="406" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="180.00" latitude="44.791722404" longitude="11.673485689"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="407" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791776322" longitude="11.673541844"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="408" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791778666" longitude="11.673612864"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="409" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791853683" longitude="11.673692143"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="410" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791938077" longitude="11.673698749"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="411" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791879470" longitude="11.673776376"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="412" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791837273" longitude="11.673849048"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="413" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791793904" longitude="11.673759860"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="414" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="90.00" latitude="44.791807970" longitude="11.673682233"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="415" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791852511" longitude="11.673607910"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="416" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791987306" longitude="11.673616168"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="417" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791691929" longitude="11.673389894"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="418" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.792029327" longitude="11.673520697"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="419" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.792111557" longitude="11.673398392"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="420" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.792148103" longitude="11.673337239"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="421" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.792191502" longitude="11.673259994"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
         <object class="WED_Group" id="422" parent_id="5">
             <sources/>
             <viewers/>
             <children>
+                <child id="660"/>
+                <child id="658"/>
+                <child id="618"/>
+                <child id="617"/>
+                <child id="616"/>
+                <child id="615"/>
+                <child id="614"/>
+                <child id="656"/>
+                <child id="655"/>
+                <child id="654"/>
+                <child id="653"/>
+                <child id="652"/>
+                <child id="651"/>
+                <child id="650"/>
+                <child id="649"/>
+                <child id="648"/>
+                <child id="613"/>
+                <child id="612"/>
+                <child id="611"/>
+                <child id="610"/>
+                <child id="608"/>
+                <child id="605"/>
+                <child id="604"/>
+                <child id="603"/>
+                <child id="602"/>
+                <child id="601"/>
                 <child id="423"/>
-                <child id="421"/>
-                <child id="420"/>
-                <child id="419"/>
-                <child id="418"/>
-                <child id="417"/>
-                <child id="416"/>
-                <child id="415"/>
-                <child id="414"/>
-                <child id="413"/>
-                <child id="412"/>
-                <child id="411"/>
-                <child id="410"/>
-                <child id="409"/>
-                <child id="408"/>
-                <child id="407"/>
-                <child id="406"/>
-                <child id="405"/>
-                <child id="404"/>
-                <child id="403"/>
-                <child id="402"/>
-                <child id="401"/>
-                <child id="400"/>
-                <child id="399"/>
-                <child id="398"/>
-                <child id="397"/>
-                <child id="396"/>
-                <child id="395"/>
-                <child id="394"/>
-                <child id="393"/>
-                <child id="392"/>
-                <child id="391"/>
-                <child id="390"/>
-                <child id="389"/>
-                <child id="388"/>
-                <child id="387"/>
-                <child id="386"/>
-                <child id="385"/>
-                <child id="384"/>
-                <child id="383"/>
-                <child id="382"/>
-                <child id="381"/>
-                <child id="380"/>
                 <child id="368"/>
-                <child id="367"/>
-                <child id="366"/>
                 <child id="365"/>
                 <child id="364"/>
                 <child id="363"/>
@@ -2451,15 +1999,6 @@
                 <child id="360"/>
                 <child id="359"/>
                 <child id="358"/>
-                <child id="377"/>
-                <child id="376"/>
-                <child id="375"/>
-                <child id="374"/>
-                <child id="373"/>
-                <child id="372"/>
-                <child id="371"/>
-                <child id="370"/>
-                <child id="369"/>
                 <child id="357"/>
                 <child id="356"/>
                 <child id="355"/>
@@ -2467,17 +2006,17 @@
                 <child id="353"/>
                 <child id="450"/>
                 <child id="449"/>
-                <child id="447"/>
-                <child id="446"/>
-                <child id="445"/>
-                <child id="444"/>
-                <child id="443"/>
-                <child id="442"/>
-                <child id="441"/>
-                <child id="440"/>
-                <child id="439"/>
-                <child id="438"/>
-                <child id="437"/>
+                <child id="644"/>
+                <child id="639"/>
+                <child id="635"/>
+                <child id="634"/>
+                <child id="631"/>
+                <child id="630"/>
+                <child id="629"/>
+                <child id="628"/>
+                <child id="627"/>
+                <child id="626"/>
+                <child id="625"/>
             </children>
             <hierarchy hidden="0" locked="0" name="Trees"/>
         </object>
@@ -2552,100 +2091,12 @@
             <hierarchy name="Aguscello Radio"/>
             <atc_frequency freq="118.20" kind="Tower"/>
         </object>
-        <object class="WED_ObjPlacement" id="437" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791331966" longitude="11.674335162"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="438" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="135.00" latitude="44.791265078" longitude="11.674242834"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="439" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791243236" longitude="11.674358244"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="440" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="116.57" latitude="44.791236411" longitude="11.674437107"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="441" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791166792" longitude="11.674423642"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="442" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791134030" longitude="11.674371708"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="443" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791075331" longitude="11.674550593"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="444" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791161331" longitude="11.674279380"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="445" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791173617" longitude="11.674138965"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="446" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791239141" longitude="11.674127424"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
-        <object class="WED_ObjPlacement" id="447" parent_id="422">
-            <sources/>
-            <viewers/>
-            <children/>
-            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
-            <point heading="0.00" latitude="44.791199554" longitude="11.674013938"/>
-            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
-        </object>
         <object class="WED_ObjPlacement" id="449" parent_id="422">
             <sources/>
             <viewers/>
             <children/>
             <hierarchy hidden="0" locked="0" name="autogen_tree3.obj"/>
-            <point heading="0.00" latitude="44.791381109" longitude="11.673263775"/>
+            <point heading="0.00" latitude="44.791394816" longitude="11.673277288"/>
             <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree3.obj" show_level="1 Default"/>
         </object>
         <object class="WED_ObjPlacement" id="450" parent_id="422">
@@ -2832,8 +2283,17 @@
                 <child id="507"/>
                 <child id="508"/>
             </children>
-            <hierarchy hidden="0" locked="0" name="Exclusion Zone"/>
-            <excluzions/>
+            <hierarchy hidden="1" locked="0" name="Exclusion Zone"/>
+            <excluzions>
+                <exclusion value="Objects"/>
+                <exclusion value="Facades"/>
+                <exclusion value="Forests"/>
+                <exclusion value="Beaches"/>
+                <exclusion value="Road Networks"/>
+                <exclusion value="Lines"/>
+                <exclusion value="Draped Polygons"/>
+                <exclusion value="String"/>
+            </excluzions>
         </object>
         <object class="WED_SimpleBoundaryNode" id="507" parent_id="506">
             <sources/>
@@ -3288,6 +2748,310 @@
             <point ctrl_latitude_hi="0.000000000" ctrl_latitude_lo="0.000000000" ctrl_longitude_hi="0.000000000" ctrl_longitude_lo="0.000000000" latitude="44.791615002" longitude="11.672303306" split="0"/>
             <texture_node s="1.0000" sc_hi="0.0000" sc_lo="0.0000" t="0.1111" tc_hi="0.0000" tc_lo="0.0000"/>
         </object>
+        <object class="WED_ObjPlacement" id="577" parent_id="204">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="Tree.obj"/>
+            <point heading="0.00" latitude="44.791605263" longitude="11.671837046"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/airport/Common_Elements/Miscellaneous/Tree.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="601" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="Tree.obj"/>
+            <point heading="0.00" latitude="44.791708727" longitude="11.674084499"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/airport/Common_Elements/Miscellaneous/Tree.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="602" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="Tree.obj"/>
+            <point heading="0.00" latitude="44.791626403" longitude="11.673705788"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/airport/Common_Elements/Miscellaneous/Tree.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="603" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="Tree.obj"/>
+            <point heading="0.00" latitude="44.791766837" longitude="11.673571022"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/airport/Common_Elements/Miscellaneous/Tree.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="604" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="Tree.obj"/>
+            <point heading="0.00" latitude="44.791565871" longitude="11.674081087"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/airport/Common_Elements/Miscellaneous/Tree.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="605" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="treegroup4.obj"/>
+            <point heading="269.06" latitude="44.791855214" longitude="11.673611964"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/trees/treegroup4.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="608" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="treegroup4.obj"/>
+            <point heading="283.24" latitude="44.791555400" longitude="11.674170930"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/trees/treegroup4.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="610" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791871793" longitude="11.673802457"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="611" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791822777" longitude="11.673885039"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="612" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791667203" longitude="11.674248400"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="613" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791494579" longitude="11.673824980"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="614" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791447694" longitude="11.673897051"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="615" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791554251" longitude="11.673721377"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="616" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791695973" longitude="11.673613269"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="617" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791800400" longitude="11.673751407"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="618" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791958910" longitude="11.673637849"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="625" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree3.obj"/>
+            <point heading="90.00" latitude="44.791581172" longitude="11.674393148"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree3.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="626" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree3.obj"/>
+            <point heading="0.00" latitude="44.791548139" longitude="11.674475730"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree3.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="627" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree3.obj"/>
+            <point heading="0.00" latitude="44.791462893" longitude="11.674466721"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree3.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="628" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree4.obj"/>
+            <point heading="0.00" latitude="44.791411745" longitude="11.674406661"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree4.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="629" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree4.obj"/>
+            <point heading="0.00" latitude="44.791485270" longitude="11.674562816"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree4.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="630" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791408548" longitude="11.674607860"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="631" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791441581" longitude="11.674654407"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="634" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791300421" longitude="11.674667598"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="635" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree3.obj"/>
+            <point heading="0.00" latitude="44.791246782" longitude="11.674612321"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree3.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="639" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791262540" longitude="11.674584515"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="644" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791449289" longitude="11.674078860"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="648" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791245563" longitude="11.674365753"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="649" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791228544" longitude="11.674459681"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="650" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791201597" longitude="11.674525630"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="651" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791168976" longitude="11.674411718"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="652" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791143447" longitude="11.674369750"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="653" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791140610" longitude="11.674551610"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="654" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791092389" longitude="11.674569597"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="655" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791167558" longitude="11.674299803"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="656" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791248400" longitude="11.674115944"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="658" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791170394" longitude="11.674189887"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
+        <object class="WED_ObjPlacement" id="660" parent_id="422">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="autogen_tree2.obj"/>
+            <point heading="0.00" latitude="44.791229962" longitude="11.673994037"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
+        </object>
     </objects>
     <prefs>
         <pref name="PropertyPane0/Closed">
@@ -3308,15 +3072,15 @@
         </pref>
         <pref name="doc/export_target" value="2"/>
         <pref name="doc/use_feet" value="0"/>
-        <pref name="map/east" value="11.672539"/>
-        <pref name="map/north" value="44.791767"/>
+        <pref name="map/east" value="11.676049"/>
+        <pref name="map/north" value="44.792457"/>
         <pref name="map/obj_density" value="6"/>
         <pref name="map/pavement_alpha" value="4"/>
         <pref name="map/preview_vis" value="1"/>
         <pref name="map/real_lines_vis" value="1"/>
-        <pref name="map/south" value="44.791380"/>
+        <pref name="map/south" value="44.790528"/>
         <pref name="map/vertices_vis" value="1"/>
-        <pref name="map/west" value="11.671911"/>
+        <pref name="map/west" value="11.672915"/>
         <pref name="map/world_map_vis" value="1"/>
         <pref name="map_Airport Beacon_Kind" value="69"/>
         <pref name="map_Boundary_.Markings" value=""/>
@@ -3324,9 +3088,9 @@
         <pref name="map_Boundary_Markings" value=""/>
         <pref name="map_Exclusions_Exclusions" value=""/>
         <pref name="map_Facades_Height" value="10.000000"/>
-        <pref name="map_Facades_Resource" value="lib/fence/fence_ranch.fac"/>
+        <pref name="map_Facades_Resource" value="lib/trees/treeline1.fac"/>
         <pref name="map_Forests_Density" value="1.000000"/>
-        <pref name="map_Forests_Resource" value="objs/mowmyxplane/densegrass.for"/>
+        <pref name="map_Forests_Resource" value="opensceneryx/forests/trees/europe/alpine/broad_leaf.for"/>
         <pref name="map_Helipad_Edge Lights" value="15"/>
         <pref name="map_Helipad_Markings" value="67"/>
         <pref name="map_Helipad_Roughness" value="0.000000"/>
@@ -3338,7 +3102,7 @@
         <pref name="map_Light Fixture_Approach Angle" value="3.000000"/>
         <pref name="map_Light Fixture_Fixture Type" value="35"/>
         <pref name="map_Lines_Resource" value="opensceneryx/lines/airport/zone_outlines/yellow_on_black.lin"/>
-        <pref name="map_Objects_Object" value="opensceneryx/objects/vehicles/commercial/vans/pickup/red/1.obj"/>
+        <pref name="map_Objects_Object" value="lib/g10/forests/autogen_tree2.obj"/>
         <pref name="map_Objects_Show with" value="527"/>
         <pref name="map_Polygons_Heading" value="0.000000"/>
         <pref name="map_Polygons_Resource" value="opensceneryx/polygons/airport/taxisign_parts/backgrounds/red.pol"/>
@@ -3360,7 +3124,7 @@
         <pref name="map_Sign_Style" value="23"/>
         <pref name="map_Sign_Text" value="{@L}A"/>
         <pref name="map_Sign_Use Clipboard" value="0"/>
-        <pref name="map_Strings_Resource" value="lib/g_buildings/nbg.generic.steep_roof.str"/>
+        <pref name="map_Strings_Resource" value="lib/trees/tree_decid_round_irreg.str"/>
         <pref name="map_Strings_Spacing" value="5.000000"/>
         <pref name="map_Taxi Routes_Arrival" value="250"/>
         <pref name="map_Taxi Routes_Departure" value="250"/>
@@ -3384,10 +3148,10 @@
         <pref name="window/height" value="1002"/>
         <pref name="window/main_split" value="322"/>
         <pref name="window/main_split2" value="1498"/>
-        <pref name="window/prev_split" value="494"/>
-        <pref name="window/prop_split" value="384"/>
+        <pref name="window/prev_split" value="514"/>
+        <pref name="window/prop_split" value="376"/>
         <pref name="window/width" value="1920"/>
         <pref name="window/x_loc" value="0"/>
-        <pref name="window/y_loc" value="31"/>
+        <pref name="window/y_loc" value="25"/>
     </prefs>
 </doc>
