@@ -16,7 +16,9 @@
             <viewers/>
             <children/>
             <hierarchy name="selection"/>
-            <selection/>
+            <selection>
+                <sel id="662"/>
+            </selection>
         </object>
         <object class="WED_KeyObjects" id="3" parent_id="1">
             <sources/>
@@ -1375,6 +1377,7 @@
                 <child id="485"/>
                 <child id="510"/>
                 <child id="509"/>
+                <child id="662"/>
             </children>
             <hierarchy hidden="0" locked="0" name="Scenary Charatters"/>
         </object>
@@ -3052,6 +3055,14 @@
             <point heading="0.00" latitude="44.791229962" longitude="11.673994037"/>
             <obj_placement custom_msl="0" msl="0.000" resource="lib/g10/forests/autogen_tree2.obj" show_level="1 Default"/>
         </object>
+        <object class="WED_ObjPlacement" id="662" parent_id="298">
+            <sources/>
+            <viewers/>
+            <children/>
+            <hierarchy hidden="0" locked="0" name="Flagpole.obj"/>
+            <point heading="0.00" latitude="44.791387275" longitude="11.673596985"/>
+            <obj_placement custom_msl="0" msl="0.000" resource="lib/airport/Common_Elements/Miscellaneous/Flagpole.obj" show_level="1 Default"/>
+        </object>
     </objects>
     <prefs>
         <pref name="PropertyPane0/Closed">
@@ -3072,7 +3083,7 @@
         </pref>
         <pref name="doc/export_target" value="2"/>
         <pref name="doc/use_feet" value="0"/>
-        <pref name="map/east" value="11.676049"/>
+        <pref name="map/east" value="11.675405"/>
         <pref name="map/north" value="44.792457"/>
         <pref name="map/obj_density" value="6"/>
         <pref name="map/pavement_alpha" value="4"/>
@@ -3080,7 +3091,7 @@
         <pref name="map/real_lines_vis" value="1"/>
         <pref name="map/south" value="44.790528"/>
         <pref name="map/vertices_vis" value="1"/>
-        <pref name="map/west" value="11.672915"/>
+        <pref name="map/west" value="11.672272"/>
         <pref name="map/world_map_vis" value="1"/>
         <pref name="map_Airport Beacon_Kind" value="69"/>
         <pref name="map_Boundary_.Markings" value=""/>
@@ -3102,7 +3113,7 @@
         <pref name="map_Light Fixture_Approach Angle" value="3.000000"/>
         <pref name="map_Light Fixture_Fixture Type" value="35"/>
         <pref name="map_Lines_Resource" value="opensceneryx/lines/airport/zone_outlines/yellow_on_black.lin"/>
-        <pref name="map_Objects_Object" value="lib/g10/forests/autogen_tree2.obj"/>
+        <pref name="map_Objects_Object" value="lib/airport/Common_Elements/Miscellaneous/Flagpole.obj"/>
         <pref name="map_Objects_Show with" value="527"/>
         <pref name="map_Polygons_Heading" value="0.000000"/>
         <pref name="map_Polygons_Resource" value="opensceneryx/polygons/airport/taxisign_parts/backgrounds/red.pol"/>
