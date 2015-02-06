@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <time.h>
 #include <math.h>
 #include <netdb.h>
@@ -16,13 +17,31 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
+
 #include "XPLMDisplay.h"
 #include "XPLMGraphics.h"
 #include "XPLMDataAccess.h"
 #include "XPLMMenus.h"
 
-#define RUN			0
-#define STOP			1
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <avahi-client/client.h>
+#include <avahi-client/publish.h>
+#include <avahi-common/alternative.h>
+#include <avahi-common/simple-watch.h>
+#include <avahi-common/malloc.h>
+#include <avahi-common/error.h>
+#include <avahi-common/timeval.h>
+
+
+
+
+#define STOP			0
+#define CLOSING			1
+#define STARTING		2
+#define RUN			3
 #define MAX_CLIENTS_NUM 	50
 #define AVAHI_SERVICE_NAME 	"air_nav_fsx"
 #define AVAHI_SERVICE_TYPE 	"_air_nav_fsx._tcp"
@@ -74,8 +93,14 @@
 
 #define PORT 21777
 
-void *webServer(void *);
-void *process(void *);
+void 			*webServer(void *);
+void 			*process(void *);
+static void		create_services(AvahiClient *c);
+
+static AvahiEntryGroup	*group 		= NULL;
+static AvahiSimplePoll	*simple_poll 	= NULL;
+static char 		*name 		= NULL;
+AvahiClient             *client		= NULL;
 
 
 #endif
