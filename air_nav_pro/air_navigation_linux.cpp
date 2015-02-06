@@ -22,7 +22,8 @@ pthread_t 	pth[MAX_CLIENTS_NUM];
 pthread_t 	avahiTh;
 pthread_t	main_thread;
 int		BridgeStatus;
-pid_t		avahi_publish_service_pid;
+
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 enum {
 	startBridge = 1,
@@ -34,9 +35,20 @@ int closeAll(){
 	struct sockaddr_in 	pin;
 	int			sd;
 
-	if ( BridgeStatus == STOP ) return 1;
-	BridgeStatus = STOP;
+	if ( BridgeStatus != CLOSING ) return 1;
 
+
+	printf("Air Navigator Pro Plugin: Cleaning avahi ...\n");
+	if (group) 		avahi_entry_group_reset(group);
+	if (group)		avahi_entry_group_free(group);
+	if (client)		avahi_client_free(client);
+	if (simple_poll) 	avahi_simple_poll_quit(simple_poll);
+	if (simple_poll)	avahi_simple_poll_free(simple_poll);
+
+	avahi_free(name); client = NULL; group = NULL;
+
+	printf("Air Navigator Pro Plugin: Closing connections ...\n");
+	BridgeStatus = STOP;
 	memset(&pin, 0, sizeof(pin));
 	pin.sin_family 		= AF_INET;
 	pin.sin_addr.s_addr 	= inet_addr("127.0.0.1");
@@ -47,8 +59,9 @@ int closeAll(){
 
 	send(sd, "stop", 4, 0); // Not important the message
 	close(sd);
-	if ( kill(avahi_publish_service_pid, SIGINT) == - 1 ) printf("Unable to kill avahi-publish-service process!\n");
-	printf("Closed Air Navigation Bridge at port %d ...\n", PORT );
+
+	// Release lock and set plugin stoped
+	BridgeStatus = STOP;
 
 	return 0;
 }
@@ -65,18 +78,22 @@ void MyMenuHandlerCallback(void *inMenuRef, void *inItemRef){
 	int s = *((int*)(&inItemRef));
 	switch(s){
 		case startBridge:
-			printf("Starting Air Navigation bridge ...\n");
 			if ( BridgeStatus == STOP ){
+				// Lock mutex to start plugin
+				printf("Air Navigator Pro Plugin: Starting bridge ...\n");
+				BridgeStatus = STARTING;
 				pthread_create(&main_thread, NULL, webServer, (void *)NULL);
-				BridgeStatus = RUN;
-			} else printf("Plugin is already running ...\n");
+
+			} else printf("Air Navigator Pro Plugin: Plugin is already running ...\n");
 			break;
 		case stopBridge:
-			printf("Stopping Air Navigation bridge ...\n");
 			if ( BridgeStatus == RUN ){
+				// Lock mutex to shutdown
+				printf("Air Navigator Pro Plugin: Stopping bridge ...\n");
+				BridgeStatus = CLOSING;
 				closeAll();
-				BridgeStatus = STOP;
-			} else printf("Plugin is already stopped ...\n");
+
+			} else printf("Air Navigator Pro Plugin: Plugin is already stopped ...\n");
 			break;
 
 	}
@@ -97,8 +114,6 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 	strcpy(outDesc, "http://members.ferrara.linux.it/cavicchi/");
 	mySubMenuItem 	= XPLMAppendMenuItem( XPLMFindPluginsMenu(), "Air Navigation", 0, 1);
 	myMenu 		= XPLMCreateMenu( "Air Navigation", XPLMFindPluginsMenu(), mySubMenuItem, MyMenuHandlerCallback, 0);
-
-	if ( system("avahi-publish-service --version") == -1 ) return 1;
 
 
 	XPLMAppendMenuItem( myMenu, "Start Air Navigation bridge", (void *) startBridge, 1);
@@ -121,7 +136,6 @@ PLUGIN_API int XPluginStart( 	char *		outName,
 	gAcc_y		= XPLMFindDataRef("sim/flightmodel/position/local_ay");
 	gAcc_z		= XPLMFindDataRef("sim/flightmodel/position/local_az");
 	BridgeStatus	= STOP; 	// The plugin starts off
-	avahi_publish_service_pid = 0;	
 
 	return 1;
 }
@@ -133,31 +147,119 @@ PLUGIN_API int XPluginEnable(void){ return 1; }
 
 //--------------------------------------------------------------------------------------------------------//
 
+static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_UNUSED void *userdata) {
+	assert(g == group || group == NULL);
 
-void *avahiService(void *arg){
-	pid_t pid;
 
-	char port[10];
-	bzero(port, 9); sprintf(port, "%d", PORT );
+	switch (state) {
+		case AVAHI_ENTRY_GROUP_ESTABLISHED :
+            		printf("Air Navigator Pro Plugin: Service '%s' successfully established.\n", name);
+			break;
 
-	printf("Run command avahi-publish-service -s %s %s %s ..\n", AVAHI_SERVICE_NAME, AVAHI_SERVICE_TYPE, port );
+		case AVAHI_ENTRY_GROUP_COLLISION : {
+				char *n = NULL;
 
-	pid = fork();
-	if 	( pid <  0 ) return (void*)(1);
-	else if	( pid == 0 ) {
-		if ( execlp("avahi-publish-service", "avahi-publish-service", "-s", AVAHI_SERVICE_NAME, AVAHI_SERVICE_TYPE, port, NULL) == -1 )	{
-			printf("Unable to publish avahi service: %s\n", strerror( errno ) );
-			return (void*)(1);
-		}
-	}
+            			n = avahi_alternative_service_name(name);
+            			avahi_free(name);
+            			name = n;
+	
+				printf("Air Navigator Pro Plugin: Service name collision, renaming service to '%s'\n", name);
+		            	create_services(avahi_entry_group_get_client(g));
+	            		break;
+        		}
 
-	printf("Started avahi-publish-service with pid %d ...\n", pid);
-	avahi_publish_service_pid = pid;
+		case AVAHI_ENTRY_GROUP_FAILURE :
 
-	return (void*)(1);
+            		printf("Air Navigator Pro Plugin: Entry group failure: %s\n", avahi_strerror(avahi_client_errno(avahi_entry_group_get_client(g))));
+            		avahi_simple_poll_quit(simple_poll);
+	            	break;
+
+		case AVAHI_ENTRY_GROUP_UNCOMMITED:
+		case AVAHI_ENTRY_GROUP_REGISTERING:
+            		;
+    	}
 }
 
 
+
+static void create_services(AvahiClient *c) {
+	int ret;
+	assert(c);
+
+	if (!group) if (!(group = avahi_entry_group_new(c, entry_group_callback, NULL))) {
+		printf("Air Navigator Pro Plugin: avahi_entry_group_new() failed: %s\n", avahi_strerror(avahi_client_errno(c)));
+		goto fail;
+	}
+
+	printf("Air Navigator Pro Plugin: Adding service '%s'\n", name);
+
+	if ((ret = avahi_entry_group_add_service(group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, (AvahiPublishFlags)0, name, AVAHI_SERVICE_TYPE, NULL, NULL, PORT, NULL)) < 0) {
+		printf("Air Navigator Pro Plugin: Failed to add _printer._tcp service: %s\n", avahi_strerror(ret));
+		goto fail;
+	}
+
+	if ((ret = avahi_entry_group_commit(group)) < 0) {
+		printf("Air Navigator Pro Plugin: Failed to commit entry_group: %s\n", avahi_strerror(ret));
+		goto fail;
+	}
+
+	return;
+
+	fail:
+	avahi_simple_poll_quit(simple_poll);
+}
+
+
+
+
+
+static void client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * userdata) {
+	assert(c);
+
+	switch (state) {
+		case AVAHI_CLIENT_S_RUNNING:
+			if (!group) create_services(c);
+			break;
+
+		case AVAHI_CLIENT_FAILURE:
+			printf("Air Navigator Pro Plugin: Client failure %s\n", avahi_strerror(avahi_client_errno(c)));
+			avahi_simple_poll_quit(simple_poll);
+			break;
+
+		case AVAHI_CLIENT_S_COLLISION:
+		case AVAHI_CLIENT_S_REGISTERING:
+			if (group) avahi_entry_group_reset(group);
+			break;
+		case AVAHI_CLIENT_CONNECTING: 
+			;
+	}
+}
+
+
+static void modify_callback(AVAHI_GCC_UNUSED AvahiTimeout *e, void *userdata) {
+	AvahiClient *client = (AvahiClient*)userdata;
+
+	printf("Air Navigator Pro Plugin: Doing some weird modification\n");
+	avahi_free(name);
+	name = avahi_strdup(AVAHI_SERVICE_NAME);
+
+	if (avahi_client_get_state(client) == AVAHI_CLIENT_S_RUNNING) {
+
+        	if (group) avahi_entry_group_reset(group);
+		create_services(client);
+	}
+}
+
+
+
+// void *avahiService(void *arg){	avahi_simple_poll_loop(simple_poll); return (void*)(1); }
+void *avahiService(void *arg){
+	while (1){
+		if ( BridgeStatus <= CLOSING ) { printf("Air Navigator Pro Plugin: Received STOP during avahi loop ...\n");  break; }
+		if ( avahi_simple_poll_iterate(simple_poll, 1000*10 ) != 0 ) break;
+	}
+	return (void*)(1);
+}
 //--------------------------------------------------------------------------------------------------------//
 
 void *webServer(void *arg){
@@ -165,6 +267,25 @@ void *webServer(void *arg){
 	int 			s;
 	int 			i = 1;
 	int 			sock;
+	int			error;
+	int			ret = 1;
+	struct timeval tv;
+
+	if ( BridgeStatus != STARTING ) return (void*)(1);
+
+
+	if (!(simple_poll = avahi_simple_poll_new())) { printf("Air Navigator Pro Plugin: Failed to create simple poll object.\n"); goto fail; }
+
+	name 	= avahi_strdup(AVAHI_SERVICE_NAME);
+	client 	= avahi_client_new(avahi_simple_poll_get(simple_poll), (AvahiClientFlags)0, client_callback, NULL, &error);
+
+	if (!client) { printf("Air Navigator Pro Plugin: Failed to create client: %s\n", avahi_strerror(error)); goto fail; }
+
+
+	avahi_simple_poll_get(simple_poll)->timeout_new(	avahi_simple_poll_get(simple_poll),
+								avahi_elapse_time(&tv, 1000*10, 0),
+								modify_callback,
+								client);
 
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -177,15 +298,14 @@ void *webServer(void *arg){
 	if ( listen(sock, 5) ) 					 return (void*)(1);
 	for ( i = 0; i < MAX_CLIENTS_NUM; i++ ) pth[i] = 0;
 
+	pthread_create(&avahiTh, NULL, avahiService, NULL);
 
-	pthread_create(&avahiTh, NULL, avahiService, (void *)NULL);
-
-
-	printf("Air Navigator Pro Plugin listening on port %d\n", PORT );
+	printf("Air Navigator Pro Plugin: listening on port %d\n", PORT );
+	BridgeStatus = RUN;
 	
 	i = 0;	while (1){
 		s = accept(sock, NULL, NULL); 
-		if ( BridgeStatus == STOP ) break;
+		if ( BridgeStatus <= CLOSING ) { printf("Air Navigator Pro Plugin: Received STOP in listing section ...\n"); break; }
 		if (s < 0) continue;
 		if ( i >= MAX_CLIENTS_NUM ) { close(s); continue; } 
 		pthread_create(&(pth[i]), NULL, process, (void *)&s);
@@ -194,6 +314,15 @@ void *webServer(void *arg){
 	
 	close(s);
 	close(sock);
+	return (void*)(1);
+
+
+	fail:
+		if (client)		avahi_client_free(client);
+		if (simple_poll)	avahi_simple_poll_free(simple_poll);
+		avahi_free(name);
+		BridgeStatus = STOP;
+
 	return (void*)(1);
 }
 
@@ -224,12 +353,11 @@ void *process(void *sock){
 
 	int		s		= *(int *)sock;
 
-	signal(SIGPIPE, SIG_IGN);
 
 	socklen_t socklen = sizeof(addr); 
 	socklen_t len	  = sizeof(error);
-	if ( getpeername(s, (struct sockaddr*) &addr, &socklen) < 0) 	printf("Accept new connection from unknown ...\n");
-	else 								printf("Accept new connection from %s:%d ...\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+	if ( getpeername(s, (struct sockaddr*) &addr, &socklen) < 0) 	printf("Air Navigator Pro Plugin: Accept new connection from unknown ...\n");
+	else 								printf("Air Navigator Pro Plugin: Accept new connection from %s:%d ...\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 
 
 	while (1){
@@ -249,7 +377,7 @@ void *process(void *sock){
 
 
 	while(1){
-		if ( BridgeStatus == STOP ) break;		
+		if ( BridgeStatus <= CLOSING ) { printf("Air Navigator Pro Plugin: Received STOP during connection ...\n");  break; }
 		if ( getsockopt (s, SOL_SOCKET, SO_ERROR, &error, &len ) != 0 ) break;
 
 	        Latitude	= XPLMGetDataf(gPlaneLat); if ( isnan(Latitude) != 0 ) break;
@@ -293,7 +421,9 @@ void *process(void *sock){
 
 		usleep((int)(1000000/FREQ_HZ));
 	}
-	printf("Close connection ... \n");
+
+	if ( getpeername(s, (struct sockaddr*) &addr, &socklen) < 0) 	printf("Air Navigator Pro Plugin: Close connection with unknown ...\n");
+	else 								printf("Air Navigator Pro Plugin: Close connection with %s:%d ...\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 
 	close(s);
 	return (void*)(1);
